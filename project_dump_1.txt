@@ -1,0 +1,2868 @@
+// ===== FILE: C:\Users\mgr\Entwicklung\Event\PubQuizMaster\Core\Hub\Payloads\AnswerUpdatedPayload.cs =====
+using PubQuizMaster.Core.Models.Contents;
+
+namespace PubQuizMaster.Core.Hub.Payloads
+{
+    public class AnswerUpdatedPayload
+    {
+        public Guid TeamId { get; set; }
+        public int QuestionIndex { get; set; }
+        public AnswerBase Value { get; set; } = default!;
+        public string ScoredBy { get; set; } = string.Empty;
+        public DateTime Timestamp { get; set; }
+    }
+}
+
+
+// ===== FILE: C:\Users\mgr\Entwicklung\Event\PubQuizMaster\Core\Hub\Payloads\ErrorPayload.cs =====
+using System;
+using System.Text.RegularExpressions;
+using System.Threading.Tasks;
+
+namespace PubQuizMaster.Core.Hub.Payloads
+{
+
+    public class ErrorPayload
+    {
+        public string Code { get; set; } = string.Empty;
+        public string Message { get; set; } = string.Empty;
+    }
+}
+
+
+// ===== FILE: C:\Users\mgr\Entwicklung\Event\PubQuizMaster\Core\Hub\Payloads\RoundFinalizedPayload.cs =====
+using PubQuizMaster.Core.Models.Participants;
+
+namespace PubQuizMaster.Core.Hub.Payloads
+{
+    public class RoundFinalizedPayload
+    {
+        public Guid RoundId { get; set; }
+        public List<LeaderboardEntry> Leaderboard { get; set; } = new();
+    }
+}
+
+
+// ===== FILE: C:\Users\mgr\Entwicklung\Event\PubQuizMaster\Core\Hub\Payloads\RoundStartedPayload.cs =====
+using PubQuizMaster.Core.Models.Participants;
+
+namespace PubQuizMaster.Core.Hub.Payloads
+{
+    public class RoundStartedPayload
+    {
+        public RoundSummary Round { get; set; } = new();
+        public List<Team> AllTeams { get; set; } = new();
+    }
+}
+
+
+// ===== FILE: C:\Users\mgr\Entwicklung\Event\PubQuizMaster\Core\Hub\Payloads\RoundSummary.cs =====
+using PubQuizMaster.Core.Models.Event;
+
+namespace PubQuizMaster.Core.Hub.Payloads
+{
+    public class RoundSummary
+    {
+        public Guid Id { get; set; }
+        public string Name { get; set; } = string.Empty;
+        public int QuestionCount { get; set; }
+        public bool IsFinalized { get; set; }
+
+        public static RoundSummary From(Round round) => new()
+        {
+            Id = round.Id,
+            Name = round.Name,
+            QuestionCount = round.QuestionCount,
+            IsFinalized = round.IsFinalized
+        };
+    }
+}
+
+
+// ===== FILE: C:\Users\mgr\Entwicklung\Event\PubQuizMaster\Core\Hub\Payloads\ScorerConnectedPayload.cs =====
+using PubQuizMaster.Core.Models.Contents;
+using PubQuizMaster.Core.Models.Event;
+using PubQuizMaster.Core.Models.Participants;
+
+namespace PubQuizMaster.Core.Hub.Payloads
+{
+    // ---------------------------------------------
+    // PAYLOADS
+    // Strongly typed DTOs for all hub messages.
+    // Separate from domain models to keep hub contracts stable
+    // even if internal model naming evolves.
+    // ---------------------------------------------
+
+    public class ScorerConnectedPayload
+    {
+        public string ScorerId { get; set; } = string.Empty;
+        public ScorerAssignment? Assignment { get; set; }
+        public RoundSummary? Round { get; set; }
+        public List<Team?>? Teams { get; set; }
+        public List<Answer>? ExistingAnswers { get; set; }
+    }
+}
+
+
+// ===== FILE: C:\Users\mgr\Entwicklung\Event\PubQuizMaster\Core\Hub\Payloads\ScorerProgressPayload.cs =====
+namespace PubQuizMaster.Core.Hub.Payloads
+{
+    public class ScorerProgressPayload
+    {
+        public string ScorerId { get; set; } = string.Empty;
+        public string Label { get; set; } = string.Empty;
+        public int CurrentQuestionIndex { get; set; }
+    }
+}
+
+
+// ===== FILE: C:\Users\mgr\Entwicklung\Event\PubQuizMaster\Core\Hub\HubGroups.cs =====
+
+// ---------------------------------------------
+// HUB GROUPS
+// Constants for SignalR group names.
+// ---------------------------------------------
+
+public static class HubGroups
+{
+    /// <summary>Group name for the Avalonia host connection (if connected as SignalR client).</summary>
+    public const string Host = "host";
+}
+
+
+
+// ===== FILE: C:\Users\mgr\Entwicklung\Event\PubQuizMaster\Core\Hub\QuizHub.cs =====
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
+using Microsoft.AspNetCore.SignalR;
+using PubQuizMaster.Core.Hub.Payloads;
+using PubQuizMaster.Core.Models.Contents;
+using PubQuizMaster.Core.Models.Event;
+using PubQuizMaster.Core.Models.Participants;
+using PubQuizMaster.Core.Services;
+
+// ---------------------------------------------
+// QUIZ HUB
+// SignalR hub handling all real-time communication between
+// the Avalonia host and connected scorer browser clients.
+//
+// Clients connect via: /quizhub
+// Authentication: scorerId passed on connect via query string
+// ---------------------------------------------
+
+/// <summary>
+/// Central SignalR hub for PubQuizMaster.
+/// All scorer clients connect here to submit answers and receive live updates.
+/// </summary>
+public class QuizHub
+    : Hub
+{
+    #region Private Fields
+
+    private readonly QuizNightService _quizNightService;
+    private readonly ScorerSessionService _scorerSessionService;
+
+    #endregion Private Fields
+
+    #region Public Constructors
+
+    public QuizHub(QuizNightService quizNightService, ScorerSessionService scorerSessionService)
+    {
+        _quizNightService = quizNightService;
+        _scorerSessionService = scorerSessionService;
+    }
+
+    #endregion Public Constructors
+
+    // -- Connection Lifecycle ------------------
+
+    #region Public Methods
+
+    /// <summary>
+    /// Called from Avalonia host to notify all clients a round has been finalized.
+    /// </summary>
+    public static async Task NotifyRoundFinalized(
+        IHubContext<QuizHub> hubContext,
+        Guid roundId,
+        List<LeaderboardEntry> leaderboard)
+    {
+        await hubContext.Clients.All.SendAsync("RoundFinalized", new RoundFinalizedPayload
+        {
+            RoundId = roundId,
+            Leaderboard = leaderboard
+        });
+    }
+
+    /// <summary>
+    /// Called from Avalonia host (via IHubContext) to push a new round to all scorers.
+    /// Not invokable by browser clients directly.
+    /// </summary>
+    public static async Task NotifyRoundStarted(
+        IHubContext<QuizHub> hubContext,
+        Round round,
+        List<Team> allTeams)
+    {
+        await hubContext.Clients.All.SendAsync("RoundStarted", new RoundStartedPayload
+        {
+            Round = RoundSummary.From(round),
+            AllTeams = allTeams
+        });
+    }
+
+    /// <summary>
+    /// Called when a scorer client connects.
+    /// Expects scorerId as a query string parameter: /quizhub?scorerId=abc123
+    /// Sends the client its assignment and current round state on connect.
+    /// </summary>
+    public override async Task OnConnectedAsync()
+    {
+        try
+        {
+            var scorerId = GetScorerIdFromContext();
+            System.Diagnostics.Debug.WriteLine($"[Hub] scorerId = '{scorerId}'");
+            if (scorerId == null) { Context.Abort(); return; }
+
+            _scorerSessionService.RegisterConnection(Context.ConnectionId, scorerId);
+            System.Diagnostics.Debug.WriteLine("[Hub] RegisterConnection OK");
+
+            await Groups.AddToGroupAsync(Context.ConnectionId, scorerId);
+            System.Diagnostics.Debug.WriteLine("[Hub] AddToGroup OK");
+
+            var assignment = _quizNightService.GetAssignment(scorerId);
+            System.Diagnostics.Debug.WriteLine($"[Hub] Assignment = {assignment?.ScorerId ?? "null"}");
+
+            var round = _quizNightService.QuizNight.Rounds
+                .FirstOrDefault(r => r.Id == _quizNightService.ActiveRoundId);
+            System.Diagnostics.Debug.WriteLine($"[Hub] Round = {round?.Name ?? "null"}");
+
+            var payload = new ScorerConnectedPayload
+            {
+                ScorerId = scorerId,
+                Assignment = assignment,
+                Round = round != null ? RoundSummary.From(round) : null,
+                Teams = assignment?.TeamIds
+                    .Select(id => _quizNightService.QuizNight.MasterTeamList
+                        .FirstOrDefault(t => t.Id == id))
+                    .Where(t => t != null)
+                    .ToList(),
+                ExistingAnswers = round?.Answers
+                    .Where(a => assignment?.TeamIds.Contains(a.TeamId) == true)
+                    .ToList()
+            };
+            System.Diagnostics.Debug.WriteLine("[Hub] Payload built OK");
+
+            await Clients.Caller.SendAsync("ScorerConnected", payload);
+            System.Diagnostics.Debug.WriteLine("[Hub] SendAsync OK");
+
+            await base.OnConnectedAsync();
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[Hub] EXCEPTION: {ex}");
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Called when a scorer client disconnects.
+    /// Cleans up connection tracking.
+    /// </summary>
+    public override async Task OnDisconnectedAsync(Exception? exception)
+    {
+        var scorerId = _scorerSessionService.GetScorerId(Context.ConnectionId);
+
+        if (scorerId != null)
+        {
+            _scorerSessionService.RemoveConnection(Context.ConnectionId);
+            await Groups.RemoveFromGroupAsync(Context.ConnectionId, scorerId);
+
+            // Notify Avalonia host that a scorer went offline
+            await Clients.Group(HubGroups.Host).SendAsync("OnScorerDisconnected", scorerId);
+        }
+
+        await base.OnDisconnectedAsync(exception);
+    }
+
+    // -- Client ? Server: Answer Submission ---
+
+    /// <summary>
+    /// Called by scorer clients to submit a boolean answer.
+    /// Validates assignment ownership before accepting.
+    /// Broadcasts the update to all connected clients on success.
+    /// </summary>
+    //public async Task SubmitBoolAnswer(Guid teamId, int questionIndex, bool correct)
+    //{
+    //    var scorerId = _scorerSessionService.GetScorerId(Context.ConnectionId);
+    //    if (scorerId == null) return;
+
+    //    if (!ValidateOwnership(scorerId, teamId))
+    //    {
+    //        await Clients.Caller.SendAsync("OnError", new ErrorPayload
+    //        {
+    //            Code = "UNAUTHORIZED",
+    //            Message = $"Team {teamId} is not assigned to scorer {scorerId}."
+    //        });
+    //        return;
+    //    }
+
+    //    try
+    //    {
+    //        var answer = _quizNightService.RecordAnswerBool(scorerId, teamId, questionIndex, correct);
+    //        await _quizNightService.SaveAsync();
+
+    //        await BroadcastAnswerUpdate(answer, scorerId);
+    //    }
+    //    catch (Exception ex)
+    //    {
+    //        await Clients.Caller.SendAsync("OnError", new ErrorPayload
+    //        {
+    //            Code = "SUBMIT_FAILED",
+    //            Message = ex.Message
+    //        });
+    //    }
+    //}
+
+    /// <summary>
+    /// Called by scorer clients after reconnect to re-sync state.
+    /// Returns the same payload as ScorerConnected.
+    /// </summary>
+    public async Task RequestState()
+    {
+        var scorerId = GetScorerIdFromContext();
+        if (scorerId == null) return;
+
+        var assignment = _quizNightService.GetAssignment(scorerId);
+
+        var round = _quizNightService.QuizNight.Rounds
+            .FirstOrDefault(r => r.Id == _quizNightService.ActiveRoundId);
+
+        var payload = new ScorerConnectedPayload
+        {
+            ScorerId = scorerId,
+            Assignment = assignment,
+            Round = round != null ? RoundSummary.From(round) : null,
+            Teams = assignment?.TeamIds
+                .Select(id => _quizNightService.QuizNight.MasterTeamList
+                    .FirstOrDefault(t => t.Id == id))
+                .Where(t => t != null)
+                .ToList(),
+            ExistingAnswers = round?.Answers
+                .Where(a => assignment?.TeamIds.Contains(a.TeamId) == true)
+                .ToList()
+        };
+
+        // Reuse the ScorerConnected event — client already knows how to handle it
+        await Clients.Caller.SendAsync("ScorerConnected", payload);
+    }
+
+    public async Task SubmitBoolAnswer(Guid roundId, Guid teamId, int questionIndex, bool correct)
+    {
+        try
+        {
+            var scorerId = GetScorerIdFromContext();
+            System.Diagnostics.Debug.WriteLine($"[Hub] SubmitBoolAnswer: scorer={scorerId}, team={teamId}, q={questionIndex}, correct={correct}");
+
+            if (scorerId == null)
+                throw new HubException("Not authenticated.");
+
+            var answer = _quizNightService.RecordAnswerBool(scorerId, teamId, questionIndex, correct);
+            System.Diagnostics.Debug.WriteLine("[Hub] RecordBoolAnswer OK");
+
+            await _quizNightService.SaveAsync();
+
+            var value = new AnswerBool { Correct = correct };
+
+            await Clients.All.SendAsync("AnswerUpdated", new AnswerUpdatedPayload
+            {
+                TeamId = teamId,
+                QuestionIndex = questionIndex,
+                Value = value,
+                ScoredBy = scorerId
+            });
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[Hub] SubmitBoolAnswer EXCEPTION: {ex}");
+            throw new HubException(ex.Message);
+        }
+    }
+
+    /// <summary>
+    /// Called by scorer clients to submit a point-based answer.
+    /// </summary>
+    public async Task SubmitPointAnswer(Guid teamId, int questionIndex, decimal points)
+    {
+        var scorerId = _scorerSessionService.GetScorerId(Context.ConnectionId);
+        if (scorerId == null) return;
+
+        if (!ValidateOwnership(scorerId, teamId))
+        {
+            await Clients.Caller.SendAsync("OnError", new ErrorPayload
+            {
+                Code = "UNAUTHORIZED",
+                Message = $"Team {teamId} is not assigned to scorer {scorerId}."
+            });
+            return;
+        }
+
+        try
+        {
+            var answer = _quizNightService.RecordAnswerPoint(scorerId, teamId, questionIndex, points);
+            await _quizNightService.SaveAsync();
+
+            await BroadcastAnswerUpdate(answer, scorerId);
+        }
+        catch (Exception ex)
+        {
+            await Clients.Caller.SendAsync("OnError", new ErrorPayload
+            {
+                Code = "SUBMIT_FAILED",
+                Message = ex.Message
+            });
+        }
+    }
+
+    // -- Client ? Server: Progress Sync -------
+
+    /// <summary>
+    /// Called by a scorer client to update their current question index.
+    /// Used to show per-scorer progress in the Avalonia host UI.
+    /// </summary>
+    public async Task UpdateProgress(int currentQuestionIndex)
+    {
+        var scorerId = _scorerSessionService.GetScorerId(Context.ConnectionId);
+        if (scorerId == null) return;
+
+        var assignment = _quizNightService.GetAssignment(scorerId);
+        if (assignment == null) return;
+
+        assignment.CurrentQuestionIndex = currentQuestionIndex;
+
+        // Notify host only — other scorers don't need this
+        await Clients.Group(HubGroups.Host).SendAsync("OnScorerProgress", new ScorerProgressPayload
+        {
+            ScorerId = scorerId,
+            Label = assignment.Label,
+            CurrentQuestionIndex = currentQuestionIndex
+        });
+    }
+
+    #endregion Public Methods
+
+    // -- Server ? Clients: Host-initiated Events --
+    // -- Helpers -------------------------------
+
+    //private string? GetScorerIdFromContext()
+    //{
+    //    return Context.GetHttpContext()?.Request.Query["scorerId"].FirstOrDefault();
+    //}
+
+    #region Private Methods
+
+    /// <summary>
+    /// Broadcasts an answer update to all connected clients.
+    /// Used after every successful answer submission.
+    /// </summary>
+    private async Task BroadcastAnswerUpdate(Answer answer, string scorerId)
+    {
+        var payload = new AnswerUpdatedPayload
+        {
+            TeamId = answer.TeamId,
+            QuestionIndex = answer.QuestionIndex,
+            Value = answer.Value,
+            ScoredBy = scorerId,
+            Timestamp = answer.RecordedAt
+        };
+
+        // Broadcast to everyone: host + all scorer clients
+        await Clients.All.SendAsync("OnAnswerUpdated", payload);
+    }
+
+    private string? GetScorerIdFromContext()
+    {
+        var http = Context.GetHttpContext();
+        if (http == null)
+        {
+            Console.WriteLine("[Hub] HttpContext is null");
+            return null;
+        }
+
+        // Log all query parameters to see what arrives
+        foreach (var key in http.Request.Query.Keys)
+            Console.WriteLine($"[Hub] Query param: {key} = {http.Request.Query[key]}");
+
+        return http.Request.Query["scorerId"];
+    }
+
+    /// <summary>
+    /// Validates that the scorer owns the given team in the active round.
+    /// </summary>
+    private bool ValidateOwnership(string scorerId, Guid teamId)
+    {
+        var assignment = _quizNightService.GetAssignment(scorerId);
+        return assignment?.TeamIds.Contains(teamId) == true;
+    }
+
+    #endregion Private Methods
+}
+
+
+// ===== FILE: C:\Users\mgr\Entwicklung\Event\PubQuizMaster\Core\Models\Contents\Answer.cs =====
+namespace PubQuizMaster.Core.Models.Contents
+{
+    /// <summary>
+    /// A single recorded answer for one team on one question within a round.
+    /// </summary>
+    public class Answer
+    {
+        public Guid Id { get; set; } = Guid.NewGuid();
+        public Guid TeamId { get; set; }
+        public int QuestionIndex { get; set; }      // 0-based
+        public AnswerBase Value { get; set; } = new AnswerBool();
+        public DateTime RecordedAt { get; set; } = DateTime.UtcNow;
+        public string RecordedByScorerId { get; set; } = string.Empty;
+    }
+}
+
+
+// ===== FILE: C:\Users\mgr\Entwicklung\Event\PubQuizMaster\Core\Models\Contents\AnswerBase.cs =====
+namespace PubQuizMaster.Core.Models.Contents
+{
+    // ---------------------------------------------
+    // ANSWER VALUES — extensible without breaking changes
+    // ---------------------------------------------
+
+    /// <summary>
+    /// Base class for answer values. Extend for future scoring types.
+    /// </summary>
+    public abstract class AnswerBase
+    {
+        /// <summary>Returns the numeric score represented by this answer.</summary>
+        public abstract decimal GetScore();
+    }
+}
+
+
+// ===== FILE: C:\Users\mgr\Entwicklung\Event\PubQuizMaster\Core\Models\Contents\AnswerBool.cs =====
+namespace PubQuizMaster.Core.Models.Contents
+{
+    /// <summary>Boolean answer: correct = 1 point, incorrect = 0 points.</summary>
+    public class AnswerBool 
+        : AnswerBase
+    {
+        public bool Correct { get; set; }
+        public override decimal GetScore() => Correct ? 1m : 0m;
+    }
+}
+
+
+// ===== FILE: C:\Users\mgr\Entwicklung\Event\PubQuizMaster\Core\Models\Contents\AnswerPoint.cs =====
+namespace PubQuizMaster.Core.Models.Contents
+{
+    /// <summary>Point-based answer for future use (e.g. partial credit).</summary>
+    public class AnswerPoint 
+        : AnswerBase
+    {
+        public decimal Points { get; set; }
+        public override decimal GetScore() => Points;
+    }
+}
+
+
+// ===== FILE: C:\Users\mgr\Entwicklung\Event\PubQuizMaster\Core\Models\Event\QuizNight.cs =====
+using PubQuizMaster.Core.Models.Participants;
+
+namespace PubQuizMaster.Core.Models.Event
+{
+    /// <summary>
+    /// The top-level container for an entire quiz evening.
+    /// Persisted as a single JSON file.
+    /// </summary>
+    public class QuizNight
+    {
+        public Guid Id { get; set; } = Guid.NewGuid();
+        public string Name { get; set; } = string.Empty;       // e.g. "Pub Quiz – 28.03.2026"
+        public DateTime Date { get; set; } = DateTime.Today;
+
+        /// <summary>
+        /// Master list of all teams that ever participated this evening.
+        /// Teams are never deleted — they are deactivated per round.
+        /// </summary>
+        public List<Team> MasterTeamList { get; set; } = new();
+
+        /// <summary>All rounds in chronological order.</summary>
+        public List<Round> Rounds { get; set; } = new();
+
+
+        // -- Cross-round aggregation ---------------
+
+        /// <summary>
+        /// Total score for one team across all rounds.
+        /// Rounds where the team was not active contribute 0 (not null).
+        /// </summary>
+        public decimal GetTotalScore(Guid teamId)
+        {
+            return Rounds.Sum(r => r.GetTeamScore(teamId) ?? 0m);
+        }
+
+        /// <summary>
+        /// Full leaderboard for the entire evening, sorted by total score descending.
+        /// Returns one entry per team that was active in at least one round.
+        /// </summary>
+        public List<LeaderboardEntry> GetLeaderboard()
+        {
+            var activeTeamIds = Rounds
+                .SelectMany(r => r.ActiveTeamIds)
+                .Distinct();
+
+            return activeTeamIds
+                .Select(teamId => new LeaderboardEntry
+                {
+                    Team = MasterTeamList.First(t => t.Id == teamId),
+                    TotalScore = GetTotalScore(teamId),
+                    ScorePerRound = Rounds
+                        .Select(r => new RoundScore
+                        {
+                            RoundId = r.Id,
+                            RoundName = r.Name,
+                            Score = r.GetTeamScore(teamId)   // null if not active
+                        })
+                        .ToList()
+                })
+                .OrderByDescending(e => e.TotalScore)
+                .ToList();
+        }
+
+        /// <summary>
+        /// Returns the ScorerAssignment for a given scorer ID in the active round.
+        /// Returns null if the scorer is not assigned.
+        /// </summary>
+        public ScorerAssignment? GetAssignment(Guid roundId, string scorerId)
+        {
+            return Rounds
+                .FirstOrDefault(r => r.Id == roundId)?
+                .Assignments
+                .FirstOrDefault(a => a.ScorerId == scorerId);
+        }
+    }
+}
+
+
+// ===== FILE: C:\Users\mgr\Entwicklung\Event\PubQuizMaster\Core\Models\Event\Round.cs =====
+using PubQuizMaster.Core.Models.Contents;
+
+namespace PubQuizMaster.Core.Models.Event
+{
+    /// <summary>
+    /// One quiz round (e.g. "Round 3 – Geography").
+    /// Rounds are self-contained: team list, scorer assignments, and answers
+    /// all belong to the round. Different rounds can have different team sets.
+    /// </summary>
+    public class Round
+    {
+        public Guid Id { get; set; } = Guid.NewGuid();
+        public string Name { get; set; } = string.Empty;
+        public int QuestionCount { get; set; }
+        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+        public bool IsFinalized { get; set; } = false;
+
+        /// <summary>
+        /// Teams active in this round. May differ from the master team list:
+        /// new teams can join, existing teams can drop out.
+        /// </summary>
+        public List<Guid> ActiveTeamIds { get; set; } = new();
+
+        /// <summary>
+        /// Exclusive scorer assignments. Validated on creation:
+        /// no team ID may appear in more than one assignment.
+        /// </summary>
+        public List<ScorerAssignment> Assignments { get; set; } = new();
+
+        /// <summary>All recorded answers for this round.</summary>
+        public List<Answer> Answers { get; set; } = new();
+
+
+        // -- Convenience methods -------------------
+
+        /// <summary>
+        /// Returns the score for one team in this round.
+        /// Teams not active in this round return null (shown as "–", not 0).
+        /// </summary>
+        public decimal? GetTeamScore(Guid teamId)
+        {
+            if (!ActiveTeamIds.Contains(teamId)) return null;
+
+            return Answers
+                .Where(a => a.TeamId == teamId)
+                .Sum(a => a.Value.GetScore());
+        }
+
+        /// <summary>
+        /// Returns the score for one question across all active teams.
+        /// Useful for per-question statistics.
+        /// </summary>
+        public decimal GetQuestionScore(int questionIndex)
+        {
+            return Answers
+                .Where(a => a.QuestionIndex == questionIndex)
+                .Sum(a => a.Value.GetScore());
+        }
+
+        /// <summary>
+        /// Validates that no team is assigned to more than one scorer.
+        /// Call this before saving a new assignment configuration.
+        /// </summary>
+        public bool ValidateAssignments(out string error)
+        {
+            var allTeamIds = Assignments.SelectMany(a => a.TeamIds).ToList();
+            var duplicates = allTeamIds
+                .GroupBy(id => id)
+                .Where(g => g.Count() > 1)
+                .Select(g => g.Key)
+                .ToList();
+
+            if (duplicates.Any())
+            {
+                error = $"Duplicate team assignments: {string.Join(", ", duplicates)}";
+                return false;
+            }
+
+            error = string.Empty;
+            return true;
+        }
+
+        public bool? GetAnswer(Guid teamId, int questionIndex)
+        {
+            var a = Answers.FirstOrDefault(x => x.TeamId == teamId && x.QuestionIndex == questionIndex);
+            if (a == null) return null;
+            return a.Value.GetScore() > 0;
+        }
+
+    }
+}
+
+
+// ===== FILE: C:\Users\mgr\Entwicklung\Event\PubQuizMaster\Core\Models\Event\ScorerAssignment.cs =====
+namespace PubQuizMaster.Core.Models.Event
+{
+    /// <summary>
+    /// Assigns a set of teams (in scoring-sheet order) exclusively to one scorer.
+    /// No team may appear in more than one assignment per round.
+    /// </summary>
+    public class ScorerAssignment
+    {
+        public Guid Id { get; set; } = Guid.NewGuid();
+
+        /// <summary>Stable identifier for the scorer session (e.g. device token).</summary>
+        public string ScorerId { get; set; } = string.Empty;
+
+        /// <summary>Human-readable label shown in the UI (e.g. "Scorer B – Tisch 2").</summary>
+        public string Label { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Ordered list of team IDs. Order must match physical sheet order
+        /// so the scorer can work top-to-bottom without looking up names.
+        /// </summary>
+        public List<Guid> TeamIds { get; set; } = new();
+
+        /// <summary>
+        /// The question index this scorer is currently working on.
+        /// Independent of other scorers — each scorer has their own pace.
+        /// </summary>
+        public int CurrentQuestionIndex { get; set; } = 0;
+    }
+}
+
+
+// ===== FILE: C:\Users\mgr\Entwicklung\Event\PubQuizMaster\Core\Models\Participants\LeaderboardEntry.cs =====
+namespace PubQuizMaster.Core.Models.Participants
+{
+    public class LeaderboardEntry
+    {
+        public Team Team { get; set; } = new();
+        public decimal TotalScore { get; set; }
+        public List<RoundScore> ScorePerRound { get; set; } = new();
+        public int Rank { get; set; }   // set by caller after sorting
+    }
+}
+
+
+// ===== FILE: C:\Users\mgr\Entwicklung\Event\PubQuizMaster\Core\Models\Participants\RoundScore.cs =====
+namespace PubQuizMaster.Core.Models.Participants
+{
+    // ---------------------------------------------
+    // LEADERBOARD PROJECTIONS
+    // ---------------------------------------------
+
+    public class RoundScore
+    {
+        public Guid RoundId { get; set; }
+        public string RoundName { get; set; } = string.Empty;
+
+        /// <summary>Null means the team was not active in this round (display as "–").</summary>
+        public decimal? Score { get; set; }
+    }
+}
+
+
+// ===== FILE: C:\Users\mgr\Entwicklung\Event\PubQuizMaster\Core\Models\Participants\Team.cs =====
+namespace PubQuizMaster.Core.Models.Participants
+{
+    // ---------------------------------------------
+    // CORE ENTITIES
+    // ---------------------------------------------
+
+    /// <summary>
+    /// A team participating in the quiz night.
+    /// Teams persist across all rounds — they are activated per round.
+    /// </summary>
+    public class Team
+    {
+        public Guid Id { get; set; } = Guid.NewGuid();
+        public string Name { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Physical order of the scoring sheets — scorers sort their
+        /// answer sheets by this number before starting.
+        /// </summary>
+        public int SheetOrder { get; set; }
+    }
+}
+
+
+// ===== FILE: C:\Users\mgr\Entwicklung\Event\PubQuizMaster\Core\Models\QuizSessionState.cs =====
+using System;
+using System.Collections.Generic;
+using System.Collections.Concurrent;
+using System.Linq;
+using PubQuizMaster.Core.Models.Contents;
+using PubQuizMaster.Core.Models.Event;
+
+namespace PubQuizMaster.Core.Models
+{
+
+
+    // ---------------------------------------------
+    // SESSION STATE (runtime only, not persisted)
+    // ---------------------------------------------
+
+    /// <summary>
+    /// Thread-safe runtime state shared between the Avalonia UI and the Kestrel/SignalR layer.
+    /// The QuizNight object itself is the persistent model; this wraps it with
+    /// concurrency handling and change notifications.
+    /// </summary>
+    public class QuizSessionState
+    {
+        private readonly object _lock = new();
+
+        public QuizNight QuizNight { get; private set; }
+        public Guid ActiveRoundId { get; private set; }
+
+        /// <summary>Fired whenever an answer is recorded — Avalonia UI subscribes to this.</summary>
+        public event Action<Answer>? AnswerRecorded;
+
+        public QuizSessionState(QuizNight quizNight)
+        {
+            QuizNight = quizNight;
+            ActiveRoundId = quizNight.Rounds.LastOrDefault()?.Id ?? Guid.Empty;
+        }
+
+        /// <summary>
+        /// Records or overwrites an answer. Thread-safe.
+        /// Raises AnswerRecorded after saving.
+        /// </summary>
+        public Answer RecordAnswer(Guid roundId, string scorerId, Guid teamId, int questionIndex, AnswerBase value)
+        {
+            lock (_lock)
+            {
+                var round = QuizNight.Rounds.First(r => r.Id == roundId);
+
+                // Validate scorer owns this team
+                var assignment = round.Assignments.FirstOrDefault(a => a.ScorerId == scorerId);
+                if (assignment == null || !assignment.TeamIds.Contains(teamId))
+                    throw new InvalidOperationException($"Scorer '{scorerId}' is not assigned to team '{teamId}'.");
+
+                // Overwrite existing answer if present (correction support)
+                var existing = round.Answers.FirstOrDefault(a =>
+                    a.TeamId == teamId && a.QuestionIndex == questionIndex);
+
+                if (existing != null)
+                    round.Answers.Remove(existing);
+
+                var answer = new Answer
+                {
+                    TeamId = teamId,
+                    QuestionIndex = questionIndex,
+                    Value = value,
+                    RecordedByScorerId = scorerId,
+                    RecordedAt = DateTime.UtcNow
+                };
+
+                round.Answers.Add(answer);
+
+                // Advance scorer's current position if moving forward
+                if (assignment.CurrentQuestionIndex <= questionIndex)
+                    assignment.CurrentQuestionIndex = questionIndex;
+
+                AnswerRecorded?.Invoke(answer);
+                return answer;
+            }
+        }
+
+        /// <summary>Switches the active round. Pass an existing or newly created Round.</summary>
+        public void SetActiveRound(Guid roundId)
+        {
+            lock (_lock)
+            {
+                if (QuizNight.Rounds.All(r => r.Id != roundId))
+                    throw new ArgumentException("Round not found.");
+                ActiveRoundId = roundId;
+            }
+        }
+    }
+}
+
+
+// ===== FILE: C:\Users\mgr\Entwicklung\Event\PubQuizMaster\Core\Services\AnswerBaseJsonConverter.cs =====
+using PubQuizMaster.Core.Models.Contents;
+using System.Text.Json;
+using System.Text.Json.Serialization;
+
+namespace PubQuizMaster.Core.Services
+{
+    /// <summary>
+    /// Polymorphic JSON converter for AnswerBase (AnswerBool / AnswerPoint).
+    /// Writes a "$type" discriminator so deserialization knows which subclass to use.
+    /// </summary>
+    public class AnswerBaseJsonConverter : JsonConverter<AnswerBase>
+    {
+        public override AnswerBase Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            using var doc = JsonDocument.ParseValue(ref reader);
+            var root = doc.RootElement;
+
+            var type = root.GetProperty("$type").GetString();
+            return type switch
+            {
+                nameof(AnswerBool) => JsonSerializer.Deserialize<AnswerBool>(root.GetRawText(), options)!,
+                nameof(AnswerPoint) => JsonSerializer.Deserialize<AnswerPoint>(root.GetRawText(), options)!,
+                _ => throw new JsonException($"Unknown AnswerBase type: {type}")
+            };
+        }
+
+        public override void Write(Utf8JsonWriter writer, AnswerBase value, JsonSerializerOptions options)
+        {
+            var type = value.GetType().Name;
+            var json = JsonSerializer.SerializeToElement(value, value.GetType(), options);
+
+            writer.WriteStartObject();
+            writer.WriteString("$type", type);
+            foreach (var prop in json.EnumerateObject())
+                prop.WriteTo(writer);
+            writer.WriteEndObject();
+        }
+    }
+}
+
+
+// ===== FILE: C:\Users\mgr\Entwicklung\Event\PubQuizMaster\Core\Services\PersistenceService.cs =====
+using PubQuizMaster.Core.Models.Event;
+using System.Text.Json;
+using System.Text.Json.Serialization;
+
+namespace PubQuizMaster.Core.Services
+{
+    // ---------------------------------------------
+    // PERSISTENCE SERVICE
+    // Handles JSON save/load of the QuizNight model.
+    // Single file per quiz night, stored in AppData or next to the executable.
+    // ---------------------------------------------
+
+    /// <summary>
+    /// Persists and restores QuizNight objects as JSON files.
+    /// File naming convention: "quiznight_{date}_{id_short}.json"
+    /// </summary>
+    public class PersistenceService
+    {
+        private readonly string _storageDirectory;
+
+        private static readonly JsonSerializerOptions _jsonOptions = new()
+        {
+            WriteIndented = true,
+            DefaultIgnoreCondition = JsonIgnoreCondition.Never,
+            Converters = { new AnswerBaseJsonConverter() }
+        };
+
+        public PersistenceService(string? storageDirectory = null)
+        {
+            _storageDirectory = storageDirectory
+                ?? Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+                    "PubQuizMaster");
+
+            Directory.CreateDirectory(_storageDirectory);
+        }
+
+        /// <summary>Saves the quiz night to disk. Overwrites if file exists.</summary>
+        public async Task SaveAsync(QuizNight quizNight)
+        {
+            var path = GetFilePath(quizNight);
+            var json = JsonSerializer.Serialize(quizNight, _jsonOptions);
+            await File.WriteAllTextAsync(path, json);
+        }
+
+        /// <summary>Loads a quiz night by its file path.</summary>
+        public async Task<QuizNight> LoadAsync(string filePath)
+        {
+            var json = await File.ReadAllTextAsync(filePath);
+            return JsonSerializer.Deserialize<QuizNight>(json, _jsonOptions)
+                   ?? throw new InvalidDataException($"Failed to deserialize: {filePath}");
+        }
+
+        /// <summary>Returns all saved quiz night files, newest first.</summary>
+        public IEnumerable<FileInfo> ListSavedNights()
+        {
+            return new DirectoryInfo(_storageDirectory)
+                .GetFiles("quiznight_*.json")
+                .OrderByDescending(f => f.LastWriteTime);
+        }
+
+        private string GetFilePath(QuizNight quizNight)
+        {
+            var datePart = quizNight.Date.ToString("yyyy-MM-dd");
+            var idPart = quizNight.Id.ToString()[..8];
+            return Path.Combine(_storageDirectory, $"quiznight_{datePart}_{idPart}.json");
+        }
+    }
+}
+
+
+// ===== FILE: C:\Users\mgr\Entwicklung\Event\PubQuizMaster\Core\Services\QuizNightService.cs =====
+using PubQuizMaster.Core.Models;
+using PubQuizMaster.Core.Models.Contents;
+using PubQuizMaster.Core.Models.Event;
+using PubQuizMaster.Core.Models.Participants;
+
+namespace PubQuizMaster.Core.Services
+{
+    // ---------------------------------------------
+    // QUIZ NIGHT SERVICE
+    // Primary business logic. Manages teams, rounds, and assignments.
+    // All mutations go through this service — never modify QuizNight directly.
+    // ---------------------------------------------
+
+    public class QuizNightService
+    {
+        #region Private Fields
+
+        private readonly PersistenceService _persistence;
+
+        private QuizSessionState? _state;
+
+        #endregion Private Fields
+
+        #region Public Constructors
+
+        /// <summary>
+        /// Primary constructor. Call InitializeAsync() before using any other method.
+        /// Separating construction from initialization allows the Avalonia startup
+        /// dialog to decide between new night / load existing before state is created.
+        /// </summary>
+        public QuizNightService(PersistenceService persistence)
+        {
+            _persistence = persistence;
+        }
+
+        #endregion Public Constructors
+
+        #region Public Events
+
+        // Add after the ActiveRoundId property
+        public event Action<Answer>? AnswerRecorded
+        {
+            add { if (_state != null) _state.AnswerRecorded += value; }
+            remove { if (_state != null) _state.AnswerRecorded -= value; }
+        }
+
+        #endregion Public Events
+
+        #region Public Properties
+
+        public Guid ActiveRoundId => _state?.ActiveRoundId
+            ?? throw new InvalidOperationException("QuizNightService not initialized. Call InitializeAsync() first.");
+
+        public QuizNight QuizNight => _state?.QuizNight
+            ?? throw new InvalidOperationException("QuizNightService not initialized. Call InitializeAsync() first.");
+
+        #endregion Public Properties
+
+        #region Public Methods
+
+        /// <summary>Creates a new quiz night and sets it as the active session.</summary>
+        public static QuizSessionState CreateNew(PersistenceService persistence, string name)
+        {
+            var night = new QuizNight
+            {
+                Name = name,
+                Date = DateTime.Today
+            };
+            return new QuizSessionState(night);
+        }
+
+        /// <summary>
+        /// Adds a new team to the master list.
+        /// SheetOrder defaults to next available number.
+        /// </summary>
+        public Team AddTeam(string name, int? sheetOrder = null)
+        {
+            var team = new Team
+            {
+                Name = name,
+                SheetOrder = sheetOrder ?? (QuizNight.MasterTeamList.Count > 0
+                    ? QuizNight.MasterTeamList.Max(t => t.SheetOrder) + 1
+                    : 1)
+            };
+            QuizNight.MasterTeamList.Add(team);
+            return team;
+        }
+
+        /// <summary>Adds a team to an existing round (late join).</summary>
+        public void AddTeamToRound(Guid roundId, Guid teamId)
+        {
+            var round = GetRoundOrThrow(roundId);
+
+            if (!QuizNight.MasterTeamList.Any(t => t.Id == teamId))
+                throw new ArgumentException($"Team '{teamId}' not found in master list.");
+
+            if (!round.ActiveTeamIds.Contains(teamId))
+                round.ActiveTeamIds.Add(teamId);
+        }
+
+        /// <summary>
+        /// Assigns a set of teams exclusively to a scorer in the given round.
+        /// Teams must be active in the round and not already assigned.
+        /// </summary>
+        public ScorerAssignment AssignScorer(Guid roundId, string scorerId, string label, List<Guid> teamIds)
+        {
+            var round = GetRoundOrThrow(roundId);
+
+            // Validate: all teams active in round
+            var inactiveTeams = teamIds.Except(round.ActiveTeamIds).ToList();
+            if (inactiveTeams.Any())
+                throw new InvalidOperationException(
+                    $"Teams not active in this round: {string.Join(", ", inactiveTeams)}");
+
+            // Validate: no team already assigned
+            var alreadyAssigned = round.Assignments
+                .SelectMany(a => a.TeamIds)
+                .Intersect(teamIds)
+                .ToList();
+
+            if (alreadyAssigned.Any())
+                throw new InvalidOperationException(
+                    $"Teams already assigned to another scorer: {string.Join(", ", alreadyAssigned)}");
+
+            // Teams arrive in sheet order
+            var ordered = teamIds
+                .OrderBy(id => QuizNight.MasterTeamList.FirstOrDefault(t => t.Id == id)?.SheetOrder ?? 0)
+                .ToList();
+
+            var assignment = new ScorerAssignment
+            {
+                ScorerId = scorerId,
+                Label = label,
+                TeamIds = ordered
+            };
+
+            round.Assignments.Add(assignment);
+            return assignment;
+        }
+
+        /// <summary>
+        /// Creates a new round and activates it.
+        /// By default all current master teams are added as active.
+        /// </summary>
+        public Round CreateRound(string name, int questionCount, List<Guid>? activeTeamIds = null)
+        {
+            var round = new Round
+            {
+                Name = name,
+                QuestionCount = questionCount,
+                ActiveTeamIds = activeTeamIds
+                    ?? QuizNight.MasterTeamList
+                        .OrderBy(t => t.SheetOrder)
+                        .Select(t => t.Id)
+                        .ToList()
+            };
+
+            QuizNight.Rounds.Add(round);
+            _state.SetActiveRound(round.Id);
+            return round;
+        }
+
+        // -- Rounds --------------------------------
+        /// <summary>Marks a round as finalized. No further answers accepted after this.</summary>
+        public void FinalizeRound(Guid roundId)
+        {
+            var round = GetRoundOrThrow(roundId);
+            round.IsFinalized = true;
+        }
+
+        /// <summary>
+        /// Returns a scorer's current assignment in the active round.
+        /// Returns null if not assigned.
+        /// </summary>
+        public ScorerAssignment? GetAssignment(string scorerId)
+        {
+            return QuizNight
+                .GetAssignment(_state.ActiveRoundId, scorerId);
+        }
+
+        /// <summary>Returns the full leaderboard across all rounds.</summary>
+        public List<LeaderboardEntry> GetLeaderboard() => QuizNight.GetLeaderboard();
+
+        // -- Scoring & Leaderboard -----------------
+        /// <summary>
+        /// Returns a completion summary for a round:
+        /// how many answers have been recorded vs. expected total.
+        /// </summary>
+        public (int Recorded, int Expected, double PercentComplete) GetRoundProgress(Guid roundId)
+        {
+            var round = GetRoundOrThrow(roundId);
+            var expected = round.ActiveTeamIds.Count * round.QuestionCount;
+            var recorded = round.Answers.Count;
+            var pct = expected == 0 ? 0d : (double)recorded / expected * 100;
+            return (recorded, expected, Math.Round(pct, 1));
+        }
+
+        /// <summary>
+        /// Initializes the service with a QuizNight instance.
+        /// Call after the user has chosen to create a new night or load an existing one.
+        /// </summary>
+        public Task InitializeAsync(QuizNight quizNight)
+        {
+            _state = new QuizSessionState(quizNight);
+            return Task.CompletedTask;
+        }
+
+        /// <summary>
+        /// Records a boolean answer for the active round.
+        /// Convenience wrapper over QuizSessionState.RecordAnswer.
+        /// </summary>
+        public Answer RecordAnswerBool(string scorerId, Guid teamId, int questionIndex, bool correct)
+        {
+            return _state.RecordAnswer(
+                _state.ActiveRoundId,
+                scorerId,
+                teamId,
+                questionIndex,
+                new AnswerBool { Correct = correct });
+        }
+
+        // -- Answers -------------------------------
+        /// <summary>
+        /// Records a point-based answer for the active round.
+        /// </summary>
+        public Answer RecordAnswerPoint(string scorerId, Guid teamId, int questionIndex, decimal points)
+        {
+            return _state.RecordAnswer(
+                _state.ActiveRoundId,
+                scorerId,
+                teamId,
+                questionIndex,
+                new AnswerPoint { Points = points });
+        }
+
+        // -- Scorer Assignments --------------------
+        /// <summary>Removes a scorer assignment from a round.</summary>
+        public void RemoveScorer(Guid roundId, string scorerId)
+        {
+            var round = GetRoundOrThrow(roundId);
+            var assignment = round.Assignments.FirstOrDefault(a => a.ScorerId == scorerId);
+            if (assignment != null)
+                round.Assignments.Remove(assignment);
+        }
+
+        /// <summary>Removes a team from an active round (dropout).</summary>
+        public void RemoveTeamFromRound(Guid roundId, Guid teamId)
+        {
+            var round = GetRoundOrThrow(roundId);
+            round.ActiveTeamIds.Remove(teamId);
+        }
+
+        // -- Teams ---------------------------------
+        /// <summary>Reorders teams by updating SheetOrder values.</summary>
+        public void ReorderTeams(List<Guid> orderedTeamIds)
+        {
+            for (var i = 0; i < orderedTeamIds.Count; i++)
+            {
+                var team = QuizNight.MasterTeamList.FirstOrDefault(t => t.Id == orderedTeamIds[i]);
+                if (team != null)
+                    team.SheetOrder = i + 1;
+            }
+        }
+
+        // -- Quiz Night ----------------------------
+        /// <summary>Persists the current state to disk.</summary>
+        public Task SaveAsync() => _persistence.SaveAsync(QuizNight);
+
+        public void SetAnswer(Guid roundId, Guid teamId, int questionIndex, bool? isCorrect)
+        {
+            var round = QuizNight.Rounds.First(r => r.Id == roundId);
+            var existing = round.Answers.FirstOrDefault(a =>
+                a.TeamId == teamId && a.QuestionIndex == questionIndex);
+
+            if (isCorrect == null)
+            {
+                if (existing != null) round.Answers.Remove(existing);
+                return;
+            }
+
+            var value = new AnswerBool { Correct = isCorrect.Value };
+
+            if (existing != null)
+                existing.Value = value;
+            else
+                round.Answers.Add(new Answer
+                {
+                    TeamId = teamId,
+                    QuestionIndex = questionIndex,
+                    Value = value,
+                    RecordedByScorerId = "host"
+                });
+        }
+
+
+        #endregion Public Methods
+
+        // -- Helpers -------------------------------
+
+        #region Private Methods
+
+        private Round GetRoundOrThrow(Guid roundId)
+        {
+            return QuizNight.Rounds.FirstOrDefault(r => r.Id == roundId)
+                   ?? throw new ArgumentException($"Round '{roundId}' not found.");
+        }
+
+        #endregion Private Methods
+    }
+}
+
+
+// ===== FILE: C:\Users\mgr\Entwicklung\Event\PubQuizMaster\Core\Services\ScorerSessionService.cs =====
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Threading.Tasks;
+
+namespace PubQuizMaster.Core.Services
+{
+
+
+    // ---------------------------------------------
+    // SCORER SESSION SERVICE
+    // Tracks which web clients are currently connected and maps them
+    // to scorer assignments. Used by the SignalR hub.
+    // Runtime only — not persisted.
+    // ---------------------------------------------
+
+    /// <summary>
+    /// Manages active scorer connections (SignalR connection IDs ? scorer IDs).
+    /// Thread-safe. Used exclusively by the SignalR hub layer.
+    /// </summary>
+    public class ScorerSessionService
+    {
+        // connectionId ? scorerId
+        private readonly System.Collections.Concurrent.ConcurrentDictionary<string, string>
+            _connections = new();
+
+        // scorerId ? connectionId (reverse lookup)
+        private readonly System.Collections.Concurrent.ConcurrentDictionary<string, string>
+            _scorers = new();
+
+        /// <summary>Registers a new SignalR connection for a scorer.</summary>
+        public void RegisterConnection(string connectionId, string scorerId)
+        {
+            // Remove any stale connection for this scorer
+            if (_scorers.TryGetValue(scorerId, out var oldConnection))
+                _connections.TryRemove(oldConnection, out _);
+
+            _connections[connectionId] = scorerId;
+            _scorers[scorerId] = connectionId;
+        }
+
+        /// <summary>Removes a connection on disconnect.</summary>
+        public void RemoveConnection(string connectionId)
+        {
+            if (_connections.TryRemove(connectionId, out var scorerId))
+                _scorers.TryRemove(scorerId, out _);
+        }
+
+        /// <summary>Returns the scorer ID for a connection ID, or null if unknown.</summary>
+        public string? GetScorerId(string connectionId)
+            => _connections.TryGetValue(connectionId, out var id) ? id : null;
+
+        /// <summary>Returns the connection ID for a scorer ID, or null if not connected.</summary>
+        public string? GetConnectionId(string scorerId)
+            => _scorers.TryGetValue(scorerId, out var conn) ? conn : null;
+
+        /// <summary>Returns all currently connected scorer IDs.</summary>
+        public IEnumerable<string> ConnectedScorers => _scorers.Keys;
+
+        /// <summary>Returns true if the given scorer currently has an active connection.</summary>
+        public bool IsConnected(string scorerId) => _scorers.ContainsKey(scorerId);
+    }
+}
+
+
+// ===== FILE: C:\Users\mgr\Entwicklung\Event\PubQuizMaster\Desktop\ViewModels\AnswerCellViewModel.cs =====
+namespace PubQuizMaster.ViewModels
+{
+    using CommunityToolkit.Mvvm.ComponentModel;
+
+    public partial class AnswerCellViewModel : ViewModelBase
+    {
+        [ObservableProperty] private bool? _isCorrect;
+        [ObservableProperty] private bool _isEditing;
+
+        public string Display => IsCorrect switch
+        {
+            true => "?",
+            false => "?",
+            null => "–"
+        };
+
+        public string Color => IsCorrect switch
+        {
+            true => "#2ecc71",
+            false => "#e74c3c",
+            null => "#4a4a6a"
+        };
+
+        public AnswerCellViewModel(bool? isCorrect) => _isCorrect = isCorrect;
+
+        partial void OnIsCorrectChanged(bool? value) =>
+            OnPropertyChanged(nameof(Display));
+    }
+}
+
+
+
+// ===== FILE: C:\Users\mgr\Entwicklung\Event\PubQuizMaster\Desktop\ViewModels\AssignableTeamViewModel.cs =====
+using CommunityToolkit.Mvvm.ComponentModel;
+using System;
+
+namespace PubQuizMaster.ViewModels
+{
+    public partial class AssignableTeamViewModel : ViewModelBase
+    {
+        public TeamViewModel TeamVm { get; }
+        public Guid TeamId => TeamVm.Team.Id;
+        public string Name => TeamVm.Name;
+
+        [ObservableProperty] private bool _isAssigned;
+        [ObservableProperty] private bool _isDisabled;
+
+        public Action<Guid, bool>? AssignmentChanged { get; set; }
+
+        public AssignableTeamViewModel(TeamViewModel teamVm, bool isAssigned = false)
+        {
+            TeamVm = teamVm;
+            _isAssigned = isAssigned;
+        }
+
+        partial void OnIsAssignedChanged(bool value) =>
+            AssignmentChanged?.Invoke(TeamVm.Team.Id, value);
+    }
+}
+
+
+
+// ===== FILE: C:\Users\mgr\Entwicklung\Event\PubQuizMaster\Desktop\ViewModels\LeaderboardEntryViewModel.cs =====
+namespace PubQuizMaster.ViewModels
+{
+    public class LeaderboardEntryViewModel
+    {
+        public int Rank { get; set; }
+        public string TeamName { get; set; } = string.Empty;
+        public decimal Score { get; set; }
+    }
+}
+
+
+
+// ===== FILE: C:\Users\mgr\Entwicklung\Event\PubQuizMaster\Desktop\ViewModels\MainWindowViewModel.cs =====
+using Avalonia.Threading;
+using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
+using PubQuizMaster.Core.Models.Contents;
+using PubQuizMaster.Core.Models.Event;
+using PubQuizMaster.Core.Services;
+using PubQuizMaster.Desktop.Web;
+using System;
+using System.Collections.Generic;
+using System.Collections.ObjectModel;
+using System.Linq;
+using System.Threading.Tasks;
+
+namespace PubQuizMaster.ViewModels
+{
+    public enum HostPhase { Setup, ActiveRound, Results }
+
+    public partial class MainWindowViewModel : ViewModelBase
+    {
+        private readonly QuizNightService? _svc;
+        private readonly KestrelHost? _kestrel;
+        private readonly HashSet<Guid> _assignedTeamIds = new();
+
+        // -- Phase ------------------------------------------------------------
+        [ObservableProperty] private HostPhase _phase = HostPhase.Setup;
+        public bool IsSetup => Phase == HostPhase.Setup;
+        public bool IsActiveRound => Phase == HostPhase.ActiveRound;
+        public bool IsResults => Phase == HostPhase.Results;
+
+        // -- Server -----------------------------------------------------------
+        [ObservableProperty] private string _serverUrl = string.Empty;
+
+        // -- Setup ------------------------------------------------------------
+        [ObservableProperty] private string _quizNightName = string.Empty;
+        [ObservableProperty] private string _newTeamName = string.Empty;
+        [ObservableProperty] private string _setupError = string.Empty;
+
+        public ObservableCollection<TeamViewModel> Teams { get; } = new();
+        public ObservableCollection<ScorerAssignmentViewModel> Assignments { get; } = new();
+
+        // -- Round config -----------------------------------------------------
+        [ObservableProperty] private string _roundName = string.Empty;
+        [ObservableProperty] private int _questionCount = 6;
+
+        // -- Start button -----------------------------------------------------
+        public bool CanStartRound
+        {
+            get
+            {
+                if (!Teams.Any() || !Assignments.Any()) return false;
+                // Every team must be assigned to exactly one scorer
+                var allAssigned = Assignments.SelectMany(a => a.SelectedTeams).Select(t => t.Team.Id).ToList();
+                return allAssigned.Count == Teams.Count &&
+                       allAssigned.Distinct().Count() == Teams.Count;
+            }
+        }
+
+        // -- Active round -----------------------------------------------------
+        [ObservableProperty] private string _activeRoundName = string.Empty;
+        [ObservableProperty] private int _answersRecorded = 0;
+        [ObservableProperty] private int _answersExpected = 0;
+        public string AnswerProgress => $"{AnswersRecorded} / {AnswersExpected}";
+
+        public ObservableCollection<ScorerStatusViewModel> ScorerStatuses { get; } = new();
+
+        // -- Leaderboards — always visible ------------------------------------
+        public ObservableCollection<LeaderboardEntryViewModel> LastRoundBoard { get; } = new();
+        public ObservableCollection<LeaderboardEntryViewModel> TotalBoard { get; } = new();
+        [ObservableProperty] private string _lastRoundLabel = "This Round";
+        [ObservableProperty] private bool _hasResults = false;
+
+        // -- Designer constructor ---------------------------------------------
+        public MainWindowViewModel() { }
+
+        // -- Real constructor -------------------------------------------------
+        public MainWindowViewModel(QuizNightService svc, KestrelHost kestrel)
+        {
+            _svc = svc;
+            _kestrel = kestrel;
+
+            QuizNightName = svc.QuizNight.Name;
+            RoundName = $"Round {svc.QuizNight.Rounds.Count + 1}";
+            ServerUrl = $"http://{KestrelHost.GetLocalIpAddress()}:{KestrelHost.Port}";
+
+            foreach (var t in svc.QuizNight.MasterTeamList.OrderBy(t => t.Name))
+                Teams.Add(new TeamViewModel(t));
+
+            // Default: one scorer, all teams
+            AddScorerInternal();
+            AutoDistributeTeams();
+
+            svc.AnswerRecorded += OnAnswerRecorded;
+            kestrel.ServerReady += url => ServerUrl = url;
+        }
+
+        // =====================================================================
+        // COMMANDS — Setup
+        // =====================================================================
+
+        [RelayCommand]
+        private void AddTeam()
+        {
+            if (_svc == null) return;
+            var name = NewTeamName.Trim();
+            if (string.IsNullOrWhiteSpace(name)) return;
+
+            if (Teams.Any(t => t.Name.Equals(name, StringComparison.OrdinalIgnoreCase)))
+            {
+                SetupError = $"Team \"{name}\" already exists.";
+                return;
+            }
+
+            SetupError = string.Empty;
+            var team = _svc.AddTeam(name);
+            Teams.Add(new TeamViewModel(team));
+            NewTeamName = string.Empty;
+
+            AutoDistributeTeams();
+            NotifyStartButton();
+        }
+
+        [RelayCommand]
+        private void RemoveTeam(TeamViewModel vm)
+        {
+            if (_svc == null) return;
+            Teams.Remove(vm);
+            _svc.QuizNight.MasterTeamList.Remove(vm.Team);
+            _assignedTeamIds.Remove(vm.Team.Id);
+
+            NotifyStartButton();
+        }
+
+        [RelayCommand]
+        private void SortTeams()
+        {
+            var sorted = Teams.OrderBy(t => t.Name).ToList();
+            Teams.Clear();
+            foreach (var t in sorted) Teams.Add(t);
+
+            // Re-order master list too
+            if (_svc != null)
+                _svc.ReorderTeams(Teams.Select(t => t.Team.Id).ToList());
+        }
+
+        [RelayCommand]
+        private void AddScorer()
+        {
+            AddScorerInternal();
+            AutoDistributeTeams();
+            NotifyStartButton();
+        }
+
+        [RelayCommand]
+        private void RemoveScorer(ScorerAssignmentViewModel vm)
+        {
+            Assignments.Remove(vm);
+
+            // Release its teams
+            foreach (var t in vm.Teams.Where(t => t.IsAssigned))
+                _assignedTeamIds.Remove(t.TeamVm.Team.Id);
+
+            foreach (var a in Assignments)
+                a.UpdateDisabledStates();
+
+            AutoDistributeTeams();
+            NotifyStartButton();
+        }
+
+        [RelayCommand]
+        private async Task StartRound()
+        {
+            if (_svc == null || _kestrel == null || !CanStartRound) return;
+
+            var allTeamIds = Teams.Select(t => t.Team.Id).ToList();
+            var round = _svc.CreateRound(RoundName, QuestionCount, allTeamIds);
+
+            foreach (var a in Assignments)
+            {
+                var ids = a.SelectedTeams.Select(t => t.Team.Id).ToList();
+                if (ids.Any())
+                    _svc.AssignScorer(round.Id, a.ScorerId, a.Label, ids);
+            }
+
+            if (_kestrel.HubContext != null)
+                await QuizHub.NotifyRoundStarted(
+                    _kestrel.HubContext, round, _svc.QuizNight.MasterTeamList);
+
+            ActiveRoundName = round.Name;
+            RefreshProgress(round);
+            RefreshScorerStatuses(round);
+            SwitchPhase(HostPhase.ActiveRound);
+        }
+
+        // =====================================================================
+        // COMMANDS — Active Round
+        // =====================================================================
+
+        [RelayCommand]
+        private async Task FinalizeRound()
+        {
+            if (_svc == null || _kestrel == null) return;
+
+            var round = _svc.QuizNight.Rounds
+                .FirstOrDefault(r => r.Id == _svc.ActiveRoundId);
+            if (round == null) return;
+
+            _svc.FinalizeRound(round.Id);
+            var leaderboard = _svc.GetLeaderboard();
+
+            if (_kestrel.HubContext != null)
+                await QuizHub.NotifyRoundFinalized(_kestrel.HubContext, round.Id, leaderboard);
+
+            BuildLeaderboards(round, leaderboard);
+            SwitchPhase(HostPhase.Results);
+        }
+
+        // =====================================================================
+        // COMMANDS — Results
+        // =====================================================================
+
+        [RelayCommand]
+        private void NextRound()
+        {
+            if (_svc == null) return;
+            RoundName = $"Round {_svc.QuizNight.Rounds.Count + 1}";
+            QuestionCount = 6;
+            SetupError = string.Empty;
+
+            foreach (var a in Assignments)
+                a.ClearSelections();
+            _assignedTeamIds.Clear();
+
+            AutoDistributeTeams();
+            NotifyStartButton();
+            SwitchPhase(HostPhase.Setup);
+        }
+
+        // =====================================================================
+        // INTERNAL
+        // =====================================================================
+
+        private void AddScorerInternal()
+        {
+            var n = Assignments.Count;
+            var id = $"scorer-{(char)('a' + n)}";
+            var label = $"Scorer {(char)('A' + n)}";
+            var vm = new ScorerAssignmentViewModel(id, label, Teams, _assignedTeamIds);
+            vm.OnAssignmentChanged = OnScorerAssignmentChanged;
+            Assignments.Add(vm);
+        }
+
+        private void OnScorerAssignmentChanged(Guid teamId, bool assigned)
+        {
+            if (assigned) _assignedTeamIds.Add(teamId);
+            else _assignedTeamIds.Remove(teamId);
+
+            foreach (var a in Assignments)
+                a.UpdateDisabledStates();
+
+            NotifyStartButton();
+        }
+
+        private void AutoDistributeTeams()
+        {
+            if (!Assignments.Any() || !Teams.Any()) return;
+
+            // Clear existing selections and global tracking
+            _assignedTeamIds.Clear();
+            foreach (var a in Assignments) a.ClearSelections();
+
+            // Round-robin distribution in current team order
+            var teams = Teams.ToList();
+            for (int i = 0; i < teams.Count; i++)
+            {
+                var scorer = Assignments[i % Assignments.Count];
+                var slot = scorer.Teams.FirstOrDefault(t => t.TeamVm.Team.Id == teams[i].Team.Id);
+                if (slot != null) slot.IsAssigned = true;
+                _assignedTeamIds.Add(teams[i].Team.Id);
+            }
+
+            foreach (var a in Assignments)
+                a.UpdateDisabledStates();
+        }
+
+        private void OnAnswerRecorded(Answer _)
+        {
+            Dispatcher.UIThread.Post(() =>
+            {
+                var round = _svc?.QuizNight.Rounds
+                    .FirstOrDefault(r => r.Id == _svc.ActiveRoundId);
+                if (round == null) return;
+
+                RefreshProgress(round);
+                RefreshScorerStatuses(round);
+                BuildLeaderboards(round, _svc!.GetLeaderboard());
+            });
+        }
+
+        private void RefreshProgress(Round round)
+        {
+            var (recorded, expected, _) = _svc!.GetRoundProgress(round.Id);
+            AnswersRecorded = recorded;
+            AnswersExpected = expected;
+            OnPropertyChanged(nameof(AnswerProgress));
+        }
+
+        private void RefreshScorerStatuses(Round round)
+        {
+            ScorerStatuses.Clear();
+            foreach (var a in round.Assignments)
+            {
+                var answered = round.Answers.Count(ans => a.TeamIds.Contains(ans.TeamId));
+                ScorerStatuses.Add(new ScorerStatusViewModel
+                {
+                    ScorerId = a.ScorerId,
+                    Label = a.Label,
+                    Answered = answered,
+                    Expected = a.TeamIds.Count * round.QuestionCount,
+                });
+            }
+        }
+
+        // -- In BuildLeaderboards ergänzen -----------------------------------------
+        private void BuildLeaderboards(Round round,
+            List<Core.Models.Participants.LeaderboardEntry> total)
+        {
+            LastRoundLabel = round.Name;
+            LastRoundBoard.Clear();
+            var rank = 1;
+            foreach (var x in _svc!.QuizNight.MasterTeamList
+                .Select(t => new { t, Score = round.GetTeamScore(t.Id) })
+                .Where(x => x.Score.HasValue)
+                .OrderByDescending(x => x.Score))
+            {
+                LastRoundBoard.Add(new LeaderboardEntryViewModel
+                { Rank = rank++, TeamName = x.t.Name, Score = x.Score!.Value });
+            }
+
+            TotalBoard.Clear();
+            rank = 1;
+            foreach (var e in total)
+                TotalBoard.Add(new LeaderboardEntryViewModel
+                { Rank = rank++, TeamName = e.Team.Name, Score = e.TotalScore });
+
+            HasResults = true;
+
+            // Matrix aktualisieren: existierend rebuilden oder neu hinzufügen
+            var existing = AllRounds.FirstOrDefault(r => r.RoundName == round.Name);
+            if (existing != null)
+                existing.Rebuild();
+            else
+                AllRounds.Add(new RoundMatrixViewModel(round, AllRounds.Count + 1, _svc!));
+        }
+
+        private void NotifyStartButton() => OnPropertyChanged(nameof(CanStartRound));
+
+        private void SwitchPhase(HostPhase phase)
+        {
+            Phase = phase;
+            OnPropertyChanged(nameof(IsSetup));
+            OnPropertyChanged(nameof(IsActiveRound));
+            OnPropertyChanged(nameof(IsResults));
+        }
+
+        // -- Neue Properties oben in der Klasse ------------------------------------
+        public ObservableCollection<RoundMatrixViewModel> AllRounds { get; } = new();
+
+
+    }
+}
+
+
+
+// ===== FILE: C:\Users\mgr\Entwicklung\Event\PubQuizMaster\Desktop\ViewModels\RoundMatrixViewModel.cs =====
+using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
+using PubQuizMaster.Core.Models.Event;
+using PubQuizMaster.Core.Services;
+using System;
+using System.Collections.Generic;
+using System.Collections.ObjectModel;
+using System.Linq;
+
+namespace PubQuizMaster.ViewModels
+{
+    public partial class RoundMatrixViewModel : ViewModelBase
+    {
+        private readonly Round _round;
+        private readonly QuizNightService _svc;
+
+        public string RoundName { get; }
+        public int RoundNumber { get; }
+        public int QuestionCount => _round.QuestionCount;
+
+        // Column headers Q1…Qn
+        public IReadOnlyList<string> QuestionHeaders { get; }
+
+        public ObservableCollection<TeamAnswerRowViewModel> Rows { get; } = new();
+        public ObservableCollection<int> ColSums { get; } = new();
+
+        [ObservableProperty] private bool _isEditing;
+
+        public RoundMatrixViewModel(Round round, int roundNumber, QuizNightService svc)
+        {
+            _round = round;
+            _svc = svc;
+            RoundName = round.Name;
+            RoundNumber = roundNumber;
+
+            QuestionHeaders = Enumerable.Range(1, round.QuestionCount)
+                                        .Select(i => $"Q{i}")
+                                        .ToList();
+            Rebuild();
+        }
+
+        [RelayCommand]
+        private void Edit() => IsEditing = true;
+
+        [RelayCommand]
+        private void Save()
+        {
+            // Persist edited answers back to the service
+            foreach (var row in Rows)
+                for (int qi = 0; qi < QuestionCount; qi++)
+                    _svc.SetAnswer(_round.Id, row.TeamId, qi, row.Answers[qi].IsCorrect);
+
+            Rebuild();
+            IsEditing = false;
+        }
+
+        [RelayCommand]
+        private void Cancel()
+        {
+            Rebuild();
+            IsEditing = false;
+        }
+
+        partial void OnIsEditingChanged(bool value)
+        {
+            foreach (var row in Rows)
+                foreach (var cell in row.Answers)
+                    cell.IsEditing = value;
+        }
+
+
+        public void Rebuild()
+        {
+            Rows.Clear();
+            ColSums.Clear();
+
+            var teams = _svc.QuizNight.MasterTeamList;
+            foreach (var team in teams)
+            {
+                var cells = Enumerable.Range(0, QuestionCount)
+                    .Select(qi => new AnswerCellViewModel(
+                        _round.GetAnswer(team.Id, qi)))
+                    .ToList();
+                Rows.Add(new TeamAnswerRowViewModel(team.Id, team.Name, cells));
+            }
+
+            // Column sums
+            for (int qi = 0; qi < QuestionCount; qi++)
+                ColSums.Add(Rows.Count(r => r.Answers[qi].IsCorrect == true));
+
+            // Am Ende von Rebuild()
+            foreach (var row in Rows)
+                foreach (var cell in row.Answers)
+                    cell.IsEditing = IsEditing;
+        }
+    }
+}
+
+
+
+// ===== FILE: C:\Users\mgr\Entwicklung\Event\PubQuizMaster\Desktop\ViewModels\ScorerAssignmentViewModel.cs =====
+using CommunityToolkit.Mvvm.ComponentModel;
+using System;
+using System.Collections.Generic;
+using System.Collections.ObjectModel;
+using System.Collections.Specialized;
+using System.Linq;
+
+namespace PubQuizMaster.ViewModels
+{
+    public partial class ScorerAssignmentViewModel : ViewModelBase
+    {
+        [ObservableProperty] private string _scorerId;
+        [ObservableProperty] private string _label;
+
+        private readonly ObservableCollection<TeamViewModel> _masterTeams;
+        private readonly HashSet<Guid> _globalAssigned;
+
+        public ObservableCollection<AssignableTeamViewModel> Teams { get; } = new();
+        public IEnumerable<TeamViewModel> SelectedTeams =>
+            Teams.Where(t => t.IsAssigned).Select(t => t.TeamVm);
+
+        public Action<Guid, bool>? OnAssignmentChanged { get; set; }
+
+        public ScorerAssignmentViewModel(string scorerId, string label,
+            ObservableCollection<TeamViewModel> masterTeams,
+            HashSet<Guid> globalAssigned)
+        {
+            _scorerId = scorerId;
+            _label = label;
+            _masterTeams = masterTeams;
+            _globalAssigned = globalAssigned;
+
+            foreach (var t in masterTeams)
+                AddSlot(t, false);
+
+            _masterTeams.CollectionChanged += OnMasterTeamsChanged;
+        }
+
+        private void OnMasterTeamsChanged(object? sender, NotifyCollectionChangedEventArgs e)
+        {
+            if (e.NewItems != null)
+                foreach (TeamViewModel t in e.NewItems)
+                    AddSlot(t, false);
+
+            if (e.OldItems != null)
+                foreach (TeamViewModel t in e.OldItems)
+                {
+                    var slot = Teams.FirstOrDefault(s => s.TeamVm.Team.Id == t.Team.Id);
+                    if (slot != null)
+                    {
+                        if (slot.IsAssigned)
+                            OnAssignmentChanged?.Invoke(t.Team.Id, false);
+                        Teams.Remove(slot);
+                    }
+                }
+
+            UpdateDisabledStates();
+        }
+
+        private void AddSlot(TeamViewModel t, bool isAssigned)
+        {
+            var slot = new AssignableTeamViewModel(t, isAssigned);
+            slot.AssignmentChanged = (id, assigned) => OnAssignmentChanged?.Invoke(id, assigned);
+            Teams.Add(slot);
+        }
+
+        public void UpdateDisabledStates()
+        {
+            foreach (var t in Teams)
+                t.IsDisabled = !t.IsAssigned && _globalAssigned.Contains(t.TeamVm.Team.Id);
+        }
+
+        public void ClearSelections()
+        {
+            foreach (var t in Teams.Where(t => t.IsAssigned))
+                t.IsAssigned = false;
+        }
+
+        public void SetAssigned(Guid teamId, bool value)
+        {
+            var slot = Teams.FirstOrDefault(t => t.TeamVm.Team.Id == teamId);
+            if (slot != null) slot.IsAssigned = value;
+        }
+    }
+}
+
+
+
+// ===== FILE: C:\Users\mgr\Entwicklung\Event\PubQuizMaster\Desktop\ViewModels\ScorerStatusViewModel.cs =====
+namespace PubQuizMaster.ViewModels
+{
+    public class ScorerStatusViewModel
+    {
+        public string Label { get; set; } = string.Empty;
+        public string ScorerId { get; set; } = string.Empty;
+        public int Answered { get; set; }
+        public int Expected { get; set; }
+        public string Progress => $"{Answered} / {Expected}";
+        public bool IsComplete => Answered >= Expected;
+    }
+}
+
+
+
+// ===== FILE: C:\Users\mgr\Entwicklung\Event\PubQuizMaster\Desktop\ViewModels\TeamAnswerRowViewModel.cs =====
+using System;
+using System.Collections.Generic;
+using System.Linq;
+
+namespace PubQuizMaster.ViewModels
+{
+    public class TeamAnswerRowViewModel
+    {
+        public Guid TeamId { get; }
+        public string TeamName { get; }
+        public IReadOnlyList<AnswerCellViewModel> Answers { get; }
+        public int Total => Answers.Count(a => a.IsCorrect == true);
+
+        public TeamAnswerRowViewModel(Guid teamId, string teamName,
+            IReadOnlyList<AnswerCellViewModel> answers)
+        {
+            TeamId = teamId;
+            TeamName = teamName;
+            Answers = answers;
+        }
+    }
+}
+
+
+
+// ===== FILE: C:\Users\mgr\Entwicklung\Event\PubQuizMaster\Desktop\ViewModels\TeamViewModel.cs =====
+using CommunityToolkit.Mvvm.ComponentModel;
+using PubQuizMaster.Core.Models.Participants;
+
+namespace PubQuizMaster.ViewModels
+{
+    public partial class TeamViewModel : ViewModelBase
+    {
+        public Team Team { get; }
+
+        [ObservableProperty]
+        private string _name;
+
+        public TeamViewModel(Team team)
+        {
+            Team = team;
+            _name = team.Name;
+        }
+    }
+}
+
+
+
+// ===== FILE: C:\Users\mgr\Entwicklung\Event\PubQuizMaster\Desktop\ViewModels\ViewModelBase.cs =====
+using CommunityToolkit.Mvvm.ComponentModel;
+
+namespace PubQuizMaster.ViewModels
+{
+    public abstract class ViewModelBase : ObservableObject
+    {
+    }
+}
+
+
+
+// ===== FILE: C:\Users\mgr\Entwicklung\Event\PubQuizMaster\Desktop\Views\MainWindow.axaml =====
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:PubQuizMaster.ViewModels"
+        x:Class="PubQuizMaster.Views.MainWindow"
+        x:DataType="vm:MainWindowViewModel"
+        Title="PubQuizMaster – Host"
+        Width="1200" Height="720"
+        Background="#1a1a2e">
+
+    <Window.Styles>
+        <Style Selector="TextBlock">
+            <Setter Property="Foreground" Value="#eaeaea"/>
+        </Style>
+        <Style Selector="TextBox">
+            <Setter Property="Background" Value="#16213e"/>
+            <Setter Property="Foreground" Value="#eaeaea"/>
+            <Setter Property="BorderBrush" Value="#4a4a6a"/>
+            <Setter Property="CornerRadius" Value="6"/>
+            <Setter Property="Padding" Value="8 6"/>
+        </Style>
+        <Style Selector="Button">
+            <Setter Property="Background" Value="#0f3460"/>
+            <Setter Property="Foreground" Value="#eaeaea"/>
+            <Setter Property="CornerRadius" Value="6"/>
+            <Setter Property="Padding" Value="12 8"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        <Style Selector="Button.primary">
+            <Setter Property="Background" Value="#e94560"/>
+        </Style>
+        <Style Selector="Button.danger">
+            <Setter Property="Background" Value="#c0392b"/>
+        </Style>
+        <Style Selector="Button:disabled /template/ ContentPresenter">
+            <Setter Property="Opacity" Value="0.4"/>
+        </Style>
+    </Window.Styles>
+
+    <Grid RowDefinitions="Auto,*">
+
+        <!-- Header -->
+        <Border Grid.Row="0" Background="#16213e" Padding="16 12">
+            <Grid ColumnDefinitions="*,Auto">
+                <StackPanel Orientation="Horizontal" Spacing="16">
+                    <TextBlock Text="?? PubQuizMaster" FontSize="18" FontWeight="Bold"
+                               Foreground="#e94560"/>
+                    <TextBlock Text="{Binding QuizNightName}" FontSize="14"
+                               Foreground="#9999bb" VerticalAlignment="Center"/>
+                </StackPanel>
+                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
+                    <TextBlock Text="??" VerticalAlignment="Center"/>
+                    <TextBlock Text="{Binding ServerUrl}" FontSize="12"
+                               Foreground="#9999bb" VerticalAlignment="Center"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- Main: 3 verschiebbare Spalten -->
+        <Grid Grid.Row="1" ColumnDefinitions="*,4,*,4,*">
+
+            <!-- ================================================================
+            SPALTE 0: Teams (Setup) / Active Round + Results (überspannt 0-3)
+            ================================================================ -->
+
+            <!-- Teams — nur im Setup -->
+            <Border Grid.Column="0"
+                    IsVisible="{Binding IsSetup}"
+                    Background="#16213e" CornerRadius="8"
+                    Margin="16 16 0 16" Padding="16">
+                <DockPanel>
+                    <TextBlock DockPanel.Dock="Top" Text="Teams"
+                               FontSize="14" FontWeight="Bold" Margin="0 0 0 10"/>
+
+                    <TextBlock DockPanel.Dock="Top"
+                               Text="{Binding SetupError}"
+                               Foreground="#e74c3c" FontSize="12"
+                               IsVisible="{Binding SetupError,
+                               Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                               Margin="0 0 0 6"/>
+
+                    <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto,Auto"
+                          ColumnSpacing="6" Margin="0 0 0 8">
+                        <TextBox Grid.Column="0" Text="{Binding NewTeamName}"
+                                 Watermark="Team name…"/>
+                        <Button Grid.Column="1" Content="Add"
+                                Command="{Binding AddTeamCommand}"/>
+                        <Button Grid.Column="2" Content="A?"
+                                Command="{Binding SortTeamsCommand}"
+                                ToolTip.Tip="Sort by name"/>
+                    </Grid>
+
+                    <ScrollViewer>
+                        <ItemsControl ItemsSource="{Binding Teams}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="vm:TeamViewModel">
+                                    <Grid ColumnDefinitions="*,Auto" Margin="0 3">
+                                        <TextBlock Grid.Column="0" Text="{Binding Name}"
+                                                   VerticalAlignment="Center"/>
+                                        <Button Grid.Column="1" Content="?"
+                                                Classes="danger" Padding="6 4"
+                                                Command="{Binding $parent[Window].DataContext.RemoveTeamCommand}"
+                                                CommandParameter="{Binding}"/>
+                                    </Grid>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
+                </DockPanel>
+            </Border>
+
+            <!-- Active Round — überspannt Spalten 0–3 (vor dem rechten Splitter) -->
+            <Grid Grid.Column="0" Grid.ColumnSpan="4"
+                  IsVisible="{Binding IsActiveRound}"
+                  RowDefinitions="Auto,*,Auto"
+                  Margin="16 16 0 16">
+
+                <Border Grid.Row="0" Background="#16213e" CornerRadius="8"
+                        Padding="16" Margin="0 0 0 12">
+                    <Grid ColumnDefinitions="*,Auto">
+                        <StackPanel>
+                            <TextBlock Text="{Binding ActiveRoundName}"
+                                       FontSize="20" FontWeight="Bold"/>
+                            <TextBlock Text="{Binding AnswerProgress}"
+                                       FontSize="14" Foreground="#9999bb" Margin="0 4 0 0"/>
+                        </StackPanel>
+                        <TextBlock Grid.Column="1" Text="answers recorded"
+                                   Foreground="#9999bb" VerticalAlignment="Center"/>
+                    </Grid>
+                </Border>
+
+                <ScrollViewer Grid.Row="1">
+                    <ItemsControl ItemsSource="{Binding ScorerStatuses}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <WrapPanel Orientation="Horizontal"/>
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="vm:ScorerStatusViewModel">
+                                <Border Background="#16213e" CornerRadius="8"
+                                        Padding="20" Margin="0 0 12 12" Width="180">
+                                    <StackPanel Spacing="6">
+                                        <TextBlock Text="{Binding Label}"
+                                                   FontWeight="Bold" FontSize="14"/>
+                                        <TextBlock Text="{Binding ScorerId}"
+                                                   Foreground="#9999bb" FontSize="12"/>
+                                        <TextBlock Text="{Binding Progress}"
+                                                   FontSize="24" FontWeight="Bold"
+                                                   Foreground="#e94560" Margin="0 8 0 0"/>
+                                        <TextBlock Text="? Done" Foreground="#2ecc71"
+                                                   IsVisible="{Binding IsComplete}"
+                                                   FontWeight="Bold"/>
+                                    </StackPanel>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+
+                <Button Grid.Row="2" Content="?  Finalize Round"
+                        Classes="primary"
+                        HorizontalAlignment="Stretch"
+                        HorizontalContentAlignment="Center"
+                        FontSize="16" Padding="0 14"
+                        Command="{Binding FinalizeRoundCommand}"/>
+            </Grid>
+
+            <!-- Results — überspannt Spalten 0–3 -->
+            <StackPanel Grid.Column="0" Grid.ColumnSpan="4"
+                        IsVisible="{Binding IsResults}"
+                        Spacing="16"
+                        VerticalAlignment="Center"
+                        Margin="16 0 0 0">
+                <TextBlock Text="Round complete! Results are shown on the right."
+                           Foreground="#9999bb" HorizontalAlignment="Center"/>
+                <Button Content="?  Next Round"
+                        Classes="primary"
+                        HorizontalAlignment="Center"
+                        Padding="32 14" FontSize="16"
+                        Command="{Binding NextRoundCommand}"/>
+            </StackPanel>
+
+            <!-- ================================================================
+            SPLITTER 1
+            ================================================================ -->
+            <GridSplitter Grid.Column="1"
+                          IsVisible="{Binding IsSetup}"
+                          ResizeDirection="Columns"
+                          Background="#0f3460"
+                          HorizontalAlignment="Stretch"
+                          VerticalAlignment="Stretch"/>
+
+            <!-- ================================================================
+            SPALTE 2: Round config + Scorer + Start (nur Setup)
+            ================================================================ -->
+            <DockPanel Grid.Column="2"
+                       IsVisible="{Binding IsSetup}"
+                       Margin="8 16 0 16"
+                       LastChildFill="False">
+
+                <Button DockPanel.Dock="Bottom"
+                        Content="?  Start Round"
+                        Classes="primary"
+                        HorizontalAlignment="Stretch"
+                        HorizontalContentAlignment="Center"
+                        FontSize="16" Padding="0 14"
+                        IsEnabled="{Binding CanStartRound}"
+                        Command="{Binding StartRoundCommand}"
+                        Margin="0 12 0 0"/>
+
+                <!-- Round config -->
+                <Border DockPanel.Dock="Top" Background="#16213e"
+                        CornerRadius="8" Padding="16" Margin="0 0 0 10">
+                    <StackPanel Spacing="10">
+                        <TextBlock Text="Round" FontSize="14" FontWeight="Bold"/>
+                        <Grid ColumnDefinitions="90,*" RowDefinitions="Auto,Auto"
+                              RowSpacing="8" ColumnSpacing="12">
+                            <TextBlock Grid.Row="0" Grid.Column="0" Text="Name"
+                                       Foreground="#9999bb" VerticalAlignment="Center"/>
+                            <TextBox   Grid.Row="0" Grid.Column="1"
+                                     Text="{Binding RoundName}"/>
+                            <TextBlock Grid.Row="1" Grid.Column="0" Text="Questions"
+                                       Foreground="#9999bb" VerticalAlignment="Center"/>
+                            <NumericUpDown Grid.Row="1" Grid.Column="1"
+                                           Value="{Binding QuestionCount}"
+                                           Minimum="1" Maximum="30"/>
+                        </Grid>
+                    </StackPanel>
+                </Border>
+
+                <!-- Scorer assignments -->
+                <Border DockPanel.Dock="Top" Background="#16213e"
+                        CornerRadius="8" Padding="12">
+                    <StackPanel Spacing="8">
+                        <Grid ColumnDefinitions="*,Auto">
+                            <TextBlock Text="Scorer Assignments"
+                                       FontSize="14" FontWeight="Bold"/>
+                            <Button Grid.Column="1" Content="+ Scorer"
+                                    Padding="8 4"
+                                    Command="{Binding AddScorerCommand}"/>
+                        </Grid>
+                        <ScrollViewer MaxHeight="200">
+                            <ItemsControl ItemsSource="{Binding Assignments}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:ScorerAssignmentViewModel">
+                                        <Border Background="#0f3460" CornerRadius="6"
+                                                Padding="10 8" Margin="0 3">
+                                            <StackPanel Spacing="6">
+                                                <Grid ColumnDefinitions="*,Auto">
+                                                    <TextBox Grid.Column="0"
+                                                             Text="{Binding Label}"
+                                                             Watermark="Label…" Padding="6 4"/>
+                                                    <Button Grid.Column="1" Content="?"
+                                                            Classes="danger" Padding="6 4"
+                                                            Margin="6 0 0 0"
+                                                            Command="{Binding $parent[Window].DataContext.RemoveScorerCommand}"
+                                                            CommandParameter="{Binding}"/>
+                                                </Grid>
+                                                <ItemsControl ItemsSource="{Binding Teams}">
+                                                    <ItemsControl.ItemsPanel>
+                                                        <ItemsPanelTemplate>
+                                                            <WrapPanel Orientation="Horizontal"/>
+                                                        </ItemsPanelTemplate>
+                                                    </ItemsControl.ItemsPanel>
+                                                    <ItemsControl.ItemTemplate>
+                                                        <DataTemplate x:DataType="vm:AssignableTeamViewModel">
+                                                            <CheckBox Content="{Binding Name}"
+                                                                      IsChecked="{Binding IsAssigned}"
+                                                                      IsEnabled="{Binding !IsDisabled}"
+                                                                      Margin="0 0 10 2"/>
+                                                        </DataTemplate>
+                                                    </ItemsControl.ItemTemplate>
+                                                </ItemsControl>
+                                            </StackPanel>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </ScrollViewer>
+                    </StackPanel>
+                </Border>
+
+            </DockPanel>
+
+            <!-- ================================================================
+            SPLITTER 2 — immer sichtbar
+            ================================================================ -->
+            <GridSplitter Grid.Column="3"
+                          ResizeDirection="Columns"
+                          Background="#0f3460"
+                          HorizontalAlignment="Stretch"
+                          VerticalAlignment="Stretch"/>
+
+            <!-- ================================================================
+            SPALTE 4: Standings + Matrix (immer sichtbar)
+            ================================================================ -->
+            <Border Grid.Column="4" Background="#16213e" CornerRadius="8"
+                    Margin="0 16 16 16" Padding="12">
+                <Border.Styles>
+                    <Style Selector="TabControl">
+                        <Setter Property="Background" Value="#16213e"/>
+                    </Style>
+                    <Style Selector="TabItem">
+                        <Setter Property="Background" Value="#0f3460"/>
+                        <Setter Property="Foreground" Value="#eaeaea"/>
+                        <Setter Property="Padding" Value="10 6"/>
+                    </Style>
+                    <Style Selector="TabItem:selected">
+                        <Setter Property="Background" Value="#16213e"/>
+                        <Setter Property="Foreground" Value="#e94560"/>
+                        <Setter Property="BorderBrush" Value="#e94560"/>
+                    </Style>
+                    <Style Selector="TabItem:selected /template/ Border#PART_SelectedPipe">
+                        <Setter Property="Background" Value="#e94560"/>
+                    </Style>
+                    <Style Selector="TextBlock">
+                        <Setter Property="Foreground" Value="#eaeaea"/>
+                    </Style>
+                    <Style Selector="Expander">
+                        <Setter Property="Foreground" Value="#eaeaea"/>
+                    </Style>
+                    <Style Selector="Expander /template/ ToggleButton">
+                        <Setter Property="Foreground" Value="#eaeaea"/>
+                    </Style>
+                    <Style Selector="CheckBox">
+                        <Setter Property="Foreground" Value="#eaeaea"/>
+                    </Style>
+                </Border.Styles>
+
+                <TabControl>
+
+                    <!-- Standings -->
+                    <TabItem Header="Standings">
+                        <DockPanel Margin="0 8 0 0">
+                            <TextBlock DockPanel.Dock="Top"
+                                       IsVisible="{Binding !HasResults}"
+                                       Text="No rounds played yet."
+                                       Foreground="#4a4a6a" FontSize="12"
+                                       HorizontalAlignment="Center" Margin="0 20 0 0"/>
+
+                            <StackPanel IsVisible="{Binding HasResults}" Spacing="12">
+                                <StackPanel Spacing="4">
+                                    <TextBlock Text="{Binding LastRoundLabel}"
+                                               FontSize="11" FontWeight="Bold"
+                                               Foreground="#9999bb"/>
+                                    <ItemsControl ItemsSource="{Binding LastRoundBoard}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate x:DataType="vm:LeaderboardEntryViewModel">
+                                                <Grid ColumnDefinitions="22,*,Auto" Margin="0 2">
+                                                    <TextBlock Grid.Column="0" Text="{Binding Rank}"
+                                                               Foreground="#4a4a6a" FontSize="12"/>
+                                                    <TextBlock Grid.Column="1" Text="{Binding TeamName}"
+                                                               FontSize="13" TextTrimming="CharacterEllipsis"/>
+                                                    <TextBlock Grid.Column="2" Text="{Binding Score}"
+                                                               Foreground="#e94560" FontWeight="Bold"/>
+                                                </Grid>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </StackPanel>
+
+                                <Border Height="1" Background="#0f3460"/>
+
+                                <StackPanel Spacing="4">
+                                    <TextBlock Text="TOTAL" FontSize="11" FontWeight="Bold"
+                                               Foreground="#9999bb"/>
+                                    <ItemsControl ItemsSource="{Binding TotalBoard}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate x:DataType="vm:LeaderboardEntryViewModel">
+                                                <Grid ColumnDefinitions="22,*,Auto" Margin="0 2">
+                                                    <TextBlock Grid.Column="0" Text="{Binding Rank}"
+                                                               Foreground="#4a4a6a" FontSize="12"/>
+                                                    <TextBlock Grid.Column="1" Text="{Binding TeamName}"
+                                                               FontSize="13" TextTrimming="CharacterEllipsis"/>
+                                                    <TextBlock Grid.Column="2" Text="{Binding Score}"
+                                                               Foreground="#2ecc71" FontWeight="Bold"/>
+                                                </Grid>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </StackPanel>
+                            </StackPanel>
+                        </DockPanel>
+                    </TabItem>
+
+                    <!-- Rounds Matrix -->
+                    <TabItem Header="Rounds">
+                        <ScrollViewer HorizontalScrollBarVisibility="Auto"
+                                      VerticalScrollBarVisibility="Auto"
+                                      Margin="0 8 0 0">
+                            <ItemsControl ItemsSource="{Binding AllRounds}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:RoundMatrixViewModel">
+                                        <Expander IsExpanded="True" Margin="0 0 0 12">
+                                            <Expander.Header>
+                                                <Grid ColumnDefinitions="*,Auto,Auto" Width="220">
+                                                    <TextBlock Grid.Column="0"
+                                                               Text="{Binding RoundName}"
+                                                               FontWeight="Bold"
+                                                               VerticalAlignment="Center"/>
+                                                    <Button Grid.Column="1" Content="Edit"
+                                                            Padding="6 2" FontSize="11"
+                                                            IsVisible="{Binding !IsEditing}"
+                                                            Command="{Binding EditCommand}"
+                                                            Margin="0 0 4 0"/>
+                                                    <StackPanel Grid.Column="2"
+                                                                Orientation="Horizontal" Spacing="4"
+                                                                IsVisible="{Binding IsEditing}">
+                                                        <Button Content="Save" Padding="6 2"
+                                                                FontSize="11" Classes="primary"
+                                                                Command="{Binding SaveCommand}"/>
+                                                        <Button Content="?" Padding="6 2"
+                                                                FontSize="11" Classes="danger"
+                                                                Command="{Binding CancelCommand}"/>
+                                                    </StackPanel>
+                                                </Grid>
+                                            </Expander.Header>
+
+                                            <StackPanel Margin="4 6 0 0">
+
+                                                <!-- Header row -->
+                                                <StackPanel Orientation="Horizontal">
+                                                    <TextBlock Text="Team" Width="80"
+                                                               FontSize="11" Foreground="#9999bb"/>
+                                                    <ItemsControl ItemsSource="{Binding QuestionHeaders}">
+                                                        <ItemsControl.ItemsPanel>
+                                                            <ItemsPanelTemplate>
+                                                                <StackPanel Orientation="Horizontal"/>
+                                                            </ItemsPanelTemplate>
+                                                        </ItemsControl.ItemsPanel>
+                                                        <ItemsControl.ItemTemplate>
+                                                            <DataTemplate>
+                                                                <TextBlock Text="{Binding}" Width="28"
+                                                                           FontSize="11" Foreground="#9999bb"
+                                                                           TextAlignment="Center"/>
+                                                            </DataTemplate>
+                                                        </ItemsControl.ItemTemplate>
+                                                    </ItemsControl>
+                                                    <TextBlock Text="S" Width="28"
+                                                               FontSize="11" Foreground="#9999bb"
+                                                               TextAlignment="Center"/>
+                                                </StackPanel>
+
+                                                <!-- Team rows -->
+                                                <ItemsControl ItemsSource="{Binding Rows}">
+                                                    <ItemsControl.ItemTemplate>
+                                                        <DataTemplate x:DataType="vm:TeamAnswerRowViewModel">
+                                                            <StackPanel Orientation="Horizontal" Margin="0 2">
+                                                                <TextBlock Text="{Binding TeamName}"
+                                                                           Width="80" FontSize="12"
+                                                                           TextTrimming="CharacterEllipsis"
+                                                                           VerticalAlignment="Center"/>
+                                                                <ItemsControl ItemsSource="{Binding Answers}">
+                                                                    <ItemsControl.ItemsPanel>
+                                                                        <ItemsPanelTemplate>
+                                                                            <StackPanel Orientation="Horizontal"/>
+                                                                        </ItemsPanelTemplate>
+                                                                    </ItemsControl.ItemsPanel>
+                                                                    <ItemsControl.ItemTemplate>
+                                                                        <DataTemplate x:DataType="vm:AnswerCellViewModel">
+                                                                            <Panel Width="28" HorizontalAlignment="Center">
+                                                                                <TextBlock Text="{Binding Display}"
+                                                                                           Foreground="{Binding Color}"
+                                                                                           FontSize="13"
+                                                                                           TextAlignment="Center"
+                                                                                           VerticalAlignment="Center"
+                                                                                           IsVisible="{Binding !IsEditing}"/>
+                                                                                <CheckBox IsChecked="{Binding IsCorrect}"
+                                                                                          IsThreeState="True"
+                                                                                          IsVisible="{Binding IsEditing}"
+                                                                                          HorizontalAlignment="Center"
+                                                                                          VerticalAlignment="Center"/>
+                                                                            </Panel>
+                                                                        </DataTemplate>
+                                                                    </ItemsControl.ItemTemplate>
+                                                                </ItemsControl>
+                                                                <TextBlock Text="{Binding Total}"
+                                                                           Width="28" FontSize="12"
+                                                                           Foreground="#e94560"
+                                                                           FontWeight="Bold"
+                                                                           TextAlignment="Center"
+                                                                           VerticalAlignment="Center"/>
+                                                            </StackPanel>
+                                                        </DataTemplate>
+                                                    </ItemsControl.ItemTemplate>
+                                                </ItemsControl>
+
+                                                <!-- Summenzeile -->
+                                                <Border Height="1" Background="#0f3460" Margin="0 4"/>
+                                                <StackPanel Orientation="Horizontal">
+                                                    <TextBlock Text="Correct" Width="80"
+                                                               FontSize="11" Foreground="#9999bb"
+                                                               VerticalAlignment="Center"/>
+                                                    <ItemsControl ItemsSource="{Binding ColSums}">
+                                                        <ItemsControl.ItemsPanel>
+                                                            <ItemsPanelTemplate>
+                                                                <StackPanel Orientation="Horizontal"/>
+                                                            </ItemsPanelTemplate>
+                                                        </ItemsControl.ItemsPanel>
+                                                        <ItemsControl.ItemTemplate>
+                                                            <DataTemplate>
+                                                                <TextBlock Text="{Binding}" Width="28"
+                                                                           FontSize="12" Foreground="#2ecc71"
+                                                                           FontWeight="Bold"
+                                                                           TextAlignment="Center"/>
+                                                            </DataTemplate>
+                                                        </ItemsControl.ItemTemplate>
+                                                    </ItemsControl>
+                                                </StackPanel>
+
+                                            </StackPanel>
+                                        </Expander>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </ScrollViewer>
+                    </TabItem>
+
+                </TabControl>
+            </Border>
+
+        </Grid>
+    </Grid>
+</Window>
+
+
+
+// ===== FILE: C:\Users\mgr\Entwicklung\Event\PubQuizMaster\Desktop\Views\MainWindow.axaml.cs =====
+using Avalonia.Controls;
+
+namespace PubQuizMaster.Views
+{
+    public partial class MainWindow : Window
+    {
+        public MainWindow()
+        {
+            InitializeComponent();
+        }
+    }
+}
+
+
+// ===== FILE: C:\Users\mgr\Entwicklung\Event\PubQuizMaster\Desktop\Web\KestrelHost.cs =====
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.SignalR;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
+using PubQuizMaster.Core.Services;
+using System;
+using System.Net;
+using System.Net.NetworkInformation;
+using System.Net.Sockets;
+using System.Threading;
+using System.Threading.Tasks;
+
+// ---------------------------------------------
+// KESTREL BOOTSTRAP
+// Starts an embedded ASP.NET Core / Kestrel web server
+// inside the Avalonia process. Runs on a background thread.
+// No separate process, no installation required.
+//
+// Scorer clients connect via: http://[LocalIP]:5000
+// SignalR hub endpoint:        http://[LocalIP]:5000/quizhub
+// Static web client:           http://[LocalIP]:5000/index.html
+// ---------------------------------------------
+
+namespace PubQuizMaster.Desktop.Web
+{
+    /// <summary>
+    /// Manages the embedded Kestrel web server lifecycle.
+    /// Call Start() on app launch, Stop() on app shutdown.
+    /// </summary>
+    public class KestrelHost
+    {
+        private WebApplication? _app;
+        private CancellationTokenSource? _cts;
+        private Task? _runTask;
+
+        public const int Port = 5000;
+
+        // Fired when the server is ready — carries the local URL for QR code display
+        public event Action<string>? ServerReady;
+
+        // Exposes IHubContext so Avalonia ViewModels can push events to clients
+        public IHubContext<QuizHub>? HubContext { get; private set; }
+
+        // -- Shared services injected from outside ------------------------------
+        // These are created once in App.axaml.cs and shared between
+        // the Avalonia UI layer and the Kestrel/SignalR layer.
+        private readonly QuizNightService _quizNightService;
+        private readonly PersistenceService _persistenceService;
+        private readonly ScorerSessionService _scorerSessionService;
+
+        public KestrelHost(
+            QuizNightService quizNightService,
+            PersistenceService persistenceService,
+            ScorerSessionService scorerSessionService)
+        {
+            _quizNightService = quizNightService;
+            _persistenceService = persistenceService;
+            _scorerSessionService = scorerSessionService;
+        }
+
+        // -- Start --------------------------------------------------------------
+
+        /// <summary>
+        /// Builds and starts the Kestrel server on a background thread.
+        /// Non-blocking — returns immediately after the server is ready.
+        /// </summary>
+        public void Start()
+        {
+            _cts = new CancellationTokenSource();
+
+            var builder = WebApplication.CreateBuilder();
+
+            // -- Kestrel binding ----------------------------------------------
+            // 0.0.0.0 = all network interfaces, including hotspot adapters.
+            // Avoids localhost-only binding which would be invisible to mobile clients.
+            builder.WebHost.ConfigureKestrel(options =>
+            {
+                options.Listen(IPAddress.Any, Port);
+            });
+
+            // -- Service registration -----------------------------------------
+            // Register the shared singleton instances — the same objects
+            // that the Avalonia ViewModels use. No duplication of state.
+            builder.Services.AddSingleton(_quizNightService);
+            builder.Services.AddSingleton(_persistenceService);
+            builder.Services.AddSingleton(_scorerSessionService);
+
+            // SignalR with JSON polymorphism support for AnswerBase
+            builder.Services.AddSignalR()
+                .AddJsonProtocol(options =>
+                {
+                    // Required so AnswerBool / AnswerPoint survive serialization
+                    options.PayloadSerializerOptions.Converters.Add(new AnswerBaseJsonConverter());
+                });
+
+            // CORS — open for local network access (no credentials, no external risk)
+            builder.Services.AddCors(options =>
+            {
+                options.AddDefaultPolicy(policy =>
+                {
+                    policy
+                        .AllowAnyOrigin()
+                        .AllowAnyHeader()
+                        .AllowAnyMethod();
+                });
+            });
+
+            _app = builder.Build();
+
+            // -- Middleware pipeline ------------------------------------------
+            _app.UseCors();
+
+            // Serve static files from wwwroot (index.html + signalr.min.js)
+            _app.UseStaticFiles();
+
+            // Map SignalR hub
+            _app.MapHub<QuizHub>("/quizhub");
+
+            // Fallback: any unknown route returns index.html (SPA behavior)
+            _app.MapFallbackToFile("index.html");
+
+            // Grab IHubContext so Avalonia can push events to clients
+            HubContext = _app.Services.GetRequiredService<IHubContext<QuizHub>>();
+
+            // -- Run on background thread -------------------------------------
+            _runTask = Task.Run(async () =>
+            {
+                // Fire event so Avalonia can display the URL / QR code
+                var localUrl = $"http://{GetLocalIpAddress()}:{Port}";
+                ServerReady?.Invoke(localUrl);
+
+                await _app.RunAsync(_cts.Token);
+            });
+        }
+
+        // -- Stop ---------------------------------------------------------------
+
+        /// <summary>
+        /// Gracefully shuts down the Kestrel server.
+        /// Call from App.OnFrameworkInitializationCompleted or window close handler.
+        /// </summary>
+        public async Task StopAsync()
+        {
+            if (_cts == null || _app == null) return;
+
+            _cts.Cancel();
+
+            if (_runTask != null)
+                await _runTask.ConfigureAwait(false);
+
+            await _app.DisposeAsync();
+        }
+
+        // -- Helpers ------------------------------------------------------------
+
+        /// <summary>
+        /// Returns the first non-loopback IPv4 address of this machine.
+        /// Works across Wi-Fi, Ethernet, and mobile hotspot adapters.
+        /// Falls back to localhost if no suitable address is found.
+        /// </summary>
+        public static string GetLocalIpAddress()
+        {
+            foreach (var networkInterface in NetworkInterface.GetAllNetworkInterfaces())
+            {
+                if (networkInterface.OperationalStatus != OperationalStatus.Up) continue;
+                if (networkInterface.NetworkInterfaceType == NetworkInterfaceType.Loopback) continue;
+
+                foreach (var address in networkInterface.GetIPProperties().UnicastAddresses)
+                {
+                    if (address.Address.AddressFamily != AddressFamily.InterNetwork) continue;
+                    if (IPAddress.IsLoopback(address.Address)) continue;
+
+                    return address.Address.ToString();
+                }
+            }
+
+            return "localhost";
+        }
+    }
+
+
+
+}
+
+
