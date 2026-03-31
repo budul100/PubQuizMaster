@@ -1,31 +1,27 @@
-﻿using CommunityToolkit.Mvvm.ComponentModel;
-using CommunityToolkit.Mvvm.Input;
-using PubQuizMaster.Core.Models.Event;
-using PubQuizMaster.Core.Services;
-using PubQuizMaster.Desktop.ViewModels;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
+using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
+using PubQuizMaster.Core.Models.Event;
+using PubQuizMaster.Core.Services;
 
 namespace PubQuizMaster.Desktop.ViewModels
 {
-    public partial class RoundMatrixViewModel : ViewModelBase
+    public partial class RoundMatrixViewModel
+        : ViewModelBase
     {
+        #region Private Fields
+
         private readonly Round _round;
         private readonly QuizNightService _svc;
 
-        public string RoundName { get; }
-        public int RoundNumber { get; }
-        public int QuestionCount => _round.QuestionCount;
-
-        // Column headers Q1…Qn
-        public IReadOnlyList<string> QuestionHeaders { get; }
-
-        public ObservableCollection<TeamAnswerRowViewModel> Rows { get; } = new();
-        public ObservableCollection<int> ColSums { get; } = new();
-
         [ObservableProperty] private bool _isEditing;
+
+        #endregion Private Fields
+
+        #region Public Constructors
 
         public RoundMatrixViewModel(Round round, int roundNumber, QuizNightService svc)
         {
@@ -40,35 +36,30 @@ namespace PubQuizMaster.Desktop.ViewModels
             Rebuild();
         }
 
-        [RelayCommand]
-        private void Edit() => IsEditing = true;
+        #endregion Public Constructors
 
-        [RelayCommand]
-        private void Save()
-        {
-            // Persist edited answers back to the service
-            foreach (var row in Rows)
-                for (int qi = 0; qi < QuestionCount; qi++)
-                    _svc.SetAnswer(_round.Id, row.TeamId, qi, row.Answers[qi].IsCorrect);
+        #region Public Properties
 
-            Rebuild();
-            IsEditing = false;
-        }
+        public ObservableCollection<int> ColSums { get; } = [];
 
-        [RelayCommand]
-        private void Cancel()
-        {
-            Rebuild();
-            IsEditing = false;
-        }
+        public Action? ExportAction { get; set; }
 
-        partial void OnIsEditingChanged(bool value)
-        {
-            foreach (var row in Rows)
-                foreach (var cell in row.Answers)
-                    cell.IsEditing = value;
-        }
+        public Action? OnSaved { get; set; }
 
+        public int QuestionCount => _round.QuestionCount;
+
+        // Column headers Q1…Qn
+        public IReadOnlyList<string> QuestionHeaders { get; }
+
+        public string RoundName { get; }
+
+        public int RoundNumber { get; }
+
+        public ObservableCollection<TeamAnswerRowViewModel> Rows { get; } = new();
+
+        #endregion Public Properties
+
+        #region Public Methods
 
         public void Rebuild()
         {
@@ -94,5 +85,45 @@ namespace PubQuizMaster.Desktop.ViewModels
                 foreach (var cell in row.Answers)
                     cell.IsEditing = IsEditing;
         }
+
+        #endregion Public Methods
+
+        #region Private Methods
+
+        [RelayCommand]
+        private void Cancel()
+        {
+            Rebuild();
+            IsEditing = false;
+        }
+
+        [RelayCommand]
+        private void Edit() => IsEditing = true;
+
+        [RelayCommand]
+        private void Export() => ExportAction?.Invoke();
+
+        partial void OnIsEditingChanged(bool value)
+        {
+            foreach (var row in Rows)
+                foreach (var cell in row.Answers)
+                    cell.IsEditing = value;
+        }
+
+        [RelayCommand]      
+        private void Save()
+        {
+            // Persist edited answers back to the service
+            foreach (var row in Rows)
+                for (int qi = 0; qi < QuestionCount; qi++)
+                    _svc.SetAnswer(_round.Id, row.TeamId, qi, row.Answers[qi].IsCorrect);
+
+            Rebuild();
+            IsEditing = false;
+
+            OnSaved?.Invoke();
+        }
+
+        #endregion Private Methods
     }
 }

@@ -2,7 +2,7 @@
 
 namespace PubQuizMaster.Desktop.ViewModels
 {
-    public abstract class ViewModelBase : ObservableObject
-    {
-    }
+    public abstract class ViewModelBase
+        : ObservableObject
+    { }
 }

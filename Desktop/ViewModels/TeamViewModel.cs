@@ -3,17 +3,19 @@ using PubQuizMaster.Core.Models.Participants;
 
 namespace PubQuizMaster.Desktop.ViewModels
 {
-    public partial class TeamViewModel : ViewModelBase
+    public partial class TeamViewModel(Team team)
+        : ViewModelBase
     {
-        public Team Team { get; }
+        #region Private Fields
 
-        [ObservableProperty]
-        private string _name;
+        [ObservableProperty] private string _name = team.Name;
 
-        public TeamViewModel(Team team)
-        {
-            Team = team;
-            _name = team.Name;
-        }
+        #endregion Private Fields
+
+        #region Public Properties
+
+        public Team Team { get; } = team;
+
+        #endregion Public Properties
     }
 }

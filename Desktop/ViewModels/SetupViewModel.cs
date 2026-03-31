@@ -1,38 +1,29 @@
-﻿// ===== SetupViewModel.cs =====
-using CommunityToolkit.Mvvm.ComponentModel;
-using CommunityToolkit.Mvvm.Input;
-using PubQuizMaster.Core.Services;
-using PubQuizMaster.Desktop.ViewModels;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
+using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
+using PubQuizMaster.Core.Services;
 
 namespace PubQuizMaster.Desktop.ViewModels
 {
-    public partial class SetupViewModel : ViewModelBase
+    public partial class SetupViewModel
+        : ViewModelBase
     {
+        #region Private Fields
+
+        private readonly HashSet<Guid> _assignedTeamIds = [];
         private readonly QuizNightService _svc;
-        private readonly HashSet<Guid> _assignedTeamIds = new();
 
         [ObservableProperty] private string _newTeamName = string.Empty;
-        [ObservableProperty] private string _setupError = string.Empty;
-        [ObservableProperty] private string _roundName = string.Empty;
         [ObservableProperty] private int _questionCount = 6;
+        [ObservableProperty] private string _roundName = string.Empty;
+        [ObservableProperty] private string _setupError = string.Empty;
 
-        public ObservableCollection<TeamViewModel> Teams { get; } = new();
-        public ObservableCollection<ScorerAssignmentViewModel> Assignments { get; } = new();
+        #endregion Private Fields
 
-        public bool CanStartRound
-        {
-            get
-            {
-                if (!Teams.Any() || !Assignments.Any()) return false;
-                var allAssigned = Assignments.SelectMany(a => a.SelectedTeams).Select(t => t.Team.Id).ToList();
-                return allAssigned.Count == Teams.Count &&
-                       allAssigned.Distinct().Count() == Teams.Count;
-            }
-        }
+        #region Public Constructors
 
         public SetupViewModel(QuizNightService svc)
         {
@@ -47,6 +38,29 @@ namespace PubQuizMaster.Desktop.ViewModels
             AutoDistributeTeams();
         }
 
+        #endregion Public Constructors
+
+        #region Public Properties
+
+        public ObservableCollection<ScorerAssignmentViewModel> Assignments { get; } = [];
+
+        public bool CanStartRound
+        {
+            get
+            {
+                if (!Teams.Any() || !Assignments.Any()) return false;
+                var allAssigned = Assignments.SelectMany(a => a.SelectedTeams).Select(t => t.Team.Id).ToList();
+                return allAssigned.Count == Teams.Count &&
+                       allAssigned.Distinct().Count() == Teams.Count;
+            }
+        }
+
+        public ObservableCollection<TeamViewModel> Teams { get; } = [];
+
+        #endregion Public Properties
+
+        #region Public Methods
+
         // Called by MainWindowViewModel after FinalizeRound → NextRound
         public void PrepareForNextRound()
         {
@@ -60,6 +74,32 @@ namespace PubQuizMaster.Desktop.ViewModels
 
             AutoDistributeTeams();
             NotifyStartButton();
+        }
+
+        #endregion Public Methods
+
+        #region Private Methods
+
+        [RelayCommand]
+        private void AddScorer()
+        {
+            AddScorerInternal();
+            AutoDistributeTeams();
+            NotifyStartButton();
+        }
+
+        private void AddScorerInternal()
+        {
+            var n = Assignments.Count;
+            var id = $"scorer-{(char)('a' + n)}";
+            var label = $"Scorer {(char)('A' + n)}";
+
+            var vm = new ScorerAssignmentViewModel(id, label, Teams, _assignedTeamIds)
+            {
+                OnAssignmentChanged = OnScorerAssignmentChanged
+            };
+
+            Assignments.Add(vm);
         }
 
         [RelayCommand]
@@ -83,63 +123,6 @@ namespace PubQuizMaster.Desktop.ViewModels
             NotifyStartButton();
         }
 
-        [RelayCommand]
-        private void RemoveTeam(TeamViewModel vm)
-        {
-            Teams.Remove(vm);
-            _svc.QuizNight.MasterTeamList.Remove(vm.Team);
-            _assignedTeamIds.Remove(vm.Team.Id);
-            NotifyStartButton();
-        }
-
-        [RelayCommand]
-        private void SortTeams()
-        {
-            var sorted = Teams.OrderBy(t => t.Name).ToList();
-            Teams.Clear();
-            foreach (var t in sorted) Teams.Add(t);
-            _svc.ReorderTeams(Teams.Select(t => t.Team.Id).ToList());
-        }
-
-        [RelayCommand]
-        private void AddScorer()
-        {
-            AddScorerInternal();
-            AutoDistributeTeams();
-            NotifyStartButton();
-        }
-
-        [RelayCommand]
-        private void RemoveScorer(ScorerAssignmentViewModel vm)
-        {
-            Assignments.Remove(vm);
-            foreach (var t in vm.Teams.Where(t => t.IsAssigned))
-                _assignedTeamIds.Remove(t.TeamVm.Team.Id);
-            foreach (var a in Assignments)
-                a.UpdateDisabledStates();
-            AutoDistributeTeams();
-            NotifyStartButton();
-        }
-
-        private void AddScorerInternal()
-        {
-            var n = Assignments.Count;
-            var id = $"scorer-{(char)('a' + n)}";
-            var label = $"Scorer {(char)('A' + n)}";
-            var vm = new ScorerAssignmentViewModel(id, label, Teams, _assignedTeamIds);
-            vm.OnAssignmentChanged = OnScorerAssignmentChanged;
-            Assignments.Add(vm);
-        }
-
-        private void OnScorerAssignmentChanged(Guid teamId, bool assigned)
-        {
-            if (assigned) _assignedTeamIds.Add(teamId);
-            else _assignedTeamIds.Remove(teamId);
-            foreach (var a in Assignments)
-                a.UpdateDisabledStates();
-            NotifyStartButton();
-        }
-
         private void AutoDistributeTeams()
         {
             if (!Assignments.Any() || !Teams.Any()) return;
@@ -160,5 +143,46 @@ namespace PubQuizMaster.Desktop.ViewModels
         }
 
         private void NotifyStartButton() => OnPropertyChanged(nameof(CanStartRound));
+
+        private void OnScorerAssignmentChanged(Guid teamId, bool assigned)
+        {
+            if (assigned) _assignedTeamIds.Add(teamId);
+            else _assignedTeamIds.Remove(teamId);
+            foreach (var a in Assignments)
+                a.UpdateDisabledStates();
+            NotifyStartButton();
+        }
+
+        [RelayCommand]
+        private void RemoveScorer(ScorerAssignmentViewModel vm)
+        {
+            Assignments.Remove(vm);
+            foreach (var t in vm.Teams.Where(t => t.IsAssigned))
+                _assignedTeamIds.Remove(t.TeamVm.Team.Id);
+            foreach (var a in Assignments)
+                a.UpdateDisabledStates();
+            AutoDistributeTeams();
+            NotifyStartButton();
+        }
+
+        [RelayCommand]
+        private void RemoveTeam(TeamViewModel vm)
+        {
+            Teams.Remove(vm);
+            _svc.QuizNight.MasterTeamList.Remove(vm.Team);
+            _assignedTeamIds.Remove(vm.Team.Id);
+            NotifyStartButton();
+        }
+
+        [RelayCommand]
+        private void SortTeams()
+        {
+            var sorted = Teams.OrderBy(t => t.Name).ToList();
+            Teams.Clear();
+            foreach (var t in sorted) Teams.Add(t);
+            _svc.ReorderTeams(Teams.Select(t => t.Team.Id).ToList());
+        }
+
+        #endregion Private Methods
     }
 }

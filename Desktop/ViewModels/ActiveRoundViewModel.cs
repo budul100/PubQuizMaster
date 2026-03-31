@@ -1,19 +1,23 @@
-﻿// ===== ActiveRoundViewModel.cs =====
-using System.Collections.ObjectModel;
+﻿using System.Collections.ObjectModel;
 using System.Linq;
 using PubQuizMaster.Core.Models.Event;
 
 namespace PubQuizMaster.Desktop.ViewModels
 {
-    public class ActiveRoundViewModel : ViewModelBase
+    public class ActiveRoundViewModel
+        : ViewModelBase
     {
         #region Public Properties
 
         public string ActiveRoundName { get; private set; } = string.Empty;
+
         public string AnswerProgress => $"{AnswersRecorded} / {AnswersExpected}";
+
         public int AnswersExpected { get; private set; }
+
         public int AnswersRecorded { get; private set; }
-        public ObservableCollection<ScorerStatusViewModel> ScorerStatuses { get; } = new();
+
+        public ObservableCollection<ScorerStatusViewModel> ScorerStatuses { get; } = [];
 
         #endregion Public Properties
 

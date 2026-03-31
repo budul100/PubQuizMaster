@@ -1,0 +1,137 @@
+﻿<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:PubQuizMaster.Desktop.ViewModels"
+             x:Class="PubQuizMaster.Desktop.Views.RoundMatrixView"
+             x:DataType="vm:RoundMatrixViewModel">
+
+    <DockPanel>
+
+        <!-- Toolbar: Edit / Save / Cancel / Export -->
+        <Border DockPanel.Dock="Top" Background="#16213e"
+                CornerRadius="8" Padding="12 10" Margin="0 0 0 12">
+            <Grid ColumnDefinitions="*,Auto">
+                <TextBlock Grid.Column="0"
+                           Text="{Binding RoundName}"
+                           FontSize="16" FontWeight="Bold"
+                           VerticalAlignment="Center"/>
+
+                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
+
+                    <!-- Edit-Modus aus -->
+                    <Button Content="✎ Edit"
+                            IsVisible="{Binding !IsEditing}"
+                            Command="{Binding EditCommand}"/>
+
+                    <!-- Edit-Modus an -->
+                    <Button Content="✓ Save" Classes="primary"
+                            IsVisible="{Binding IsEditing}"
+                            Command="{Binding SaveCommand}"/>
+                    <Button Content="✕ Cancel" Classes="danger"
+                            IsVisible="{Binding IsEditing}"
+                            Command="{Binding CancelCommand}"/>
+
+                    <!-- Export immer sichtbar -->
+                    <Button Content="↗ Export"
+                            Command="{Binding ExportCommand}"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- Matrix -->
+        <ScrollViewer HorizontalScrollBarVisibility="Auto"
+                      VerticalScrollBarVisibility="Auto">
+            <StackPanel Margin="4 0 0 0">
+
+                <!-- Header-Zeile -->
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="Team" Width="140"
+                               FontSize="11" Foreground="#9999bb"/>
+                    <ItemsControl ItemsSource="{Binding QuestionHeaders}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <StackPanel Orientation="Horizontal"/>
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding}" Width="32"
+                                           FontSize="11" Foreground="#9999bb"
+                                           TextAlignment="Center"/>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                    <TextBlock Text="Σ" Width="32"
+                               FontSize="11" Foreground="#9999bb"
+                               TextAlignment="Center"/>
+                </StackPanel>
+
+                <!-- Team-Zeilen -->
+                <ItemsControl ItemsSource="{Binding Rows}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="vm:TeamAnswerRowViewModel">
+                            <StackPanel Orientation="Horizontal" Margin="0 4">
+                                <TextBlock Text="{Binding TeamName}"
+                                           Width="140" FontSize="13"
+                                           TextTrimming="CharacterEllipsis"
+                                           VerticalAlignment="Center"/>
+                                <ItemsControl ItemsSource="{Binding Answers}">
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <StackPanel Orientation="Horizontal"/>
+                                        </ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate x:DataType="vm:AnswerCellViewModel">
+                                            <Panel Width="32" HorizontalAlignment="Center">
+                                                <TextBlock Text="{Binding Display}"
+                                                           Foreground="{Binding Color}"
+                                                           FontSize="14"
+                                                           TextAlignment="Center"
+                                                           VerticalAlignment="Center"
+                                                           IsVisible="{Binding !IsEditing}"/>
+                                                <CheckBox IsChecked="{Binding IsCorrect}"
+                                                          IsThreeState="True"
+                                                          IsVisible="{Binding IsEditing}"
+                                                          HorizontalAlignment="Center"
+                                                          VerticalAlignment="Center"/>
+                                            </Panel>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                                <TextBlock Text="{Binding Total}"
+                                           Width="32" FontSize="13"
+                                           Foreground="#e94560" FontWeight="Bold"
+                                           TextAlignment="Center"
+                                           VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+
+                <!-- Summenzeile -->
+                <Border Height="1" Background="#0f3460" Margin="0 6"/>
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="Correct" Width="140"
+                               FontSize="11" Foreground="#9999bb"
+                               VerticalAlignment="Center"/>
+                    <ItemsControl ItemsSource="{Binding ColSums}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <StackPanel Orientation="Horizontal"/>
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding}" Width="32"
+                                           FontSize="13" Foreground="#2ecc71"
+                                           FontWeight="Bold" TextAlignment="Center"/>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+
+            </StackPanel>
+        </ScrollViewer>
+
+    </DockPanel>
+</UserControl>

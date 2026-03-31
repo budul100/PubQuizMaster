@@ -1,11 +1,12 @@
-﻿<Window xmlns="https://github.com/avaloniaui"
+﻿<!-- ===== MainWindow.axaml ===== -->
+<Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="using:PubQuizMaster.Desktop.ViewModels"
         xmlns:views="using:PubQuizMaster.Desktop.Views"
         x:Class="PubQuizMaster.Desktop.Views.MainWindow"
         x:DataType="vm:MainWindowViewModel"
         Title="PubQuizMaster – Host"
-        Width="1200" Height="720"
+        Width="1280" Height="800"
         Background="#1a1a2e">
 
     <Window.Styles>
@@ -35,6 +36,30 @@
         <Style Selector="Button:disabled /template/ ContentPresenter">
             <Setter Property="Opacity" Value="0.4"/>
         </Style>
+        <Style Selector="TabControl">
+            <Setter Property="Background" Value="#16213e"/>
+        </Style>
+        <Style Selector="TabItem">
+            <Setter Property="Background" Value="#0f3460"/>
+            <Setter Property="Foreground" Value="#eaeaea"/>
+            <Setter Property="Padding" Value="10 6"/>
+        </Style>
+        <Style Selector="TabItem:selected">
+            <Setter Property="Background" Value="#16213e"/>
+            <Setter Property="Foreground" Value="#e94560"/>
+        </Style>
+        <Style Selector="TabItem:selected /template/ Border#PART_SelectedPipe">
+            <Setter Property="Background" Value="#e94560"/>
+        </Style>
+        <Style Selector="Expander">
+            <Setter Property="Foreground" Value="#eaeaea"/>
+        </Style>
+        <Style Selector="Expander /template/ ToggleButton">
+            <Setter Property="Foreground" Value="#eaeaea"/>
+        </Style>
+        <Style Selector="CheckBox">
+            <Setter Property="Foreground" Value="#eaeaea"/>
+        </Style>
     </Window.Styles>
 
     <Grid RowDefinitions="Auto,*">
@@ -56,35 +81,15 @@
             </Grid>
         </Border>
 
-        <!-- 3-Spalten-Grid -->
-        <Grid Grid.Row="1" ColumnDefinitions="*,4,*,4,*">
+        <!-- Body -->
+        <Grid Grid.Row="1">
 
-            <!-- ================================================================
-            SETUP — Panel als Wrapper, damit IsVisible auf Main-VM bleibt
-            und DataContext trotzdem auf SetupViewModel zeigt
-            ================================================================ -->
-            <Panel Grid.Column="0" Grid.ColumnSpan="3"
-                   IsVisible="{Binding IsSetup}">
-                <views:SetupView DataContext="{Binding Setup}"
-                                 Margin="16 16 0 72"/>
-                <Button Content="▶  Start Round"
-                        Classes="primary"
-                        HorizontalAlignment="Stretch"
-                        HorizontalContentAlignment="Center"
-                        VerticalAlignment="Bottom"
-                        FontSize="16" Padding="0 14"
-                        Margin="16 0 8 16"
-                        IsEnabled="{Binding Setup.CanStartRound}"
-                        Command="{Binding StartRoundCommand}"/>
-            </Panel>
-
-            <!-- ================================================================
-            ACTIVE ROUND
-            ================================================================ -->
-            <Grid Grid.Column="0" Grid.ColumnSpan="4"
-                  IsVisible="{Binding IsActiveRound}"
+            <!-- ============================================================
+            SCORING — volle Breite, überdeckt alles
+            ============================================================ -->
+            <Grid IsVisible="{Binding IsScoring}"
                   RowDefinitions="*,Auto"
-                  Margin="16 16 0 16">
+                  Margin="16">
                 <views:ActiveRoundView Grid.Row="0"
                                        DataContext="{Binding ActiveRound}"/>
                 <Button Grid.Row="1"
@@ -97,66 +102,53 @@
                         Command="{Binding FinalizeRoundCommand}"/>
             </Grid>
 
-            <!-- ================================================================
-            RESULTS
-            ================================================================ -->
-            <StackPanel Grid.Column="0" Grid.ColumnSpan="4"
-                        IsVisible="{Binding IsResults}"
-                        Spacing="16"
-                        VerticalAlignment="Center"
-                        Margin="16 0 0 0">
-                <TextBlock Text="Round complete! Results are shown on the right."
-                           Foreground="#9999bb" HorizontalAlignment="Center"/>
-                <Button Content="▶  Next Round"
-                        Classes="primary"
-                        HorizontalAlignment="Center"
-                        Padding="32 14" FontSize="16"
-                        Command="{Binding NextRoundCommand}"/>
-            </StackPanel>
+            <!-- ============================================================
+            REVIEW — 1/4 links + 3/4 mitte
+            ============================================================ -->
+            <Grid IsVisible="{Binding IsReview}"
+                  ColumnDefinitions="1*,4,3*">
 
-            <!-- ================================================================
-            SPLITTER — immer sichtbar
-            ================================================================ -->
-            <GridSplitter Grid.Column="3"
-                          ResizeDirection="Columns"
-                          Background="#0f3460"
-                          HorizontalAlignment="Stretch"
-                          VerticalAlignment="Stretch"/>
+                <!-- Linke Spalte -->
+                <Border Grid.Column="0"
+                        Background="#16213e" CornerRadius="8"
+                        Margin="16 16 0 16" Padding="12">
+                    <views:LeftPanelView DataContext="{Binding LeftPanel}"/>
+                </Border>
 
-            <!-- ================================================================
-            SIDEBAR — immer sichtbar
-            ================================================================ -->
-            <Border Grid.Column="4" Background="#16213e" CornerRadius="8"
-                    Margin="0 16 16 16" Padding="12">
-                <Border.Styles>
-                    <Style Selector="TabControl">
-                        <Setter Property="Background" Value="#16213e"/>
-                    </Style>
-                    <Style Selector="TabItem">
-                        <Setter Property="Background" Value="#0f3460"/>
-                        <Setter Property="Foreground" Value="#eaeaea"/>
-                        <Setter Property="Padding" Value="10 6"/>
-                    </Style>
-                    <Style Selector="TabItem:selected">
-                        <Setter Property="Background" Value="#16213e"/>
-                        <Setter Property="Foreground" Value="#e94560"/>
-                    </Style>
-                    <Style Selector="TabItem:selected /template/ Border#PART_SelectedPipe">
-                        <Setter Property="Background" Value="#e94560"/>
-                    </Style>
-                    <Style Selector="Expander">
-                        <Setter Property="Foreground" Value="#eaeaea"/>
-                    </Style>
-                    <Style Selector="Expander /template/ ToggleButton">
-                        <Setter Property="Foreground" Value="#eaeaea"/>
-                    </Style>
-                    <Style Selector="CheckBox">
-                        <Setter Property="Foreground" Value="#eaeaea"/>
-                    </Style>
-                </Border.Styles>
+                <GridSplitter Grid.Column="1"
+                              ResizeDirection="Columns"
+                              Background="#0f3460"
+                              HorizontalAlignment="Stretch"
+                              VerticalAlignment="Stretch"/>
 
-                <views:SidebarView DataContext="{Binding Sidebar}"/>
-            </Border>
+                <!-- Mittlere Spalte: ContentControl schaltet zwischen Setup und Matrix -->
+                <Grid Grid.Column="2" RowDefinitions="*,Auto" Margin="0 16 16 16">
+
+                    <ContentControl Grid.Row="0" Content="{Binding Center.CurrentContent}">
+                        <ContentControl.DataTemplates>
+                            <DataTemplate DataType="vm:SetupViewModel">
+                                <views:SetupView/>
+                            </DataTemplate>
+                            <DataTemplate DataType="vm:RoundMatrixViewModel">
+                                <views:RoundMatrixView/>
+                            </DataTemplate>
+                        </ContentControl.DataTemplates>
+                    </ContentControl>
+
+                    <!-- Start-Button: nur wenn Setup in der Mitte -->
+                    <Button Grid.Row="1"
+                            IsVisible="{Binding ShowStartButton}"
+                            Content="▶  Start Round"
+                            Classes="primary"
+                            HorizontalAlignment="Stretch"
+                            HorizontalContentAlignment="Center"
+                            FontSize="16" Padding="0 14"
+                            Margin="0 12 0 0"
+                            IsEnabled="{Binding Setup.CanStartRound}"
+                            Command="{Binding StartRoundCommand}"/>
+                </Grid>
+
+            </Grid>
 
         </Grid>
     </Grid>

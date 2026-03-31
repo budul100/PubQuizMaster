@@ -1,26 +1,25 @@
-﻿using CommunityToolkit.Mvvm.ComponentModel;
-using PubQuizMaster.Desktop.ViewModels;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.Linq;
+using CommunityToolkit.Mvvm.ComponentModel;
 
 namespace PubQuizMaster.Desktop.ViewModels
 {
-    public partial class ScorerAssignmentViewModel : ViewModelBase
+    public partial class ScorerAssignmentViewModel
+        : ViewModelBase
     {
-        [ObservableProperty] private string _scorerId;
-        [ObservableProperty] private string _label;
+        #region Private Fields
 
-        private readonly ObservableCollection<TeamViewModel> _masterTeams;
         private readonly HashSet<Guid> _globalAssigned;
+        private readonly ObservableCollection<TeamViewModel> _masterTeams;
+        [ObservableProperty] private string _label;
+        [ObservableProperty] private string _scorerId;
 
-        public ObservableCollection<AssignableTeamViewModel> Teams { get; } = new();
-        public IEnumerable<TeamViewModel> SelectedTeams =>
-            Teams.Where(t => t.IsAssigned).Select(t => t.TeamVm);
+        #endregion Private Fields
 
-        public Action<Guid, bool>? OnAssignmentChanged { get; set; }
+        #region Public Constructors
 
         public ScorerAssignmentViewModel(string scorerId, string label,
             ObservableCollection<TeamViewModel> masterTeams,
@@ -35,6 +34,53 @@ namespace PubQuizMaster.Desktop.ViewModels
                 AddSlot(t, false);
 
             _masterTeams.CollectionChanged += OnMasterTeamsChanged;
+        }
+
+        #endregion Public Constructors
+
+        #region Public Properties
+
+        public Action<Guid, bool>? OnAssignmentChanged { get; set; }
+
+        public IEnumerable<TeamViewModel> SelectedTeams => Teams
+            .Where(t => t.IsAssigned)
+            .Select(t => t.TeamVm);
+
+        public ObservableCollection<AssignableTeamViewModel> Teams { get; } = [];
+
+        #endregion Public Properties
+
+        #region Public Methods
+
+        public void ClearSelections()
+        {
+            foreach (var t in Teams.Where(t => t.IsAssigned))
+                t.IsAssigned = false;
+        }
+
+        public void SetAssigned(Guid teamId, bool value)
+        {
+            var slot = Teams.FirstOrDefault(t => t.TeamVm.Team.Id == teamId);
+            if (slot != null) slot.IsAssigned = value;
+        }
+
+        public void UpdateDisabledStates()
+        {
+            foreach (var t in Teams)
+                t.IsDisabled = !t.IsAssigned && _globalAssigned.Contains(t.TeamVm.Team.Id);
+        }
+
+        #endregion Public Methods
+
+        #region Private Methods
+
+        private void AddSlot(TeamViewModel t, bool isAssigned)
+        {
+            var slot = new AssignableTeamViewModel(t, isAssigned)
+            {
+                AssignmentChanged = (id, assigned) => OnAssignmentChanged?.Invoke(id, assigned)
+            };
+            Teams.Add(slot);
         }
 
         private void OnMasterTeamsChanged(object? sender, NotifyCollectionChangedEventArgs e)
@@ -58,29 +104,6 @@ namespace PubQuizMaster.Desktop.ViewModels
             UpdateDisabledStates();
         }
 
-        private void AddSlot(TeamViewModel t, bool isAssigned)
-        {
-            var slot = new AssignableTeamViewModel(t, isAssigned);
-            slot.AssignmentChanged = (id, assigned) => OnAssignmentChanged?.Invoke(id, assigned);
-            Teams.Add(slot);
-        }
-
-        public void UpdateDisabledStates()
-        {
-            foreach (var t in Teams)
-                t.IsDisabled = !t.IsAssigned && _globalAssigned.Contains(t.TeamVm.Team.Id);
-        }
-
-        public void ClearSelections()
-        {
-            foreach (var t in Teams.Where(t => t.IsAssigned))
-                t.IsAssigned = false;
-        }
-
-        public void SetAssigned(Guid teamId, bool value)
-        {
-            var slot = Teams.FirstOrDefault(t => t.TeamVm.Team.Id == teamId);
-            if (slot != null) slot.IsAssigned = value;
-        }
+        #endregion Private Methods
     }
 }

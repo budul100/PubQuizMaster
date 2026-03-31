@@ -2,8 +2,14 @@
 {
     public class LeaderboardEntryViewModel
     {
+        #region Public Properties
+
         public int Rank { get; set; }
-        public string TeamName { get; set; } = string.Empty;
+
         public decimal Score { get; set; }
+
+        public string TeamName { get; set; } = string.Empty;
+
+        #endregion Public Properties
     }
 }

@@ -2,12 +2,11 @@ using Avalonia.Controls;
 
 namespace PubQuizMaster.Desktop.Views
 {
-    public partial class MainWindow 
-        : Window
+    public partial class RoundMatrixView : UserControl
     {
         #region Public Constructors
 
-        public MainWindow()
+        public RoundMatrixView()
         {
             InitializeComponent();
         }

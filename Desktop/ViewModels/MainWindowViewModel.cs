@@ -1,37 +1,36 @@
-﻿// ===== MainWindowViewModel.cs (nach Refactoring) =====
+﻿using Avalonia;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using PubQuizMaster.Core.Models.Contents;
+using PubQuizMaster.Core.Models.Event;
 using PubQuizMaster.Core.Services;
-using PubQuizMaster.Desktop.ViewModels;
+using PubQuizMaster.Desktop.Models;
 using PubQuizMaster.Desktop.Web;
 using System.Linq;
 using System.Threading.Tasks;
 
 namespace PubQuizMaster.Desktop.ViewModels
 {
-    public partial class MainWindowViewModel : ViewModelBase
+    public partial class MainWindowViewModel
+        : ViewModelBase
     {
-        private readonly QuizNightService _svc;
+        #region Private Fields
+
         private readonly KestrelHost _kestrel;
+        private readonly QuizNightService _svc;
 
-        [ObservableProperty] private HostPhase _phase = HostPhase.Setup;
+        [ObservableProperty] private HostPhase _phase = HostPhase.Review;
         [ObservableProperty] private string _serverUrl = string.Empty;
+        [ObservableProperty] private SetupViewModel _setup = null!;
 
-        public bool IsSetup => Phase == HostPhase.Setup;
-        public bool IsActiveRound => Phase == HostPhase.ActiveRound;
-        public bool IsResults => Phase == HostPhase.Results;
+        #endregion Private Fields
 
-        public string QuizNightName { get; }
+        #region Public Constructors
 
-        // Sub-ViewModels
-        public SetupViewModel Setup { get; }
-        public ActiveRoundViewModel ActiveRound { get; }
-        public SidebarViewModel Sidebar { get; }
-
-        // Designer constructor
-        public MainWindowViewModel() { }
+        public MainWindowViewModel()
+            : this(App.QuizNightService, App.KestrelHost)
+        { }
 
         public MainWindowViewModel(QuizNightService svc, KestrelHost kestrel)
         {
@@ -41,12 +40,112 @@ namespace PubQuizMaster.Desktop.ViewModels
             QuizNightName = svc.QuizNight.Name;
             ServerUrl = $"http://{KestrelHost.GetLocalIpAddress()}:{KestrelHost.Port}";
 
-            Setup = new SetupViewModel(svc);
-            ActiveRound = new ActiveRoundViewModel();
-            Sidebar = new SidebarViewModel(svc);
+            LeftPanel = new LeftPanelViewModel(svc)
+            {
+                OnRoundSelected = OnRoundSelected,
+                OnNewRound = ShowSetup
+            };
+
+            ShowSetup();
+            LeftPanel.Refresh(roundIsActive: false);
 
             svc.AnswerRecorded += OnAnswerRecorded;
             kestrel.ServerReady += url => ServerUrl = url;
+        }
+
+        #endregion Public Constructors
+
+        #region Public Properties
+
+        public ActiveRoundViewModel ActiveRound { get; } = new();
+
+        public CenterViewModel Center { get; } = new();
+
+        public bool IsReview => Phase == HostPhase.Review;
+
+        public bool IsScoring => Phase == HostPhase.Scoring;
+
+        public LeftPanelViewModel LeftPanel { get; private set; } = null!;
+
+        public string? QuizNightName { get; }
+
+        // Start-Button nur sichtbar wenn Review + Setup in der Mitte
+        public bool ShowStartButton => IsReview && Center.IsSetupMode;
+
+        #endregion Public Properties
+
+        #region Private Methods
+
+        [RelayCommand]
+        private async Task FinalizeRound()
+        {
+            var round = _svc.QuizNight.Rounds
+                .FirstOrDefault(r => r.Id == _svc.ActiveRoundId);
+            if (round == null) return;
+
+            _svc.FinalizeRound(round.Id);
+            var leaderboard = _svc.GetLeaderboard();
+
+            if (_kestrel?.HubContext != null)
+                await QuizHub.NotifyRoundFinalized(_kestrel.HubContext, round.Id, leaderboard);
+
+            LeftPanel.Refresh(roundIsActive: false);
+            LeftPanel.SelectEntry(round.Id);
+
+            var index = _svc.QuizNight.Rounds.IndexOf(round);
+            var matrix = new RoundMatrixViewModel(round, index + 1, _svc);
+            matrix.OnSaved = () => LeftPanel.Refresh(roundIsActive: false); // <-- neu
+
+            Center.ShowMatrix(matrix);
+            SwitchPhase(HostPhase.Review);
+        }
+
+        private RoundMatrixViewModel CreateMatrix(Round round)
+        {
+            var index = _svc.QuizNight.Rounds.IndexOf(round);
+            var matrix = new RoundMatrixViewModel(round, index + 1, _svc);
+            matrix.OnSaved = () => LeftPanel.Refresh(roundIsActive: false);
+            return matrix;
+        }
+
+
+        private void NotifyShowStartButton() =>
+            OnPropertyChanged(nameof(ShowStartButton));
+
+        private void OnAnswerRecorded(Answer _)
+        {
+            Dispatcher.UIThread.Post(() =>
+            {
+                var round = _svc.QuizNight.Rounds
+                    .FirstOrDefault(r => r.Id == _svc.ActiveRoundId);
+                if (round == null) return;
+
+                var (recorded, expected, _) = _svc.GetRoundProgress(round.Id);
+                ActiveRound.Refresh(round, recorded, expected);
+            });
+        }
+
+        private void OnRoundSelected(RoundEntryViewModel entry)
+        {
+            LeftPanel.SelectEntry(entry.RoundId);
+
+            var round = _svc.QuizNight.Rounds.First(r => r.Id == entry.RoundId);
+            var index = _svc.QuizNight.Rounds.IndexOf(round);
+
+            var matrix = new RoundMatrixViewModel(round, index + 1, _svc);
+
+            matrix.OnSaved = () => LeftPanel.Refresh(roundIsActive: false);
+
+            Center.ShowMatrix(matrix);
+            NotifyShowStartButton();
+        }
+
+        private void ShowSetup()
+        {
+            Setup = new SetupViewModel(_svc);
+            Center.ShowSetup(Setup);
+            LeftPanel.ClearSelection();
+            NotifyShowStartButton();
         }
 
         [RelayCommand]
@@ -60,7 +159,7 @@ namespace PubQuizMaster.Desktop.ViewModels
             foreach (var a in Setup.Assignments)
             {
                 var ids = a.SelectedTeams.Select(t => t.Team.Id).ToList();
-                if (ids.Any())
+                if (ids.Count > 0)
                     _svc.AssignScorer(round.Id, a.ScorerId, a.Label, ids);
             }
 
@@ -71,53 +170,20 @@ namespace PubQuizMaster.Desktop.ViewModels
             var (recorded, expected, _) = _svc.GetRoundProgress(round.Id);
             ActiveRound.Initialize(round, recorded, expected);
 
-            SwitchPhase(HostPhase.ActiveRound);
-        }
-
-        [RelayCommand]
-        private async Task FinalizeRound()
-        {
-            var round = _svc.QuizNight.Rounds
-                .FirstOrDefault(r => r.Id == _svc.ActiveRoundId);
-            if (round == null) return;
-
-            _svc.FinalizeRound(round.Id);
-            var leaderboard = _svc.GetLeaderboard();
-
-            if (_kestrel.HubContext != null)
-                await QuizHub.NotifyRoundFinalized(_kestrel.HubContext, round.Id, leaderboard);
-
-            Sidebar.Update(round, leaderboard);
-            SwitchPhase(HostPhase.Results);
-        }
-
-        [RelayCommand]
-        private void NextRound()
-        {
-            Setup.PrepareForNextRound();
-            SwitchPhase(HostPhase.Setup);
-        }
-
-        private void OnAnswerRecorded(Answer _)
-        {
-            Dispatcher.UIThread.Post(() =>
-            {
-                var round = _svc.QuizNight.Rounds
-                    .FirstOrDefault(r => r.Id == _svc.ActiveRoundId);
-                if (round == null) return;
-
-                var (recorded, expected, _) = _svc.GetRoundProgress(round.Id);
-                ActiveRound.Refresh(round, recorded, expected);
-                Sidebar.Update(round, _svc.GetLeaderboard());
-            });
+            LeftPanel.Refresh(roundIsActive: true);
+            SwitchPhase(HostPhase.Scoring);
         }
 
         private void SwitchPhase(HostPhase phase)
         {
             Phase = phase;
-            OnPropertyChanged(nameof(IsSetup));
-            OnPropertyChanged(nameof(IsActiveRound));
-            OnPropertyChanged(nameof(IsResults));
+
+            OnPropertyChanged(nameof(IsScoring));
+            OnPropertyChanged(nameof(IsReview));
+
+            NotifyShowStartButton();
         }
+
+        #endregion Private Methods
     }
 }

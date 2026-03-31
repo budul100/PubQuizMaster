@@ -46,7 +46,7 @@ namespace PubQuizMaster.Core.Models.Event
             return activeTeamIds
                 .Select(teamId => new LeaderboardEntry
                 {
-                    Team = MasterTeamList.First(t => t.Id == teamId),
+                    Team = MasterTeamList.FirstOrDefault(t => t.Id == teamId),
                     TotalScore = GetTotalScore(teamId),
                     ScorePerRound = Rounds
                         .Select(r => new RoundScore

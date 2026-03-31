@@ -985,15 +985,20 @@
         // ─────────────────────────────────────────────
 
         document.addEventListener('keydown', (e) => {
-            if (document.getElementById('screen-scoring').classList.contains('active')) {
-                if (e.key === 'ArrowRight' || e.key === 'n' || e.key === 'N') navNext();
-                if (e.key === 'ArrowLeft' || e.key === 'p' || e.key === 'P') navPrev();
-                if (e.key === 'y' || e.key === 'Y' || e.key === '1') submitAnswer(true);
-                if (e.key === 'n' || e.key === 'N' || e.key === '0') submitAnswer(false);
-                if (e.key === 'o' || e.key === 'O') showOverview();
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+
+            const scoringActive = document.getElementById('screen-scoring').classList.contains('active');
+            const overviewActive = document.getElementById('screen-overview').classList.contains('active');
+
+            if (scoringActive) {
+                if (e.key === 'ArrowRight') { e.preventDefault(); navNext(); }
+                if (e.key === 'ArrowLeft') { e.preventDefault(); navPrev(); }
+                if (e.key === 'y' || e.key === 'Y' || e.key === '1') { e.preventDefault(); submitAnswer(true); }
+                if (e.key === 'n' || e.key === 'N' || e.key === '0') { e.preventDefault(); submitAnswer(false); }
+                if (e.key === 'o' || e.key === 'O') { e.preventDefault(); showOverview(); }
             }
-            if (document.getElementById('screen-overview').classList.contains('active')) {
-                if (e.key === 'Escape' || e.key === 'b' || e.key === 'B') showScoring();
+            if (overviewActive) {
+                if (e.key === 'Escape' || e.key === 'b' || e.key === 'B') { e.preventDefault(); showScoring(); }
             }
         });
 

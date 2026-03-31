@@ -1,0 +1,149 @@
+﻿<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:PubQuizMaster.Desktop.ViewModels"
+             x:Class="PubQuizMaster.Desktop.Views.LeftPanelView"
+             x:DataType="vm:LeftPanelViewModel">
+
+    <DockPanel>
+
+        <!-- New Round Button — immer unten -->
+        <Button DockPanel.Dock="Bottom"
+                Content="+ New Round"
+                Classes="primary"
+                HorizontalAlignment="Stretch"
+                HorizontalContentAlignment="Center"
+                Padding="0 12"
+                Margin="0 8 0 0"
+                IsEnabled="{Binding CanAddRound}"
+                Command="{Binding NewRoundCommand}"/>
+
+        <ScrollViewer>
+            <StackPanel Spacing="16">
+
+                <!-- Gesamtstand -->
+                <StackPanel Spacing="6">
+                    <TextBlock Text="TOTAL STANDINGS"
+                               FontSize="11" FontWeight="Bold"
+                               Foreground="#9999bb" LetterSpacing="1"/>
+
+                    <ItemsControl ItemsSource="{Binding TotalBoard}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="vm:LeaderboardEntryViewModel">
+                                <Grid ColumnDefinitions="20,*,Auto" Margin="0 3">
+                                    <TextBlock Grid.Column="0" Text="{Binding Rank}"
+                                               Foreground="#4a4a6a" FontSize="12"/>
+                                    <TextBlock Grid.Column="1" Text="{Binding TeamName}"
+                                               FontSize="13" TextTrimming="CharacterEllipsis"/>
+                                    <TextBlock Grid.Column="2" Text="{Binding Score}"
+                                               Foreground="#2ecc71" FontWeight="Bold" FontSize="13"/>
+                                </Grid>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+
+                <Border Height="1" Background="#0f3460"/>
+
+                <!-- Rundenliste -->
+                <StackPanel Spacing="6">
+                    <TextBlock Text="ROUNDS"
+                               FontSize="11" FontWeight="Bold"
+                               Foreground="#9999bb" LetterSpacing="1"/>
+
+                    <ItemsControl ItemsSource="{Binding Rounds}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="vm:RoundEntryViewModel">
+                                <Border
+                                    CornerRadius="8"
+                                    Padding="10 8"
+                                    Margin="0 3"
+                                    Cursor="Hand"
+                                    Classes.selected="{Binding IsSelected}">
+
+                                    <Border.Background>
+                                        <!-- Selektion per Style -->
+                                        <SolidColorBrush Color="#0f3460"/>
+                                    </Border.Background>
+
+                                    <Border.Styles>
+                                        <Style Selector="Border.selected">
+                                            <Setter Property="Background" Value="#1a3a6e"/>
+                                            <Setter Property="BorderBrush" Value="#e94560"/>
+                                            <Setter Property="BorderThickness" Value="1"/>
+                                        </Style>
+                                    </Border.Styles>
+
+                                    <StackPanel Spacing="6"
+                                                PointerPressed="OnRoundEntryPressed">
+                                        <!-- Header: Name + Badge -->
+                                        <Grid ColumnDefinitions="*,Auto">
+                                            <TextBlock Grid.Column="0"
+                                                       Text="{Binding RoundName}"
+                                                       FontWeight="Bold" FontSize="13"/>
+                                            <Border Grid.Column="1"
+                                                    Background="#2ecc71" CornerRadius="4"
+                                                    Padding="4 2"
+                                                    IsVisible="{Binding IsFinalized}">
+                                                <TextBlock Text="✓" FontSize="10"
+                                                           Foreground="#fff" FontWeight="Bold"/>
+                                            </Border>
+                                        </Grid>
+
+                                        <!-- Per-Team Scores -->
+                                        <ItemsControl 
+                                            ItemsSource="{Binding TeamScores}"
+                                            IsVisible="{Binding IsFinalized}">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate>
+                                                    <Grid ColumnDefinitions="*,Auto">
+                                                        <TextBlock Grid.Column="0"
+                                                                   Text="{Binding Name}"
+                                                                   FontSize="11"
+                                                                   Foreground="#9999bb"
+                                                                   TextTrimming="CharacterEllipsis"/>
+                                                        <TextBlock Grid.Column="1"
+                                                                   Text="{Binding Score}"
+                                                                   FontSize="11"
+                                                                   Foreground="#e94560"
+                                                                   FontWeight="Bold"/>
+                                                    </Grid>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+
+                                        <!-- Per-Question Correct Counts -->
+                                        <StackPanel Orientation="Horizontal" Spacing="4"
+                                                    IsVisible="{Binding IsFinalized}">
+                                            <ItemsControl ItemsSource="{Binding QuestionCorrectCounts}">
+                                                <ItemsControl.ItemsPanel>
+                                                    <ItemsPanelTemplate>
+                                                        <StackPanel Orientation="Horizontal" Spacing="4"/>
+                                                    </ItemsPanelTemplate>
+                                                </ItemsControl.ItemsPanel>
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <Border Width="20" Height="20"
+                                                                CornerRadius="4"
+                                                                Background="#16213e">
+                                                            <TextBlock Text="{Binding}"
+                                                                       FontSize="10"
+                                                                       Foreground="#9999bb"
+                                                                       HorizontalAlignment="Center"
+                                                                       VerticalAlignment="Center"/>
+                                                        </Border>
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
+                                        </StackPanel>
+
+                                    </StackPanel>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+
+            </StackPanel>
+        </ScrollViewer>
+    </DockPanel>
+</UserControl>

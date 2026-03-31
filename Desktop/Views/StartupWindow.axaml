@@ -1,0 +1,176 @@
+﻿<!-- ===== StartupWindow.axaml ===== -->
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:PubQuizMaster.Desktop.ViewModels"
+        xmlns:md="using:PubQuizMaster.Desktop.Models"
+        x:Class="PubQuizMaster.Desktop.Views.StartupWindow"
+        x:DataType="vm:StartupViewModel"
+        Title="PubQuizMaster"
+        Width="540" Height="580"
+        CanResize="False"
+        WindowStartupLocation="CenterScreen"
+        Background="#1a1a2e">
+
+    <Window.Styles>
+        <Style Selector="TextBlock">
+            <Setter Property="Foreground" Value="#eaeaea"/>
+        </Style>
+        <Style Selector="TextBox">
+            <Setter Property="Background" Value="#16213e"/>
+            <Setter Property="Foreground" Value="#eaeaea"/>
+            <Setter Property="BorderBrush" Value="#4a4a6a"/>
+            <Setter Property="CornerRadius" Value="6"/>
+            <Setter Property="Padding" Value="10 8"/>
+        </Style>
+        <Style Selector="Button">
+            <Setter Property="Background" Value="#0f3460"/>
+            <Setter Property="Foreground" Value="#eaeaea"/>
+            <Setter Property="CornerRadius" Value="6"/>
+            <Setter Property="Padding" Value="12 8"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        <Style Selector="Button.primary">
+            <Setter Property="Background" Value="#e94560"/>
+        </Style>
+        <Style Selector="Button:disabled /template/ ContentPresenter">
+            <Setter Property="Opacity" Value="0.4"/>
+        </Style>
+        <Style Selector="ListBox">
+            <Setter Property="Background" Value="#16213e"/>
+            <Setter Property="BorderBrush" Value="#4a4a6a"/>
+            <Setter Property="CornerRadius" Value="6"/>
+        </Style>
+        <Style Selector="ListBoxItem">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="#eaeaea"/>
+            <Setter Property="Padding" Value="10 8"/>
+        </Style>
+        <Style Selector="ListBoxItem:selected /template/ ContentPresenter">
+            <Setter Property="Background" Value="#0f3460"/>
+        </Style>
+        <Style Selector="ListBoxItem:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="#1a2a4e"/>
+        </Style>
+        <Style Selector="CalendarDatePicker">
+            <Setter Property="Background" Value="#16213e"/>
+            <Setter Property="Foreground" Value="#eaeaea"/>
+            <Setter Property="BorderBrush" Value="#4a4a6a"/>
+        </Style>
+    </Window.Styles>
+
+    <Grid RowDefinitions="Auto,*" Margin="32">
+
+        <!-- Logo / Title -->
+        <StackPanel Grid.Row="0" Spacing="4" Margin="0 0 0 32">
+            <TextBlock Text="🎯 PubQuizMaster"
+                       FontSize="28" FontWeight="Bold"
+                       Foreground="#e94560"
+                       HorizontalAlignment="Center"/>
+            <TextBlock Text="Host Setup"
+                       FontSize="14" Foreground="#9999bb"
+                       HorizontalAlignment="Center"/>
+        </StackPanel>
+
+        <!-- Content -->
+        <Grid Grid.Row="1" RowDefinitions="Auto,16,*">
+
+            <!-- New Night -->
+            <Border Grid.Row="0" Background="#16213e"
+                    CornerRadius="10" Padding="20">
+                <StackPanel Spacing="12">
+                    <TextBlock Text="New Quiz Night"
+                               FontSize="14" FontWeight="Bold"/>
+
+                    <Grid ColumnDefinitions="*,16,Auto" RowDefinitions="Auto,Auto"
+                          RowSpacing="8">
+
+                        <TextBox Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="3"
+                                 Text="{Binding NewNightName}"
+                                 Watermark="Quiz Night name e.g. Pub Quiz – April 2026"/>
+
+                        <TextBlock Grid.Row="1" Grid.Column="0"
+                                   Text="Date" Foreground="#9999bb"
+                                   VerticalAlignment="Center"/>
+
+                        <CalendarDatePicker Grid.Row="1" Grid.Column="2"
+                                            SelectedDate="{Binding NewNightDate}"
+                                            HorizontalAlignment="Stretch"/>
+                    </Grid>
+
+                    <Button Content="▶  Create &amp; Start"
+                            Classes="primary"
+                            HorizontalAlignment="Stretch"
+                            HorizontalContentAlignment="Center"
+                            Padding="0 12"
+                            Command="{Binding CreateNewCommand}"/>
+                </StackPanel>
+            </Border>
+
+            <!-- Divider -->
+            <Grid Grid.Row="1" ColumnDefinitions="*,Auto,*" VerticalAlignment="Center">
+                <Border Grid.Column="0" Height="1" Background="#0f3460"/>
+                <TextBlock Grid.Column="1" Text="or" Foreground="#4a4a6a"
+                           Margin="12 0" VerticalAlignment="Center"/>
+                <Border Grid.Column="2" Height="1" Background="#0f3460"/>
+            </Grid>
+
+            <!-- Load existing -->
+            <Border Grid.Row="2" Background="#16213e"
+                    CornerRadius="10" Padding="20">
+                <DockPanel>
+                    <TextBlock DockPanel.Dock="Top"
+                               Text="Load Saved Night"
+                               FontSize="14" FontWeight="Bold"
+                               Margin="0 0 0 10"/>
+
+                    <!-- Error -->
+                    <TextBlock DockPanel.Dock="Top"
+                               Text="{Binding ErrorMessage}"
+                               Foreground="#e74c3c" FontSize="12"
+                               IsVisible="{Binding ErrorMessage,
+                                   Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                               Margin="0 0 0 8"/>
+
+                    <Button DockPanel.Dock="Bottom"
+                            Content="↩  Load Selected"
+                            HorizontalAlignment="Stretch"
+                            HorizontalContentAlignment="Center"
+                            Padding="0 12"
+                            Margin="0 10 0 0"
+                            IsEnabled="{Binding SelectedNight,
+                                Converter={x:Static ObjectConverters.IsNotNull}}"
+                            Command="{Binding LoadCommand}"/>
+
+                    <!-- Empty state -->
+                    <TextBlock DockPanel.Dock="Top"
+                               Text="No saved nights found."
+                               Foreground="#4a4a6a" FontSize="12"
+                               HorizontalAlignment="Center"
+                               Margin="0 16 0 0"
+                               IsVisible="{Binding !SavedNights.Count}"/>
+
+                    <ListBox ItemsSource="{Binding SavedNights}"
+                             SelectedItem="{Binding SelectedNight}"
+                             IsVisible="{Binding SavedNights.Count}">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate x:DataType="md:SavedNightEntry">
+                                <Grid ColumnDefinitions="*,Auto">
+                                    <TextBlock Grid.Column="0"
+                                               Text="{Binding DisplayName}"
+                                               FontSize="13"
+                                               TextTrimming="CharacterEllipsis"/>
+                                    <TextBlock Grid.Column="1"
+                                               Text="{Binding LastModified}"
+                                               Foreground="#9999bb" FontSize="11"
+                                               VerticalAlignment="Center"
+                                               Margin="8 0 0 0"/>
+                                </Grid>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                </DockPanel>
+            </Border>
+
+        </Grid>
+    </Grid>
+</Window>

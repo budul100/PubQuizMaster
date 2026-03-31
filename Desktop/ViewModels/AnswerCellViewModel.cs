@@ -1,19 +1,18 @@
-﻿namespace PubQuizMaster.Desktop.ViewModels
-{
-    using CommunityToolkit.Mvvm.ComponentModel;
-    using PubQuizMaster.Desktop.ViewModels;
+﻿using CommunityToolkit.Mvvm.ComponentModel;
 
-    public partial class AnswerCellViewModel : ViewModelBase
+namespace PubQuizMaster.Desktop.ViewModels
+{
+    public partial class AnswerCellViewModel(bool? isCorrect)
+        : ViewModelBase
     {
-        [ObservableProperty] private bool? _isCorrect;
+        #region Private Fields
+
+        [ObservableProperty] private bool? _isCorrect = isCorrect;
         [ObservableProperty] private bool _isEditing;
 
-        public string Display => IsCorrect switch
-        {
-            true => "✓",
-            false => "✗",
-            null => "–"
-        };
+        #endregion Private Fields
+
+        #region Public Properties
 
         public string Color => IsCorrect switch
         {
@@ -22,9 +21,23 @@
             null => "#4a4a6a"
         };
 
-        public AnswerCellViewModel(bool? isCorrect) => _isCorrect = isCorrect;
+        public string Display => IsCorrect switch
+        {
+            true => "✓",
+            false => "✗",
+            null => "–"
+        };
 
-        partial void OnIsCorrectChanged(bool? value) =>
+        #endregion Public Properties
+
+        #region Private Methods
+
+        partial void OnIsCorrectChanged(bool? value)
+        {
             OnPropertyChanged(nameof(Display));
+            OnPropertyChanged(nameof(Color));
+        }
+
+        #endregion Private Methods
     }
 }
