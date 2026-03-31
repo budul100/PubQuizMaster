@@ -1,4 +1,6 @@
-﻿using Avalonia;
+﻿using System.Linq;
+using System.Threading.Tasks;
+using Avalonia;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -7,8 +9,6 @@ using PubQuizMaster.Core.Models.Event;
 using PubQuizMaster.Core.Services;
 using PubQuizMaster.Desktop.Models;
 using PubQuizMaster.Desktop.Web;
-using System.Linq;
-using System.Threading.Tasks;
 
 namespace PubQuizMaster.Desktop.ViewModels
 {
@@ -76,6 +76,14 @@ namespace PubQuizMaster.Desktop.ViewModels
 
         #region Private Methods
 
+        private RoundMatrixViewModel CreateMatrix(Round round)
+        {
+            var index = _svc.QuizNight.Rounds.IndexOf(round);
+            var matrix = new RoundMatrixViewModel(round, index + 1, _svc);
+            matrix.OnSaved = () => LeftPanel.Refresh(roundIsActive: false);
+            return matrix;
+        }
+
         [RelayCommand]
         private async Task FinalizeRound()
         {
@@ -92,22 +100,11 @@ namespace PubQuizMaster.Desktop.ViewModels
             LeftPanel.Refresh(roundIsActive: false);
             LeftPanel.SelectEntry(round.Id);
 
-            var index = _svc.QuizNight.Rounds.IndexOf(round);
-            var matrix = new RoundMatrixViewModel(round, index + 1, _svc);
-            matrix.OnSaved = () => LeftPanel.Refresh(roundIsActive: false); // <-- neu
+            var matrix = CreateMatrix(round);
 
             Center.ShowMatrix(matrix);
             SwitchPhase(HostPhase.Review);
         }
-
-        private RoundMatrixViewModel CreateMatrix(Round round)
-        {
-            var index = _svc.QuizNight.Rounds.IndexOf(round);
-            var matrix = new RoundMatrixViewModel(round, index + 1, _svc);
-            matrix.OnSaved = () => LeftPanel.Refresh(roundIsActive: false);
-            return matrix;
-        }
-
 
         private void NotifyShowStartButton() =>
             OnPropertyChanged(nameof(ShowStartButton));
@@ -132,9 +129,7 @@ namespace PubQuizMaster.Desktop.ViewModels
             var round = _svc.QuizNight.Rounds.First(r => r.Id == entry.RoundId);
             var index = _svc.QuizNight.Rounds.IndexOf(round);
 
-            var matrix = new RoundMatrixViewModel(round, index + 1, _svc);
-
-            matrix.OnSaved = () => LeftPanel.Refresh(roundIsActive: false);
+            var matrix = CreateMatrix(round);
 
             Center.ShowMatrix(matrix);
             NotifyShowStartButton();
