@@ -132,7 +132,7 @@ namespace PubQuizMaster.Desktop.ViewModels
                 if (round == null) return;
 
                 var (recorded, expected, _) = _svc.GetRoundProgress(round.Id);
-                ActiveRound.Refresh(round, recorded, expected);
+                ActiveRound.Refresh(round, recorded, expected, ServerUrl);
             });
         }
 
@@ -189,7 +189,8 @@ namespace PubQuizMaster.Desktop.ViewModels
                     _kestrel.HubContext, round, _svc.QuizNight.MasterTeamList);
 
             var (recorded, expected, _) = _svc.GetRoundProgress(round.Id);
-            ActiveRound.Initialize(round, recorded, expected);
+            ActiveRound.Initialize(round, recorded, expected, ServerUrl);
+
 
             LeftPanel.Refresh(roundIsActive: true);
             SwitchPhase(HostPhase.Scoring);

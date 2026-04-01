@@ -23,15 +23,15 @@ namespace PubQuizMaster.Desktop.ViewModels
 
         #region Public Methods
 
-        public void Initialize(Round round, int recorded, int expected)
+        public void Initialize(Round round, int recorded, int expected, string baseUrl = "")
         {
             ActiveRoundName = round.Name;
-            Refresh(round, recorded, expected);
+            Refresh(round, recorded, expected, baseUrl);
 
             OnPropertyChanged(nameof(ActiveRoundName));
         }
 
-        public void Refresh(Round round, int recorded, int expected)
+        public void Refresh(Round round, int recorded, int expected, string baseUrl = "")
         {
             AnswersRecorded = recorded;
             AnswersExpected = expected;
@@ -43,12 +43,17 @@ namespace PubQuizMaster.Desktop.ViewModels
             foreach (var a in round.Assignments)
             {
                 var answered = round.Answers.Count(ans => a.TeamIds.Contains(ans.TeamId));
+                var url = string.IsNullOrEmpty(baseUrl)
+                    ? "" : $"{baseUrl}?scorerId={a.ScorerId}";
+
                 ScorerStatuses.Add(new ScorerStatusViewModel
                 {
                     ScorerId = a.ScorerId,
                     Label = a.Label,
                     Answered = answered,
                     Expected = a.TeamIds.Count * round.QuestionCount,
+                    QrCode = string.IsNullOrEmpty(url)
+                        ? null : ScorerStatusViewModel.GenerateQrCode(url)
                 });
             }
         }

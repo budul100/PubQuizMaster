@@ -1,5 +1,4 @@
-﻿<!-- ===== StartupWindow.axaml ===== -->
-<Window xmlns="https://github.com/avaloniaui"
+﻿<Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="using:PubQuizMaster.Desktop.ViewModels"
         xmlns:md="using:PubQuizMaster.Desktop.Models"

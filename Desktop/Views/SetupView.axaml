@@ -1,6 +1,4 @@
-﻿<!-- ===== SetupView.axaml ===== -->
-<!-- DataContext: SetupViewModel -->
-<UserControl xmlns="https://github.com/avaloniaui"
+﻿<UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:PubQuizMaster.Desktop.ViewModels"
              x:Class="PubQuizMaster.Desktop.Views.SetupView"
@@ -48,9 +46,8 @@
                       VerticalAlignment="Stretch"/>
 
         <!-- Round Config + Scorer Assignments -->
-        <DockPanel Grid.Column="2" LastChildFill="False">
+        <DockPanel Grid.Column="2" LastChildFill="True">
 
-            <!-- Round config -->
             <Border DockPanel.Dock="Top" Background="#16213e"
                     CornerRadius="8" Padding="16" Margin="8 0 0 10">
                 <StackPanel Spacing="10">
@@ -75,19 +72,18 @@
             </Border>
 
             <!-- Scorer assignments -->
-            <Border DockPanel.Dock="Top" Background="#16213e"
+            <Border Background="#16213e"
                     CornerRadius="8" Padding="12" Margin="8 0 0 0">
-                <StackPanel Spacing="8">
-                    <Grid ColumnDefinitions="*,Auto">
+                <DockPanel LastChildFill="True">
+                    <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto" Margin="0 0 0 8">
                         <TextBlock Text="Scorer Assignments"
                                    FontSize="14" FontWeight="Bold"/>
                         <Button Grid.Column="1" Content="+ Scorer"
                                 Padding="8 4"
                                 Command="{Binding AddScorerCommand}"/>
                     </Grid>
-                    <ScrollViewer MaxHeight="200">
-                        <ItemsControl ItemsSource="{Binding Assignments}">
-                            <ItemsControl.ItemTemplate>
+                    <ScrollViewer>
+                        <ItemsControl ItemsSource="{Binding Assignments}">                            <ItemsControl.ItemTemplate>
                                 <DataTemplate x:DataType="vm:ScorerAssignmentViewModel">
                                     <Border Background="#0f3460" CornerRadius="6"
                                             Padding="10 8" Margin="0 3">
@@ -123,7 +119,7 @@
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
                     </ScrollViewer>
-                </StackPanel>
+                </DockPanel>
             </Border>
 
         </DockPanel>

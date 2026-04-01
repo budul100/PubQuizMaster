@@ -1,4 +1,7 @@
-﻿namespace PubQuizMaster.Desktop.ViewModels
+﻿using Avalonia.Media.Imaging;
+using QRCoder;
+
+namespace PubQuizMaster.Desktop.ViewModels
 {
     public class ScorerStatusViewModel
     {
@@ -14,8 +17,24 @@
 
         public string Progress => $"{Answered} / {Expected}";
 
+        public Bitmap? QrCode { get; set; }
+
         public string ScorerId { get; set; } = string.Empty;
 
         #endregion Public Properties
+
+        #region Public Methods
+
+        public static Bitmap GenerateQrCode(string url)
+        {
+            using var gen = new QRCodeGenerator();
+            var data = gen.CreateQrCode(url, QRCodeGenerator.ECCLevel.M);
+            var png = new PngByteQRCode(data);
+            var bytes = png.GetGraphic(6);
+            using var ms = new System.IO.MemoryStream(bytes);
+            return new Bitmap(ms);
+        }
+
+        #endregion Public Methods
     }
 }

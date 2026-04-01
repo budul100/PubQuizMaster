@@ -1,6 +1,4 @@
-﻿<!-- ===== ActiveRoundView.axaml ===== -->
-<!-- DataContext: ActiveRoundViewModel -->
-<UserControl xmlns="https://github.com/avaloniaui"
+﻿<UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:PubQuizMaster.Desktop.ViewModels"
              x:Class="PubQuizMaster.Desktop.Views.ActiveRoundView"
@@ -31,8 +29,9 @@
                 </ItemsControl.ItemsPanel>
                 <ItemsControl.ItemTemplate>
                     <DataTemplate x:DataType="vm:ScorerStatusViewModel">
+
                         <Border Background="#16213e" CornerRadius="8"
-                                Padding="20" Margin="0 0 12 12" Width="180">
+                                Padding="20" Margin="0 0 12 12" Width="280">
                             <StackPanel Spacing="6">
                                 <TextBlock Text="{Binding Label}"
                                            FontWeight="Bold" FontSize="14"/>
@@ -44,9 +43,17 @@
                                 <TextBlock Text="✓ Done" Foreground="#2ecc71"
                                            IsVisible="{Binding IsComplete}"
                                            FontWeight="Bold"/>
+                                <Image Source="{Binding QrCode}"
+                                       Width="200" Height="200"
+                                       Margin="0 8 0 0"
+                                       IsVisible="{Binding QrCode,
+                                       Converter={x:Static ObjectConverters.IsNotNull}}"
+                                       HorizontalAlignment="Center"/>
                             </StackPanel>
                         </Border>
+
                     </DataTemplate>
+
                 </ItemsControl.ItemTemplate>
             </ItemsControl>
         </ScrollViewer>
