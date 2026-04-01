@@ -4,7 +4,8 @@ using PubQuizMaster.Desktop.ViewModels;
 
 namespace PubQuizMaster.Desktop.Views
 {
-    public partial class LeftPanelView : UserControl
+    public partial class LeftPanelView 
+        : UserControl
     {
         #region Public Constructors
 
@@ -14,11 +15,10 @@ namespace PubQuizMaster.Desktop.Views
 
         #region Private Methods
 
-        // PointerPressed auf dem StackPanel im DataTemplate
         private void OnRoundEntryPressed(object? sender, PointerPressedEventArgs e)
         {
-            if (sender is Avalonia.Controls.Control ctrl &&
-                ctrl.DataContext is RoundEntryViewModel vm)
+            if (sender is Border border &&
+                border.DataContext is RoundEntryViewModel vm)
                 vm.SelectCommand.Execute(null);
         }
 

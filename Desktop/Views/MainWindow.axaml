@@ -1,5 +1,4 @@
-﻿<!-- ===== MainWindow.axaml ===== -->
-<Window xmlns="https://github.com/avaloniaui"
+﻿<Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="using:PubQuizMaster.Desktop.ViewModels"
         xmlns:views="using:PubQuizMaster.Desktop.Views"
@@ -34,7 +33,11 @@
             <Setter Property="Background" Value="#c0392b"/>
         </Style>
         <Style Selector="Button:disabled /template/ ContentPresenter">
-            <Setter Property="Opacity" Value="0.4"/>
+            <Setter Property="Background" Value="#4a4a6a"/>
+            <Setter Property="Opacity" Value="1"/>
+        </Style>
+        <Style Selector="Button:disabled">
+            <Setter Property="Foreground" Value="#aaaacc"/>
         </Style>
         <Style Selector="TabControl">
             <Setter Property="Background" Value="#16213e"/>
@@ -75,43 +78,34 @@
                 </StackPanel>
                 <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
                     <TextBlock Text="🌐" VerticalAlignment="Center"/>
-                    <TextBlock Text="{Binding ServerUrl}" FontSize="12"
-                               Foreground="#9999bb" VerticalAlignment="Center"/>
+                    <Button Grid.Column="1"
+                            Content="{Binding ServerUrl}"
+                            Command="{Binding OpenInBrowserCommand}"
+                            FontSize="12"
+                            Foreground="#9999bb"
+                            VerticalAlignment="Center"
+                            Background="Transparent"
+                            Padding="0"
+                            Cursor="Hand"/>
                 </StackPanel>
             </Grid>
         </Border>
 
         <!-- Body -->
-        <Grid Grid.Row="1">
+        <Grid Grid.Row="1" RowDefinitions="*,Auto" Margin="16">
 
-            <!-- ============================================================
-            SCORING — volle Breite, überdeckt alles
-            ============================================================ -->
-            <Grid IsVisible="{Binding IsScoring}"
-                  RowDefinitions="*,Auto"
-                  Margin="16">
-                <views:ActiveRoundView Grid.Row="0"
-                                       DataContext="{Binding ActiveRound}"/>
-                <Button Grid.Row="1"
-                        Content="⏹  Finalize Round"
-                        Classes="primary"
-                        HorizontalAlignment="Stretch"
-                        HorizontalContentAlignment="Center"
-                        FontSize="16" Padding="0 14"
-                        Margin="0 12 0 0"
-                        Command="{Binding FinalizeRoundCommand}"/>
+            <!-- Scoring — volle Breite -->
+            <Grid Grid.Row="0" IsVisible="{Binding IsScoring}">
+                <views:ActiveRoundView DataContext="{Binding ActiveRound}"/>
             </Grid>
 
-            <!-- ============================================================
-            REVIEW — 1/4 links + 3/4 mitte
-            ============================================================ -->
-            <Grid IsVisible="{Binding IsReview}"
+            <!-- Review — linke + mittlere Spalte -->
+            <Grid Grid.Row="0" IsVisible="{Binding IsReview}"
                   ColumnDefinitions="1*,4,3*">
 
-                <!-- Linke Spalte -->
                 <Border Grid.Column="0"
                         Background="#16213e" CornerRadius="8"
-                        Margin="16 16 0 16" Padding="12">
+                        Margin="0 0 0 0" Padding="12">
                     <views:LeftPanelView DataContext="{Binding LeftPanel}"/>
                 </Border>
 
@@ -121,10 +115,16 @@
                               HorizontalAlignment="Stretch"
                               VerticalAlignment="Stretch"/>
 
-                <!-- Mittlere Spalte: ContentControl schaltet zwischen Setup und Matrix -->
-                <Grid Grid.Column="2" RowDefinitions="*,Auto" Margin="0 16 16 16">
-
-                    <ContentControl Grid.Row="0" Content="{Binding Center.CurrentContent}">
+                <Grid Grid.Column="2" RowDefinitions="Auto,*" Margin="0 0 0 0">
+                    <Border Grid.Row="0"
+                            Background="#3a1a1a" CornerRadius="8"
+                            Padding="12 8" Margin="0 0 0 8"
+                            IsVisible="{Binding Setup.SetupError,
+                            Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+                        <TextBlock Text="{Binding Setup.SetupError}"
+                                   Foreground="#e74c3c" FontSize="13"/>
+                    </Border>
+                    <ContentControl Grid.Row="1" Content="{Binding Center.CurrentContent}">
                         <ContentControl.DataTemplates>
                             <DataTemplate DataType="vm:SetupViewModel">
                                 <views:SetupView/>
@@ -134,22 +134,44 @@
                             </DataTemplate>
                         </ContentControl.DataTemplates>
                     </ContentControl>
-
-                    <!-- Start-Button: nur wenn Setup in der Mitte -->
-                    <Button Grid.Row="1"
-                            IsVisible="{Binding ShowStartButton}"
-                            Content="▶  Start Round"
-                            Classes="primary"
-                            HorizontalAlignment="Stretch"
-                            HorizontalContentAlignment="Center"
-                            FontSize="16" Padding="0 14"
-                            Margin="0 12 0 0"
-                            IsEnabled="{Binding Setup.CanStartRound}"
-                            Command="{Binding StartRoundCommand}"/>
                 </Grid>
 
             </Grid>
 
+            <!-- Einziger Button — volle Breite, immer unten -->
+            <Button Grid.Row="1"
+                    IsVisible="{Binding ShowStartButton}"
+                    Content="▶  Start Round"
+                    Classes="primary"
+                    HorizontalAlignment="Stretch"
+                    HorizontalContentAlignment="Center"
+                    FontSize="16" Padding="0 14"
+                    Margin="0 12 0 0"
+                    IsEnabled="{Binding Setup.CanStartRound}"
+                    Command="{Binding StartRoundCommand}"/>
+
+            <Button Grid.Row="1"
+                    IsVisible="{Binding IsScoring}"
+                    Content="🏁  Finalize Round"
+                    Classes="primary"
+                    HorizontalAlignment="Stretch"
+                    HorizontalContentAlignment="Center"
+                    FontSize="16" Padding="0 14"
+                    Margin="0 12 0 0"
+                    Command="{Binding FinalizeRoundCommand}"/>
+
+            <Button Grid.Row="1"
+                    IsVisible="{Binding ShowNewRoundButton}"
+                    Content="+ New Round"
+                    Classes="primary"
+                    HorizontalAlignment="Stretch"
+                    HorizontalContentAlignment="Center"
+                    FontSize="16" Padding="0 14"
+                    Margin="0 12 0 0"
+                    Command="{Binding LeftPanel.NewRoundCommand}"/>
+
         </Grid>
+
+
     </Grid>
 </Window>

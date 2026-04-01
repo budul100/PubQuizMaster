@@ -6,17 +6,6 @@
 
     <DockPanel>
 
-        <!-- New Round Button — immer unten -->
-        <Button DockPanel.Dock="Bottom"
-                Content="+ New Round"
-                Classes="primary"
-                HorizontalAlignment="Stretch"
-                HorizontalContentAlignment="Center"
-                Padding="0 12"
-                Margin="0 8 0 0"
-                IsEnabled="{Binding CanAddRound}"
-                Command="{Binding NewRoundCommand}"/>
-
         <ScrollViewer>
             <StackPanel Spacing="16">
 
@@ -58,10 +47,10 @@
                                     Padding="10 8"
                                     Margin="0 3"
                                     Cursor="Hand"
-                                    Classes.selected="{Binding IsSelected}">
+                                    Classes.selected="{Binding IsSelected}"
+                                    PointerPressed="OnRoundEntryPressed">
 
                                     <Border.Background>
-                                        <!-- Selektion per Style -->
                                         <SolidColorBrush Color="#0f3460"/>
                                     </Border.Background>
 
@@ -73,24 +62,13 @@
                                         </Style>
                                     </Border.Styles>
 
-                                    <StackPanel Spacing="6"
-                                                PointerPressed="OnRoundEntryPressed">
-                                        <!-- Header: Name + Badge -->
-                                        <Grid ColumnDefinitions="*,Auto">
-                                            <TextBlock Grid.Column="0"
-                                                       Text="{Binding RoundName}"
-                                                       FontWeight="Bold" FontSize="13"/>
-                                            <Border Grid.Column="1"
-                                                    Background="#2ecc71" CornerRadius="4"
-                                                    Padding="4 2"
-                                                    IsVisible="{Binding IsFinalized}">
-                                                <TextBlock Text="✓" FontSize="10"
-                                                           Foreground="#fff" FontWeight="Bold"/>
-                                            </Border>
-                                        </Grid>
+                                    <StackPanel Spacing="6">
+                                        <!-- Header: nur Name, kein Badge mehr -->
+                                        <TextBlock Text="{Binding RoundName}"
+                                                   FontWeight="Bold" FontSize="13"/>
 
                                         <!-- Per-Team Scores -->
-                                        <ItemsControl 
+                                        <ItemsControl
                                             ItemsSource="{Binding TeamScores}"
                                             IsVisible="{Binding IsFinalized}">
                                             <ItemsControl.ItemTemplate>

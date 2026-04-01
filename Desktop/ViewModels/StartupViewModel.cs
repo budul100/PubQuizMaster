@@ -18,7 +18,8 @@ namespace PubQuizMaster.Desktop.ViewModels
 
         [ObservableProperty] private string _errorMessage = string.Empty;
 
-        [ObservableProperty] private DateTimeOffset _newNightDate = DateTimeOffset.Now;
+        [ObservableProperty]
+        private DateTime? _newNightDate = DateTime.Today;
 
         [ObservableProperty]
         [NotifyCanExecuteChangedFor(nameof(CreateNewCommand))]
@@ -63,7 +64,7 @@ namespace PubQuizMaster.Desktop.ViewModels
             Result = new QuizNight
             {
                 Name = NewNightName.Trim(),
-                Date = NewNightDate.DateTime
+                Date = NewNightDate ?? DateTime.Today,
             };
             CloseRequested?.Invoke();
         }

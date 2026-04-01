@@ -33,7 +33,11 @@
             <Setter Property="Background" Value="#e94560"/>
         </Style>
         <Style Selector="Button:disabled /template/ ContentPresenter">
-            <Setter Property="Opacity" Value="0.4"/>
+            <Setter Property="Background" Value="#4a4a6a"/>
+            <Setter Property="Opacity" Value="1"/>
+        </Style>
+        <Style Selector="Button:disabled">
+            <Setter Property="Foreground" Value="#aaaacc"/>
         </Style>
         <Style Selector="ListBox">
             <Setter Property="Background" Value="#16213e"/>
@@ -128,7 +132,7 @@
                                Text="{Binding ErrorMessage}"
                                Foreground="#e74c3c" FontSize="12"
                                IsVisible="{Binding ErrorMessage,
-                                   Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                               Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
                                Margin="0 0 0 8"/>
 
                     <Button DockPanel.Dock="Bottom"
@@ -138,7 +142,7 @@
                             Padding="0 12"
                             Margin="0 10 0 0"
                             IsEnabled="{Binding SelectedNight,
-                                Converter={x:Static ObjectConverters.IsNotNull}}"
+                            Converter={x:Static ObjectConverters.IsNotNull}}"
                             Command="{Binding LoadCommand}"/>
 
                     <!-- Empty state -->

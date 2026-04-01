@@ -35,12 +35,10 @@ namespace PubQuizMaster.Desktop.ViewModels
             foreach (var r in Rounds) r.IsSelected = false;
         }
 
-        public void Refresh(bool roundIsActive)
+        public void Refresh(bool roundIsActive, bool setupIsActive = false)
         {
-            // New round allowed only if no round is currently active
-            // and all existing rounds are finalized
-            CanAddRound = !roundIsActive &&
-                          svc.QuizNight.Rounds.All(r => r.IsFinalized);
+            CanAddRound = !roundIsActive && !setupIsActive
+                && svc.QuizNight.Rounds.All(r => r.IsFinalized);
 
             Rounds.Clear();
             foreach (var r in svc.QuizNight.Rounds)

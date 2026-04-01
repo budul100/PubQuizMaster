@@ -156,8 +156,14 @@ namespace PubQuizMaster.Core.Services
             };
 
             QuizNight.Rounds.Add(round);
-            _state.SetActiveRound(round.Id);
+            _state?.SetActiveRound(round.Id);
             return round;
+        }
+
+        public void DeleteRound(Guid roundId)
+        {
+            var round = GetRoundOrThrow(roundId);
+            QuizNight.Rounds.Remove(round);
         }
 
         // ── Rounds ────────────────────────────────
@@ -190,7 +196,7 @@ namespace PubQuizMaster.Core.Services
         {
             var round = GetRoundOrThrow(roundId);
             var expected = round.ActiveTeamIds.Count * round.QuestionCount;
-            var recorded = round.Answers.Count;
+            var recorded = round.Answers.ToList().Count; // snapshot to avoid race
             var pct = expected == 0 ? 0d : (double)recorded / expected * 100;
             return (recorded, expected, Math.Round(pct, 1));
         }
@@ -211,7 +217,7 @@ namespace PubQuizMaster.Core.Services
         /// </summary>
         public Answer RecordAnswerBool(string scorerId, Guid teamId, int questionIndex, bool correct)
         {
-            return _state.RecordAnswer(
+            return _state?.RecordAnswer(
                 _state.ActiveRoundId,
                 scorerId,
                 teamId,
@@ -291,7 +297,6 @@ namespace PubQuizMaster.Core.Services
                     RecordedByScorerId = "host"
                 });
         }
-
 
         #endregion Public Methods
 

@@ -364,22 +364,24 @@
             background: var(--color-surface);
             border-radius: var(--radius);
             padding: 12px 16px;
-            display: flex;
+            display: grid;
+            grid-template-columns: 140px 1fr auto;
             align-items: center;
-            justify-content: space-between;
             gap: 8px;
         }
 
         .overview-team {
             font-weight: 600;
             font-size: 1rem;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
         }
 
         .overview-dots {
             display: flex;
             gap: 4px;
-            flex-wrap: wrap;
-            justify-content: flex-end;
+            flex-wrap: nowrap;
         }
 
         .dot {
@@ -922,20 +924,22 @@
             const team = state.teams[state.currentTeamIndex];
             if (!team) return;
 
+            // Capture position before any async suspension
+            const teamId = team.id;
+            const teamIndex = state.currentTeamIndex;
+            const questionIndex = state.currentQuestionIndex;
+
+            // Advance immediately — next click already targets the correct cell
+            setAnswer(teamIndex, questionIndex, correct);
+            navNext();
+
             try {
                 await state.connection.invoke('SubmitBoolAnswer',
                     state.roundId,
-                    team.id,
-                    state.currentQuestionIndex,
+                    teamId,
+                    questionIndex,
                     correct
                 );
-
-                // Optimistic update — server will confirm via AnswerUpdated broadcast
-                setAnswer(state.currentTeamIndex, state.currentQuestionIndex, correct);
-
-                // Auto-advance to next cell
-                navNext();
-
             } catch (err) {
                 showToast('Failed to submit — check connection.');
                 console.error(err);

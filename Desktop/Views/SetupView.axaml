@@ -14,22 +14,12 @@
                 <TextBlock DockPanel.Dock="Top" Text="Teams"
                            FontSize="14" FontWeight="Bold" Margin="0 0 0 10"/>
 
-                <TextBlock DockPanel.Dock="Top"
-                           Text="{Binding SetupError}"
-                           Foreground="#e74c3c" FontSize="12"
-                           IsVisible="{Binding SetupError,
-                           Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
-                           Margin="0 0 0 6"/>
-
-                <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto,Auto"
+                <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto"
                       ColumnSpacing="6" Margin="0 0 0 8">
                     <TextBox Grid.Column="0" Text="{Binding NewTeamName}"
                              Watermark="Team name…"/>
                     <Button Grid.Column="1" Content="Add"
                             Command="{Binding AddTeamCommand}"/>
-                    <Button Grid.Column="2" Content="A↓"
-                            Command="{Binding SortTeamsCommand}"
-                            ToolTip.Tip="Sort by name"/>
                 </Grid>
 
                 <ScrollViewer>
@@ -75,7 +65,11 @@
                                    Foreground="#9999bb" VerticalAlignment="Center"/>
                         <NumericUpDown Grid.Row="1" Grid.Column="1"
                                        Value="{Binding QuestionCount}"
-                                       Minimum="1" Maximum="30"/>
+                                       Minimum="1" Maximum="50"
+                                       FormatString="0"
+                                       Increment="1"
+                                       AllowSpin="True"/>
+
                     </Grid>
                 </StackPanel>
             </Border>

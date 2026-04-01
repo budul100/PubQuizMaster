@@ -42,6 +42,11 @@ namespace PubQuizMaster.Desktop.ViewModels
 
         public Action<Guid, bool>? OnAssignmentChanged { get; set; }
 
+
+        public Action? LabelEdited { get; set; }
+
+        partial void OnLabelChanged(string value) => LabelEdited?.Invoke();
+
         public IEnumerable<TeamViewModel> SelectedTeams => Teams
             .Where(t => t.IsAssigned)
             .Select(t => t.TeamVm);

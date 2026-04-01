@@ -53,12 +53,12 @@ namespace PubQuizMaster.Core.Models.Event
                         {
                             RoundId = r.Id,
                             RoundName = r.Name,
-                            Score = r.GetTeamScore(teamId)   // null if not active
+                            Score = r.GetTeamScore(teamId)
                         })
                         .ToList()
                 })
-                .OrderByDescending(e => e.TotalScore)
-                .ToList();
+                .Where(e => e.Team != null)   // skip orphaned team references
+                .OrderByDescending(e => e.TotalScore).ToList();
         }
 
         /// <summary>

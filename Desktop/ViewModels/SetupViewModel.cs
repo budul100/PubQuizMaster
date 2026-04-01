@@ -49,9 +49,25 @@ namespace PubQuizMaster.Desktop.ViewModels
             get
             {
                 if (!Teams.Any() || !Assignments.Any()) return false;
+
                 var allAssigned = Assignments.SelectMany(a => a.SelectedTeams).Select(t => t.Team.Id).ToList();
-                return allAssigned.Count == Teams.Count &&
-                       allAssigned.Distinct().Count() == Teams.Count;
+                if (allAssigned.Count != Teams.Count || allAssigned.Distinct().Count() != Teams.Count)
+                    return false;
+
+                if (_svc.QuizNight.Rounds.Any(r => r.Name.Equals(RoundName.Trim(), StringComparison.OrdinalIgnoreCase)))
+                    return false;
+
+                var labels = Assignments.Select(a => a.Label.Trim()).ToList();
+                if (labels.Distinct(StringComparer.OrdinalIgnoreCase).Count() != labels.Count)
+                {
+                    SetupError = "Scorer labels must be unique.";
+                    return false;
+                }
+
+                if (SetupError == "Scorer labels must be unique.")
+                    SetupError = string.Empty;
+
+                return true;
             }
         }
 
@@ -61,7 +77,6 @@ namespace PubQuizMaster.Desktop.ViewModels
 
         #region Public Methods
 
-        // Called by MainWindowViewModel after FinalizeRound → NextRound
         public void PrepareForNextRound()
         {
             RoundName = $"Round {_svc.QuizNight.Rounds.Count + 1}";
@@ -96,7 +111,8 @@ namespace PubQuizMaster.Desktop.ViewModels
 
             var vm = new ScorerAssignmentViewModel(id, label, Teams, _assignedTeamIds)
             {
-                OnAssignmentChanged = OnScorerAssignmentChanged
+                OnAssignmentChanged = OnScorerAssignmentChanged,
+                LabelEdited = NotifyStartButton
             };
 
             Assignments.Add(vm);
@@ -116,8 +132,17 @@ namespace PubQuizMaster.Desktop.ViewModels
 
             SetupError = string.Empty;
             var team = _svc.AddTeam(name);
-            Teams.Add(new TeamViewModel(team));
+            var vm = new TeamViewModel(team);
             NewTeamName = string.Empty;
+
+            // Insert at correct alphabetical position — single event, no Clear
+            var insertIndex = 0;
+            while (insertIndex < Teams.Count &&
+                   string.Compare(Teams[insertIndex].Name, name, StringComparison.OrdinalIgnoreCase) < 0)
+                insertIndex++;
+            Teams.Insert(insertIndex, vm);
+
+            _svc.ReorderTeams(Teams.Select(t => t.Team.Id).ToList());
 
             AutoDistributeTeams();
             NotifyStartButton();
@@ -143,6 +168,16 @@ namespace PubQuizMaster.Desktop.ViewModels
         }
 
         private void NotifyStartButton() => OnPropertyChanged(nameof(CanStartRound));
+
+        partial void OnRoundNameChanged(string value)
+        {
+            if (_svc.QuizNight.Rounds.Any(r => r.Name.Equals(value.Trim(), StringComparison.OrdinalIgnoreCase)))
+                SetupError = $"Round \"{value.Trim()}\" already exists.";
+            else if (SetupError.StartsWith("Round"))
+                SetupError = string.Empty;
+
+            NotifyStartButton();
+        }
 
         private void OnScorerAssignmentChanged(Guid teamId, bool assigned)
         {
@@ -172,15 +207,6 @@ namespace PubQuizMaster.Desktop.ViewModels
             _svc.QuizNight.MasterTeamList.Remove(vm.Team);
             _assignedTeamIds.Remove(vm.Team.Id);
             NotifyStartButton();
-        }
-
-        [RelayCommand]
-        private void SortTeams()
-        {
-            var sorted = Teams.OrderBy(t => t.Name).ToList();
-            Teams.Clear();
-            foreach (var t in sorted) Teams.Add(t);
-            _svc.ReorderTeams(Teams.Select(t => t.Team.Id).ToList());
         }
 
         #endregion Private Methods

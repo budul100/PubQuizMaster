@@ -18,17 +18,26 @@
                 <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
 
                     <!-- Edit-Modus aus -->
+
                     <Button Content="✎ Edit"
                             IsVisible="{Binding !IsEditing}"
                             Command="{Binding EditCommand}"/>
 
                     <!-- Edit-Modus an -->
+
                     <Button Content="✓ Save" Classes="primary"
                             IsVisible="{Binding IsEditing}"
                             Command="{Binding SaveCommand}"/>
                     <Button Content="✕ Cancel" Classes="danger"
                             IsVisible="{Binding IsEditing}"
                             Command="{Binding CancelCommand}"/>
+
+                    <Button Content="🗑 Delete"
+                            Classes="danger"
+                            Padding="8 6"
+                            FontSize="13"
+                            IsVisible="{Binding IsEditing}"
+                            Command="{Binding DeleteRoundCommand}"/>
 
                     <!-- Export immer sichtbar -->
                     <Button Content="↗ Export"

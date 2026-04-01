@@ -227,24 +227,14 @@ public class QuizHub
     {
         try
         {
-            var scorerId = GetScorerIdFromContext();
-            System.Diagnostics.Debug.WriteLine($"[Hub] SubmitBoolAnswer: scorer={scorerId}, team={teamId}, q={questionIndex}, correct={correct}");
-
-            if (scorerId == null)
-                throw new HubException("Not authenticated.");
-
+            var scorerId = GetScorerIdFromContext() ?? throw new HubException("Not authenticated.");
             var answer = _quizNightService.RecordAnswerBool(scorerId, teamId, questionIndex, correct);
-            System.Diagnostics.Debug.WriteLine("[Hub] RecordBoolAnswer OK");
-
-            await _quizNightService.SaveAsync();
-
-            var value = new AnswerBool { Correct = correct };
 
             await Clients.All.SendAsync("AnswerUpdated", new AnswerUpdatedPayload
             {
                 TeamId = teamId,
                 QuestionIndex = questionIndex,
-                Value = value,
+                Value = new AnswerBool { Correct = correct },
                 ScoredBy = scorerId
             });
         }

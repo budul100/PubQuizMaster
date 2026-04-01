@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
+using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using PubQuizMaster.Core.Models.Event;
@@ -44,6 +45,8 @@ namespace PubQuizMaster.Desktop.ViewModels
 
         public Action? ExportAction { get; set; }
 
+        public Action? OnDeleted { get; set; }
+
         public Action? OnSaved { get; set; }
 
         public int QuestionCount => _round.QuestionCount;
@@ -66,7 +69,9 @@ namespace PubQuizMaster.Desktop.ViewModels
             Rows.Clear();
             ColSums.Clear();
 
-            var teams = _svc.QuizNight.MasterTeamList;
+            var teams = _svc.QuizNight.MasterTeamList
+                .OrderBy(t => t.Name, StringComparer.OrdinalIgnoreCase).ToList();
+
             foreach (var team in teams)
             {
                 var cells = Enumerable.Range(0, QuestionCount)
@@ -98,6 +103,14 @@ namespace PubQuizMaster.Desktop.ViewModels
         }
 
         [RelayCommand]
+        private async Task DeleteRound()
+        {
+            _svc.DeleteRound(_round.Id);
+            await _svc.SaveAsync();
+            OnDeleted?.Invoke();
+        }
+
+        [RelayCommand]
         private void Edit() => IsEditing = true;
 
         [RelayCommand]
@@ -110,7 +123,7 @@ namespace PubQuizMaster.Desktop.ViewModels
                     cell.IsEditing = value;
         }
 
-        [RelayCommand]      
+        [RelayCommand]
         private void Save()
         {
             // Persist edited answers back to the service

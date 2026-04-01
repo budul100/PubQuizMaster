@@ -47,7 +47,6 @@ namespace PubQuizMaster.Desktop.ViewModels
             };
 
             ShowSetup();
-            LeftPanel.Refresh(roundIsActive: false);
 
             svc.AnswerRecorded += OnAnswerRecorded;
             kestrel.ServerReady += url => ServerUrl = url;
@@ -69,7 +68,8 @@ namespace PubQuizMaster.Desktop.ViewModels
 
         public string? QuizNightName { get; }
 
-        // Start-Button nur sichtbar wenn Review + Setup in der Mitte
+        public bool ShowNewRoundButton => IsReview && !Center.IsSetupMode;
+
         public bool ShowStartButton => IsReview && Center.IsSetupMode;
 
         #endregion Public Properties
@@ -80,7 +80,14 @@ namespace PubQuizMaster.Desktop.ViewModels
         {
             var index = _svc.QuizNight.Rounds.IndexOf(round);
             var matrix = new RoundMatrixViewModel(round, index + 1, _svc);
+
             matrix.OnSaved = () => LeftPanel.Refresh(roundIsActive: false);
+            matrix.OnDeleted = () =>
+            {
+                LeftPanel.Refresh(roundIsActive: false);
+                ShowSetup();
+            };
+
             return matrix;
         }
 
@@ -92,6 +99,10 @@ namespace PubQuizMaster.Desktop.ViewModels
             if (round == null) return;
 
             _svc.FinalizeRound(round.Id);
+
+            var (recorded, expected, _) = _svc.GetRoundProgress(round.Id);
+            ActiveRound.Refresh(round, recorded, expected);
+
             var leaderboard = _svc.GetLeaderboard();
 
             if (_kestrel?.HubContext != null)
@@ -106,8 +117,11 @@ namespace PubQuizMaster.Desktop.ViewModels
             SwitchPhase(HostPhase.Review);
         }
 
-        private void NotifyShowStartButton() =>
+        private void NotifyShowStartButton()
+        {
             OnPropertyChanged(nameof(ShowStartButton));
+            OnPropertyChanged(nameof(ShowNewRoundButton));
+        }
 
         private void OnAnswerRecorded(Answer _)
         {
@@ -135,11 +149,23 @@ namespace PubQuizMaster.Desktop.ViewModels
             NotifyShowStartButton();
         }
 
+        [RelayCommand]
+        private void OpenInBrowser()
+        {
+            if (string.IsNullOrEmpty(ServerUrl)) return;
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = ServerUrl,
+                UseShellExecute = true
+            });
+        }
+
         private void ShowSetup()
         {
             Setup = new SetupViewModel(_svc);
             Center.ShowSetup(Setup);
             LeftPanel.ClearSelection();
+            LeftPanel.Refresh(roundIsActive: false, setupIsActive: true);
             NotifyShowStartButton();
         }
 
