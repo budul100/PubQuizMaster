@@ -1,0 +1,64 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:PubQuizMaster.Desktop.ViewModels"
+             x:Class="PubQuizMaster.Desktop.Views.TeamAnswerRowView"
+             x:DataType="vm:TeamAnswerRowViewModel">
+
+    <StackPanel Orientation="Horizontal"
+                Margin="0 3">
+
+        <TextBlock Text="{Binding TeamName}"
+                   Width="140"
+                   FontSize="13"
+                   TextTrimming="CharacterEllipsis"
+                   VerticalAlignment="Center"/>
+
+        <TextBlock Text="{Binding RoundRank}"
+                   Width="44"
+                   FontSize="12"
+                   Foreground="{StaticResource BrushSubtext}"
+                   TextAlignment="Center"
+                   VerticalAlignment="Center"/>
+        <TextBlock Text="{Binding OverallRank}"
+                   Width="44"
+                   FontSize="12"
+                   Foreground="{StaticResource BrushSubtext}"
+                   TextAlignment="Center"
+                   VerticalAlignment="Center"/>
+
+        <TextBlock Text="{Binding Total}"
+                   Width="44"
+                   FontSize="13"
+                   Foreground="{StaticResource BrushCorrect}"
+                   FontWeight="Bold"
+                   TextAlignment="Center"
+                   VerticalAlignment="Center"/>
+
+        <ItemsControl ItemsSource="{Binding Answers}">
+            <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                    <StackPanel Orientation="Horizontal"/>
+                </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+            <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="vm:AnswerCellViewModel">
+                    <Panel Width="32"
+                           HorizontalAlignment="Center">
+                        <TextBlock Text="{Binding Display}"
+                                   Foreground="{Binding Color}"
+                                   FontSize="14"
+                                   TextAlignment="Center"
+                                   VerticalAlignment="Center"
+                                   IsVisible="{Binding !IsEditing}"/>
+                        <CheckBox IsChecked="{Binding IsCorrect}"
+                                  IsThreeState="True"
+                                  IsVisible="{Binding IsEditing}"
+                                  HorizontalAlignment="Center"
+                                  VerticalAlignment="Center"/>
+                    </Panel>
+                </DataTemplate>
+            </ItemsControl.ItemTemplate>
+        </ItemsControl>
+
+    </StackPanel>
+</UserControl>

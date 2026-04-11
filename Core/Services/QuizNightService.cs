@@ -5,53 +5,30 @@ using PubQuizMaster.Core.Models.Participants;
 
 namespace PubQuizMaster.Core.Services
 {
-    // ─────────────────────────────────────────────
-    // QUIZ NIGHT SERVICE
-    // Primary business logic. Manages teams, rounds, and assignments.
-    // All mutations go through this service — never modify QuizNight directly.
-    // ─────────────────────────────────────────────
-
-    public class QuizNightService
+    public class QuizNightService(PersistenceService persistenceService)
     {
         #region Private Fields
 
-        private readonly PersistenceService _persistence;
-
-        private QuizSessionState? _state;
+        private QuizSessionState? state;
 
         #endregion Private Fields
 
-        #region Public Constructors
-
-        /// <summary>
-        /// Primary constructor. Call InitializeAsync() before using any other method.
-        /// Separating construction from initialization allows the Avalonia startup
-        /// dialog to decide between new night / load existing before state is created.
-        /// </summary>
-        public QuizNightService(PersistenceService persistence)
-        {
-            _persistence = persistence;
-        }
-
-        #endregion Public Constructors
-
         #region Public Events
 
-        // Add after the ActiveRoundId property
         public event Action<Answer>? AnswerRecorded
         {
-            add { if (_state != null) _state.AnswerRecorded += value; }
-            remove { if (_state != null) _state.AnswerRecorded -= value; }
+            add { if (state != null) state.AnswerRecorded += value; }
+            remove { if (state != null) state.AnswerRecorded -= value; }
         }
 
         #endregion Public Events
 
         #region Public Properties
 
-        public Guid ActiveRoundId => _state?.ActiveRoundId
+        public Guid ActiveRoundId => state?.ActiveRoundId
             ?? throw new InvalidOperationException("QuizNightService not initialized. Call InitializeAsync() first.");
 
-        public QuizNight QuizNight => _state?.QuizNight
+        public QuizNight QuizNight => state?.QuizNight
             ?? throw new InvalidOperationException("QuizNightService not initialized. Call InitializeAsync() first.");
 
         #endregion Public Properties
@@ -65,6 +42,7 @@ namespace PubQuizMaster.Core.Services
                 Name = name,
                 Date = DateTime.Today
             };
+
             return new QuizSessionState(night);
         }
 
@@ -73,11 +51,11 @@ namespace PubQuizMaster.Core.Services
             var team = new Team
             {
                 Name = name,
-                SheetOrder = sheetOrder ?? (QuizNight.MasterTeamList.Count > 0
-                    ? QuizNight.MasterTeamList.Max(t => t.SheetOrder) + 1
-                    : 1)
+                SheetOrder = sheetOrder ?? (GetSheetOrder())
             };
+
             QuizNight.MasterTeamList.Add(team);
+
             return team;
         }
 
@@ -86,10 +64,14 @@ namespace PubQuizMaster.Core.Services
             var round = GetRoundOrThrow(roundId);
 
             if (!QuizNight.MasterTeamList.Any(t => t.Id == teamId))
+            {
                 throw new ArgumentException($"Team '{teamId}' not found in master list.");
+            }
 
             if (!round.ActiveTeamIds.Contains(teamId))
+            {
                 round.ActiveTeamIds.Add(teamId);
+            }
         }
 
         public ScorerAssignment AssignScorer(Guid roundId, string scorerId, string label, List<Guid> teamIds)
@@ -97,25 +79,28 @@ namespace PubQuizMaster.Core.Services
             var round = GetRoundOrThrow(roundId);
 
             // Validate: all teams active in round
-            var inactiveTeams = teamIds.Except(round.ActiveTeamIds).ToList();
-            if (inactiveTeams.Any())
+            var inactiveTeams = teamIds.Except(round.ActiveTeamIds).ToArray();
+
+            if (inactiveTeams.Length > 0)
+            {
                 throw new InvalidOperationException(
                     $"Teams not active in this round: {string.Join(", ", inactiveTeams)}");
+            }
 
             // Validate: no team already assigned
             var alreadyAssigned = round.Assignments
                 .SelectMany(a => a.TeamIds)
-                .Intersect(teamIds)
-                .ToList();
+                .Intersect(teamIds).ToArray();
 
-            if (alreadyAssigned.Any())
+            if (alreadyAssigned.Length > 0)
+            {
                 throw new InvalidOperationException(
                     $"Teams already assigned to another scorer: {string.Join(", ", alreadyAssigned)}");
+            }
 
             // Teams arrive in sheet order
             var ordered = teamIds
-                .OrderBy(id => QuizNight.MasterTeamList.FirstOrDefault(t => t.Id == id)?.SheetOrder ?? 0)
-                .ToList();
+                .OrderBy(id => QuizNight.MasterTeamList.FirstOrDefault(t => t.Id == id)?.SheetOrder ?? 0).ToList();
 
             var assignment = new ScorerAssignment
             {
@@ -125,24 +110,24 @@ namespace PubQuizMaster.Core.Services
             };
 
             round.Assignments.Add(assignment);
+
             return assignment;
         }
 
-        public Round CreateRound(string name, int questionCount, List<Guid>? activeTeamIds = null)
+        public Round CreateRound(string name, int questionCount, IEnumerable<Guid>? activeTeamIds = null)
         {
+            activeTeamIds ??= GetTeamIds();
+
             var round = new Round
             {
                 Name = name,
                 QuestionCount = questionCount,
-                ActiveTeamIds = activeTeamIds
-                    ?? QuizNight.MasterTeamList
-                        .OrderBy(t => t.SheetOrder)
-                        .Select(t => t.Id)
-                        .ToList()
+                ActiveTeamIds = activeTeamIds.ToList(),
             };
 
             QuizNight.Rounds.Add(round);
-            _state?.SetActiveRound(round.Id);
+            state?.SetActiveRound(round.Id);
+
             return round;
         }
 
@@ -160,8 +145,9 @@ namespace PubQuizMaster.Core.Services
 
         public ScorerAssignment? GetAssignment(string scorerId)
         {
-            return QuizNight
-                .GetAssignment(_state.ActiveRoundId, scorerId);
+            return QuizNight.GetAssignment(
+                roundId: state!.ActiveRoundId,
+                scorerId: scorerId);
         }
 
         public List<LeaderboardEntry> GetLeaderboard() => QuizNight.GetLeaderboard();
@@ -177,17 +163,17 @@ namespace PubQuizMaster.Core.Services
 
         public Task InitializeAsync(QuizNight quizNight)
         {
-            _state = new QuizSessionState(quizNight);
+            state = new QuizSessionState(quizNight);
             return Task.CompletedTask;
         }
 
         public Answer RecordAnswerBool(string scorerId, Guid teamId, int questionIndex, bool correct)
         {
-            if (_state == null)
+            if (state == null)
                 throw new InvalidOperationException("QuizNightService not initialized. Call InitializeAsync() first.");
 
-            return _state.RecordAnswer(
-                _state.ActiveRoundId,
+            return state.RecordAnswer(
+                state.ActiveRoundId,
                 scorerId,
                 teamId,
                 questionIndex,
@@ -196,8 +182,11 @@ namespace PubQuizMaster.Core.Services
 
         public Answer RecordAnswerPoint(string scorerId, Guid teamId, int questionIndex, decimal points)
         {
-            return _state.RecordAnswer(
-                _state.ActiveRoundId,
+            if (state == null)
+                throw new InvalidOperationException("QuizNightService not initialized. Call InitializeAsync() first.");
+
+            return state.RecordAnswer(
+                state.ActiveRoundId,
                 scorerId,
                 teamId,
                 questionIndex,
@@ -228,7 +217,7 @@ namespace PubQuizMaster.Core.Services
             }
         }
 
-        public Task SaveAsync() => _persistence.SaveAsync(QuizNight);
+        public Task SaveAsync() => persistenceService.SaveAsync(QuizNight);
 
         public void SetAnswer(Guid roundId, Guid teamId, int questionIndex, bool? isCorrect)
         {
@@ -263,7 +252,21 @@ namespace PubQuizMaster.Core.Services
         private Round GetRoundOrThrow(Guid roundId)
         {
             return QuizNight.Rounds.FirstOrDefault(r => r.Id == roundId)
-                   ?? throw new ArgumentException($"Round '{roundId}' not found.");
+                ?? throw new ArgumentException($"Round '{roundId}' not found.");
+        }
+
+        private int GetSheetOrder()
+        {
+            return QuizNight.MasterTeamList.Count > 0
+                ? QuizNight.MasterTeamList.Max(t => t.SheetOrder) + 1
+                : 1;
+        }
+
+        private Guid[] GetTeamIds()
+        {
+            return QuizNight.MasterTeamList
+                .OrderBy(t => t.SheetOrder)
+                .Select(t => t.Id).ToArray();
         }
 
         #endregion Private Methods

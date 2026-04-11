@@ -11,6 +11,10 @@ namespace PubQuizMaster.Desktop.ViewModels
 
         public IReadOnlyList<AnswerCellViewModel> Answers { get; } = answers;
 
+        public int OverallRank { get; set; }
+
+        public int RoundRank { get; set; }
+
         public Guid TeamId { get; } = teamId;
 
         public string TeamName { get; } = teamName;

@@ -47,4 +47,10 @@
 		</Content>
 	</ItemGroup>
 
+	<ItemGroup>
+	  <Compile Update="Views\TeamAnswerRowView.axaml.cs">
+	    <DependentUpon>TeamAnswerRowView.axaml</DependentUpon>
+	  </Compile>
+	</ItemGroup>
+
 </Project>

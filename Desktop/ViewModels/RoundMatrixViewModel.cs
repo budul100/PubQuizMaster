@@ -15,28 +15,30 @@ namespace PubQuizMaster.Desktop.ViewModels
     {
         #region Private Fields
 
-        private readonly Round _round;
-        private readonly QuizNightService _svc;      // nur noch eins
-        private string? _exportError;
-        [ObservableProperty] private bool _isEditing;
-        private bool _isFinalRound;
+        private readonly QuizNightService nightService;
+        private readonly Round round;
+
+        private string? exportError;
+
+        [ObservableProperty] private bool isEditing;
+
+        private bool isFinalRound;
 
         #endregion Private Fields
 
         #region Public Constructors
 
-        public RoundMatrixViewModel(QuizNightService svc, Round round, int roundNumber)
+        public RoundMatrixViewModel(QuizNightService nightService, Round round, int roundNumber)
         {
-            _round = round;
-            _svc = svc;
+            this.round = round;
+            this.nightService = nightService;
 
             RoundName = round.Name;
             RoundNumber = roundNumber;
 
             QuestionHeaders = Enumerable
                 .Range(1, round.QuestionCount)
-                .Select(i => $"Q{i}")
-                .ToList();
+                .Select(i => $"Q{i}").ToArray();
 
             Rebuild();
         }
@@ -49,14 +51,14 @@ namespace PubQuizMaster.Desktop.ViewModels
 
         public string? ExportError
         {
-            get => _exportError;
-            private set => SetProperty(ref _exportError, value);
+            get => exportError;
+            private set => SetProperty(ref exportError, value);
         }
 
         public bool IsFinalRound
         {
-            get => _isFinalRound;
-            set => SetProperty(ref _isFinalRound, value);
+            get => isFinalRound;
+            set => SetProperty(ref isFinalRound, value);
         }
 
         public Action? OnDeleted { get; set; }
@@ -65,7 +67,7 @@ namespace PubQuizMaster.Desktop.ViewModels
 
         public Func<Task<string?>>? PickTemplateFileAsync { get; set; }
 
-        public int QuestionCount => _round.QuestionCount;
+        public int QuestionCount => round.QuestionCount;
 
         public IReadOnlyList<string> QuestionHeaders { get; }
 
@@ -73,7 +75,9 @@ namespace PubQuizMaster.Desktop.ViewModels
 
         public int RoundNumber { get; }
 
-        public ObservableCollection<TeamAnswerRowViewModel> Rows { get; } = new();
+        public ObservableCollection<TeamAnswerRowViewModel> Rows { get; } = [];
+
+        public int TotalCorrectCount => ColSums.Sum();
 
         #endregion Public Properties
 
@@ -84,23 +88,48 @@ namespace PubQuizMaster.Desktop.ViewModels
             Rows.Clear();
             ColSums.Clear();
 
-            var teams = _svc.QuizNight.MasterTeamList
+            var teams = nightService.QuizNight.MasterTeamList
                 .OrderBy(t => t.Name, StringComparer.OrdinalIgnoreCase).ToList();
 
             foreach (var team in teams)
             {
                 var cells = Enumerable.Range(0, QuestionCount)
-                    .Select(qi => new AnswerCellViewModel(
-                        _round.GetAnswer(team.Id, qi)))
+                    .Select(qi => new AnswerCellViewModel(round.GetAnswer(team.Id, qi)))
                     .ToList();
-                Rows.Add(new TeamAnswerRowViewModel(team.Id, team.Name, cells));
+
+                Rows.Add(new TeamAnswerRowViewModel(
+                    teamId: team.Id,
+                    teamName: team.Name,
+                    answers: cells));
             }
 
-            // Column sums
-            for (int qi = 0; qi < QuestionCount; qi++)
-                ColSums.Add(Rows.Count(r => r.Answers[qi].IsCorrect == true));
+            // --- Overall ranks from leaderboard ---
+            var leaderboard = nightService.GetLeaderboard();
 
-            // Am Ende von Rebuild()
+            AssignRanks(
+                Rows.OrderByDescending(r => leaderboard.FirstOrDefault(e => e.Team.Id == r.TeamId)?.TotalScore ?? 0).ToList(),
+                keySelector: r => (int)(leaderboard.FirstOrDefault(e => e.Team.Id == r.TeamId)?.TotalScore ?? 0),
+                rankSetter: (r, rank) => r.OverallRank = rank);
+
+
+            // --- Round ranks ---
+            AssignRanks(
+                Rows.OrderByDescending(r => r.Total).ToList(),
+                keySelector: r => r.Total,
+                rankSetter: (r, rank) => r.RoundRank = rank);
+
+            // --- Sort rows by round rank for display ---
+            var sorted = Rows.OrderBy(r => r.RoundRank).ThenBy(r => r.TeamName).ToList();
+            Rows.Clear();
+            foreach (var row in sorted)
+                Rows.Add(row);
+
+            // --- Column sums ---
+            for (var i = 0; i < QuestionCount; i++)
+                ColSums.Add(Rows.Count(r => r.Answers[i].IsCorrect == true));
+
+            OnPropertyChanged(nameof(TotalCorrectCount));
+
             foreach (var row in Rows)
                 foreach (var cell in row.Answers)
                     cell.IsEditing = IsEditing;
@@ -109,6 +138,28 @@ namespace PubQuizMaster.Desktop.ViewModels
         #endregion Public Methods
 
         #region Private Methods
+
+        private static void AssignRanks<T>(
+            List<T> ordered,
+            Func<T, decimal> keySelector,
+            Action<T, int> rankSetter)
+        {
+            for (int i = 0; i < ordered.Count; i++)
+            {
+                int tieStart = GetTieStart(ordered, i, keySelector);
+                rankSetter(ordered[i], tieStart + 1);
+            }
+        }
+
+        private static int GetTieStart<T>(List<T> ordered, int i, Func<T, decimal> keySelector)
+        {
+            decimal val = keySelector(ordered[i]);
+            int start = i;
+            while (start > 0 && keySelector(ordered[start - 1]) == val)
+                start--;
+            return start;
+        }
+
 
         [RelayCommand]
         private void Cancel()
@@ -120,8 +171,8 @@ namespace PubQuizMaster.Desktop.ViewModels
         [RelayCommand]
         private async Task DeleteRound()
         {
-            _svc.DeleteRound(_round.Id);
-            await _svc.SaveAsync();
+            nightService.DeleteRound(round.Id);
+            await nightService.SaveAsync();
             OnDeleted?.Invoke();
         }
 
@@ -140,22 +191,19 @@ namespace PubQuizMaster.Desktop.ViewModels
             }
 
             string? templatePath;
-            try
-            {
-                templatePath = await PickTemplateFileAsync();
-            }
-            catch (Exception ex)
-            {
-                ExportError = $"File picker error: {ex.Message}";
-                return;
-            }
+            try { templatePath = await PickTemplateFileAsync(); }
+            catch (Exception ex) { ExportError = $"File picker error: {ex.Message}"; return; }
 
             if (string.IsNullOrEmpty(templatePath))
                 return;
 
             try
             {
-                var outputPath = await ExportService.ExportAsync(_svc, templatePath, IsFinalRound);
+                var outputPath = await ExportService.ExportAsync(
+                    quizSvc: nightService,
+                    templatePath: templatePath,
+                    isFinalRound: IsFinalRound);
+
                 System.Diagnostics.Debug.WriteLine($"[Export] Completed: {outputPath}");
             }
             catch (Exception ex)
@@ -168,21 +216,27 @@ namespace PubQuizMaster.Desktop.ViewModels
         partial void OnIsEditingChanged(bool value)
         {
             foreach (var row in Rows)
+            {
                 foreach (var cell in row.Answers)
+                {
                     cell.IsEditing = value;
+                }
+            }
         }
 
         [RelayCommand]
         private void Save()
         {
-            // Persist edited answers back to the service
             foreach (var row in Rows)
-                for (int qi = 0; qi < QuestionCount; qi++)
-                    _svc.SetAnswer(_round.Id, row.TeamId, qi, row.Answers[qi].IsCorrect);
+                for (var i = 0; i < QuestionCount; i++)
+                    nightService.SetAnswer(
+                        roundId: round.Id,
+                        teamId: row.TeamId,
+                        questionIndex: i,
+                        isCorrect: row.Answers[i].IsCorrect);
 
             Rebuild();
             IsEditing = false;
-
             OnSaved?.Invoke();
         }
 
