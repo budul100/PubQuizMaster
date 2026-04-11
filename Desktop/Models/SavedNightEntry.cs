@@ -1,30 +1,18 @@
-﻿// ===== SavedNightEntry.cs =====
-using System.IO;
+﻿using System.IO;
 using CommunityToolkit.Mvvm.ComponentModel;
 
 namespace PubQuizMaster.Desktop.Models
 {
-    public partial class SavedNightEntry
+    public partial class SavedNightEntry(FileInfo file)
         : ObservableObject
     {
-        #region Public Constructors
-
-        public SavedNightEntry(FileInfo file)
-        {
-            FilePath = file.FullName;
-            DisplayName = Path.GetFileNameWithoutExtension(file.Name);
-            LastModified = file.LastWriteTime.ToString("dd.MM.yyyy HH:mm");
-        }
-
-        #endregion Public Constructors
-
         #region Public Properties
 
-        public string DisplayName { get; }
+        public string DisplayName { get; } = Path.GetFileNameWithoutExtension(file.Name);
 
-        public string FilePath { get; }
+        public string FilePath { get; } = file.FullName;
 
-        public string LastModified { get; }
+        public string LastModified { get; } = file.LastWriteTime.ToString("dd.MM.yyyy HH:mm");
 
         #endregion Public Properties
     }

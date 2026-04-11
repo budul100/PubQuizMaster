@@ -11,7 +11,7 @@ namespace PubQuizMaster.Desktop.ViewModels
 
         public string ActiveRoundName { get; private set; } = string.Empty;
 
-        public string AnswerProgress => $"{AnswersRecorded} / {AnswersExpected}";
+        public string AnswerProgress => $"Answers recorded: {AnswersRecorded} / {AnswersExpected}";
 
         public int AnswersExpected { get; private set; }
 
@@ -35,6 +35,7 @@ namespace PubQuizMaster.Desktop.ViewModels
         {
             AnswersRecorded = recorded;
             AnswersExpected = expected;
+
             OnPropertyChanged(nameof(AnswersRecorded));
             OnPropertyChanged(nameof(AnswersExpected));
             OnPropertyChanged(nameof(AnswerProgress));
@@ -46,15 +47,12 @@ namespace PubQuizMaster.Desktop.ViewModels
                 var url = string.IsNullOrEmpty(baseUrl)
                     ? "" : $"{baseUrl}?scorerId={a.ScorerId}";
 
-                ScorerStatuses.Add(new ScorerStatusViewModel
-                {
-                    ScorerId = a.ScorerId,
-                    Label = a.Label,
-                    Answered = answered,
-                    Expected = a.TeamIds.Count * round.QuestionCount,
-                    QrCode = string.IsNullOrEmpty(url)
-                        ? null : ScorerStatusViewModel.GenerateQrCode(url)
-                });
+                ScorerStatuses.Add(new ScorerStatusViewModel(
+                    scorerId: a.ScorerId,
+                    label: a.Label,
+                    answered: answered,
+                    expected: a.TeamIds.Count * round.QuestionCount,
+                    url: url));
             }
         }
 

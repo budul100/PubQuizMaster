@@ -1,7 +1,6 @@
 ﻿using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Presentation;
-using DocumentFormat.OpenXml.Spreadsheet;
 using PubQuizMaster.Core.Models;
 using PubQuizMaster.Core.Models.Event;
 using PubQuizMaster.Core.Models.Participants;
@@ -34,6 +33,8 @@ namespace PubQuizMaster.Core.Services
                 var round = quizSvc.QuizNight.Rounds.FirstOrDefault(r => r.Id == quizSvc.ActiveRoundId)
                     ?? throw new InvalidOperationException("Active round not found.");
 
+                var isFirstRound = quizSvc.QuizNight.Rounds.FirstOrDefault()?.Id == round.Id;
+
                 var masterTeams = quizSvc.QuizNight.MasterTeamList;
                 var roundRanking = RankingService.RankRound(round, masterTeams);
                 var totalLeaderboard = quizSvc.GetLeaderboard();
@@ -49,42 +50,48 @@ namespace PubQuizMaster.Core.Services
                     SetShapeText(sp, "Points", pointsText);
                 }
 
-                var roundPlacesSp = FindSlideByName(slideOrder, "RoundPlaces");
-                if (roundPlacesSp != null)
+                if (!isFirstRound || !isFinalRound)
                 {
-                    var entriesForPlaces = roundRanking.Where(e => e.Rank > 1).ToList();
-
-                    if (entriesForPlaces.Any())
+                    var roundPlacesSp = FindSlideByName(slideOrder, "RoundPlaces");
+                    if (roundPlacesSp != null)
                     {
-                        var avg = RankingService.FormatAverage(RankingService.ComputeRoundAverage(round, masterTeams));
+                        var entriesForPlaces = roundRanking.Where(e => e.Rank > 1).ToList();
 
-                        FillPlacesSlide(roundPlacesSp, entriesForPlaces, avg);
-                        // ScaleAnimationDuration(roundPlacesSp, entriesForPlaces.Count, ["Teams", "Points", "Positions"]);
-                        SetSlideVisible(roundPlacesSp, true);
+                        if (entriesForPlaces.Any())
+                        {
+                            var avg = RankingService.FormatAverage(RankingService.ComputeRoundAverage(round, masterTeams));
+
+                            FillPlacesSlide(roundPlacesSp, entriesForPlaces, avg);
+                            // ScaleAnimationDuration(roundPlacesSp, entriesForPlaces.Count, ["Teams", "Points", "Positions"]);
+                            SetSlideVisible(roundPlacesSp, true);
+                        }
+                    }
+
+                    var roundFirstSp = FindSlideByName(slideOrder, "RoundFirst");
+                    if (roundFirstSp != null && roundRanking.Any())
+                    {
+                        var winners = RankingService.GetTeamsAtRank(roundRanking, 1);
+                        var winnerScore = roundRanking.First(e => e.Rank == 1).Score;
+                        FillFirstSlide(roundFirstSp, winners, winnerScore);
+                        SetSlideVisible(roundFirstSp, true);
                     }
                 }
 
-                var roundFirstSp = FindSlideByName(slideOrder, "RoundFirst");
-                if (roundFirstSp != null && roundRanking.Any())
+                if (!isFirstRound)
                 {
-                    var winners = RankingService.GetTeamsAtRank(roundRanking, 1);
-                    var winnerScore = roundRanking.First(e => e.Rank == 1).Score;
-                    FillFirstSlide(roundFirstSp, winners, winnerScore);
-                    SetSlideVisible(roundFirstSp, true);
-                }
+                    var allPlacingsSp = FindSlideByName(slideOrder, "AllPlacings");
+                    if (allPlacingsSp != null && totalRanking.Any())
+                    {
+                        var entriesForAll = isFinalRound
+                            ? totalRanking.Where(e => e.Rank >= 4).ToList()
+                            : totalRanking.ToList();
 
-                var allPlacingsSp = FindSlideByName(slideOrder, "AllPlacings");
-                if (allPlacingsSp != null && totalRanking.Any())
-                {
-                    var entriesForAll = isFinalRound
-                        ? totalRanking.Where(e => e.Rank >= 4).ToList()
-                        : totalRanking.ToList();
+                        var avg = RankingService.FormatAverage(RankingService.ComputeTotalAverage(totalLeaderboard));
 
-                    var avg = RankingService.FormatAverage(RankingService.ComputeTotalAverage(totalLeaderboard));
-
-                    FillPlacesSlide(allPlacingsSp, entriesForAll, avg);
-                    // ScaleAnimationDuration(allPlacingsSp, entriesForAll.Count, ["Teams", "Points", "Positions"]);
-                    SetSlideVisible(allPlacingsSp, true);
+                        FillPlacesSlide(allPlacingsSp, entriesForAll, avg);
+                        // ScaleAnimationDuration(allPlacingsSp, entriesForAll.Count, ["Teams", "Points", "Positions"]);
+                        SetSlideVisible(allPlacingsSp, true);
+                    }
                 }
 
                 if (isFinalRound)

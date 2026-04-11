@@ -1,0 +1,42 @@
+﻿<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:PubQuizMaster.Desktop.ViewModels"
+             x:Class="PubQuizMaster.Views.ScorerStatusView"
+             x:DataType="vm:ScorerStatusViewModel">
+    <Button Command="{Binding OpenUrlCommand}"
+            IsEnabled="{Binding Url, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+            Padding="0"
+            Background="Transparent"
+            BorderThickness="0"
+            HorizontalContentAlignment="Stretch"
+            Margin="0 0 12 12">
+        <Border Background="{StaticResource BrushSurface}"
+                CornerRadius="8"
+                Padding="20"
+                Width="280">
+            <StackPanel Spacing="6">
+                <TextBlock Text="{Binding Label}"
+                           FontWeight="Bold"
+                           FontSize="14"/>
+                <TextBlock Text="{Binding ScorerId}"
+                           Foreground="{StaticResource BrushSubtext}"
+                           FontSize="12"/>
+                <TextBlock Text="{Binding Progress}"
+                           FontSize="24"
+                           FontWeight="Bold"
+                           Foreground="{StaticResource BrushAccent}"
+                           Margin="0 8 0 0"/>
+                <TextBlock Text="✓ Done"
+                           Foreground="{StaticResource BrushCorrect}"
+                           IsVisible="{Binding IsComplete}"
+                           FontWeight="Bold"/>
+                <Image Source="{Binding QrCode}"
+                       Width="200"
+                       Height="200"
+                       Margin="0 8 0 0"
+                       IsVisible="{Binding QrCode, Converter={x:Static ObjectConverters.IsNotNull}}"
+                       HorizontalAlignment="Center"/>
+            </StackPanel>
+        </Border>
+    </Button>
+</UserControl>

@@ -379,14 +379,14 @@
         }
 
         .overview-dots {
-            display: flex;
-            gap: 4px;
-            flex-wrap: nowrap;
+            display: grid;
+            grid-template-columns: repeat(10, auto);
+            gap: 3px;
         }
 
         .dot {
-            width: 12px;
-            height: 12px;
+            width: 10px;
+            height: 10px;
             border-radius: 50%;
             background: var(--color-neutral);
         }
@@ -588,6 +588,9 @@
     <script src="signalr.min.js"></script>
 
     <script>
+
+        let navLock = false;
+
         // ─────────────────────────────────────────────
         // STATE
         // ─────────────────────────────────────────────
@@ -872,26 +875,28 @@
         // ─────────────────────────────────────────────
 
         function navNext() {
-            if (!state.roundId) return;
+            if (navLock || !state.roundId) return;
 
-            if (state.currentTeamIndex < state.teams.length - 1) {
-                state.currentTeamIndex++;
-            } else if (state.currentQuestionIndex < state.questionCount - 1) {
-                state.currentTeamIndex = 0;
-                state.currentQuestionIndex++;
-            } else if (state.reviewMode) {
-                // End of review — back to done screen
-                state.reviewMode = false;
-                showOverview(true);
-                return;
-            } else {
-                // Last team, last question, not in review — round complete
-                showOverview(true);
-                return;
+            navLock = true;
+
+            try {
+                if (state.currentTeamIndex < state.teams.length - 1) {
+                    state.currentTeamIndex++;
+                } else if (state.currentQuestionIndex < state.questionCount - 1) {
+                    state.currentTeamIndex = 0;
+                    state.currentQuestionIndex++;
+                } else {
+                    state.reviewMode = false;
+                    showOverview(true);
+                    return; // Exit before renderScoring is called.
+                }
+
+                renderScoring();
+            } finally {
+                setTimeout(() => { navLock = false; }, 100);
             }
-
-            renderScoring();
         }
+
 
         function navPrev() {
             if (!state.roundId) return;
@@ -990,6 +995,7 @@
 
         document.addEventListener('keydown', (e) => {
             if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+            if (e.repeat) return; 
 
             const scoringActive = document.getElementById('screen-scoring').classList.contains('active');
             const overviewActive = document.getElementById('screen-overview').classList.contains('active');

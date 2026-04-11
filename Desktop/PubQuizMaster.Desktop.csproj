@@ -1,38 +1,45 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
-  <PropertyGroup>
-    <OutputType>WinExe</OutputType>
-    <TargetFramework>net9.0</TargetFramework>
-    <Nullable>enable</Nullable>
-    <ApplicationManifest>app.manifest</ApplicationManifest>
-    <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
-  </PropertyGroup>
 
-  <ItemGroup>
-    <AvaloniaResource Include="Assets\**" />
-  </ItemGroup>
+	<PropertyGroup>
+		<OutputType>WinExe</OutputType>
+		<TargetFramework>net9.0</TargetFramework>
+		<Nullable>enable</Nullable>
+		<ApplicationManifest>app.manifest</ApplicationManifest>
+		<AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
+	</PropertyGroup>
+
+	<PropertyGroup>
+		<AssemblyName>PubQuizMaster</AssemblyName>
+		<Product>PubQuizMaster</Product>
+		<RootNamespace>PubQuizMaster.Desktop</RootNamespace>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<AvaloniaResource Include="Assets\**" />
+	</ItemGroup>
 
 	<ItemGroup>
 		<FrameworkReference Include="Microsoft.AspNetCore.App" />
 	</ItemGroup>
-	
-	<ItemGroup>
-    <PackageReference Include="Avalonia" Version="11.3.13" />
-    <PackageReference Include="Avalonia.Desktop" Version="11.3.13" />
-    <PackageReference Include="Avalonia.Themes.Fluent" Version="11.3.13" />
-    <PackageReference Include="Avalonia.Fonts.Inter" Version="11.3.13" />
-    <!--Condition below is needed to remove Avalonia.Diagnostics package from build output in Release configuration.-->
-    <PackageReference Include="Avalonia.Diagnostics" Version="11.3.13">
-      <IncludeAssets Condition="'$(Configuration)' != 'Debug'">None</IncludeAssets>
-      <PrivateAssets Condition="'$(Configuration)' != 'Debug'">All</PrivateAssets>
-    </PackageReference>
-    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
-    <PackageReference Include="Microsoft.AspNetCore.SignalR.Client" Version="10.0.5" />
-    <PackageReference Include="QRCoder" Version="1.7.0" />
-  </ItemGroup>
 
-  <ItemGroup>
-    <ProjectReference Include="..\Core\PubQuizMaster.Core.csproj" />
-  </ItemGroup>
+	<ItemGroup>
+		<PackageReference Include="Avalonia" Version="11.3.13" />
+		<PackageReference Include="Avalonia.Desktop" Version="11.3.13" />
+		<PackageReference Include="Avalonia.Themes.Fluent" Version="11.3.13" />
+		<PackageReference Include="Avalonia.Fonts.Inter" Version="11.3.13" />
+		<!--Condition below is needed to remove Avalonia.Diagnostics package from build output in Release configuration.-->
+		<PackageReference Include="Avalonia.Diagnostics" Version="11.3.13">
+			<IncludeAssets Condition="'$(Configuration)' != 'Debug'">None</IncludeAssets>
+			<PrivateAssets Condition="'$(Configuration)' != 'Debug'">All</PrivateAssets>
+		</PackageReference>
+		<PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
+		<PackageReference Include="Microsoft.AspNetCore.SignalR.Client" Version="10.0.5" />
+		<PackageReference Include="QRCoder" Version="1.7.0" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<ProjectReference Include="..\Core\PubQuizMaster.Core.csproj" />
+	</ItemGroup>
 
 	<ItemGroup>
 		<Content Include="wwwroot\**\*">

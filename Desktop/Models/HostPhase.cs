@@ -1,5 +1,9 @@
-﻿// ===== MainWindowViewModel.cs =====
-namespace PubQuizMaster.Desktop.Models
+﻿namespace PubQuizMaster.Desktop.Models
 {
-    public enum HostPhase { Scoring, Review }
+    public enum HostPhase
+    {
+        Scoring,
+
+        Review
+    }
 }

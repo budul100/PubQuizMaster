@@ -106,7 +106,7 @@ namespace PubQuizMaster.Desktop.ViewModels
             if (SelectedNight == null) return;
             try
             {
-                Result = await _persistence.LoadAsync(SelectedNight.FilePath);
+                Result = await PersistenceService.LoadAsync(SelectedNight.FilePath);
                 CloseRequested?.Invoke();
             }
             catch (Exception ex)

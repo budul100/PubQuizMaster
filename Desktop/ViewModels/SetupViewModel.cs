@@ -13,13 +13,16 @@ namespace PubQuizMaster.Desktop.ViewModels
     {
         #region Private Fields
 
-        private readonly HashSet<Guid> _assignedTeamIds = [];
-        private readonly QuizNightService _svc;
+        private readonly HashSet<Guid> assignedTeamIds = [];
+        private readonly QuizNightService quizService;
 
-        [ObservableProperty] private string _newTeamName = string.Empty;
-        [ObservableProperty] private int _questionCount = 6;
-        [ObservableProperty] private string _roundName = string.Empty;
-        [ObservableProperty] private string _setupError = string.Empty;
+        [ObservableProperty] private string newTeamName = string.Empty;
+
+        [ObservableProperty] private int questionCount = 20;
+
+        [ObservableProperty] private string roundName = string.Empty;
+
+        [ObservableProperty] private string setupError = string.Empty;
 
         #endregion Private Fields
 
@@ -27,7 +30,7 @@ namespace PubQuizMaster.Desktop.ViewModels
 
         public SetupViewModel(QuizNightService svc)
         {
-            _svc = svc;
+            quizService = svc;
 
             foreach (var t in svc.QuizNight.MasterTeamList.OrderBy(t => t.Name))
                 Teams.Add(new TeamViewModel(t));
@@ -54,7 +57,7 @@ namespace PubQuizMaster.Desktop.ViewModels
                 if (allAssigned.Count != Teams.Count || allAssigned.Distinct().Count() != Teams.Count)
                     return false;
 
-                if (_svc.QuizNight.Rounds.Any(r => r.Name.Equals(RoundName.Trim(), StringComparison.OrdinalIgnoreCase)))
+                if (quizService.QuizNight.Rounds.Any(r => r.Name.Equals(RoundName.Trim(), StringComparison.OrdinalIgnoreCase)))
                     return false;
 
                 var labels = Assignments.Select(a => a.Label.Trim()).ToList();
@@ -79,13 +82,13 @@ namespace PubQuizMaster.Desktop.ViewModels
 
         public void PrepareForNextRound()
         {
-            RoundName = $"Round {_svc.QuizNight.Rounds.Count + 1}";
+            RoundName = $"Round {quizService.QuizNight.Rounds.Count + 1}";
             QuestionCount = 6;
             SetupError = string.Empty;
 
             foreach (var a in Assignments)
                 a.ClearSelections();
-            _assignedTeamIds.Clear();
+            assignedTeamIds.Clear();
 
             AutoDistributeTeams();
             NotifyStartButton();
@@ -109,7 +112,7 @@ namespace PubQuizMaster.Desktop.ViewModels
             var id = $"scorer-{(char)('a' + n)}";
             var label = $"Scorer {(char)('A' + n)}";
 
-            var vm = new ScorerAssignmentViewModel(id, label, Teams, _assignedTeamIds)
+            var vm = new ScorerAssignmentViewModel(id, label, Teams, assignedTeamIds)
             {
                 OnAssignmentChanged = OnScorerAssignmentChanged,
                 LabelEdited = NotifyStartButton
@@ -131,7 +134,7 @@ namespace PubQuizMaster.Desktop.ViewModels
             }
 
             SetupError = string.Empty;
-            var team = _svc.AddTeam(name);
+            var team = quizService.AddTeam(name);
             var vm = new TeamViewModel(team);
             NewTeamName = string.Empty;
 
@@ -142,7 +145,7 @@ namespace PubQuizMaster.Desktop.ViewModels
                 insertIndex++;
             Teams.Insert(insertIndex, vm);
 
-            _svc.ReorderTeams(Teams.Select(t => t.Team.Id).ToList());
+            quizService.ReorderTeams(Teams.Select(t => t.Team.Id).ToList());
 
             AutoDistributeTeams();
             NotifyStartButton();
@@ -151,7 +154,7 @@ namespace PubQuizMaster.Desktop.ViewModels
         private void AutoDistributeTeams()
         {
             if (!Assignments.Any() || !Teams.Any()) return;
-            _assignedTeamIds.Clear();
+            assignedTeamIds.Clear();
             foreach (var a in Assignments) a.ClearSelections();
 
             var teams = Teams.ToList();
@@ -160,7 +163,7 @@ namespace PubQuizMaster.Desktop.ViewModels
                 var scorer = Assignments[i % Assignments.Count];
                 var slot = scorer.Teams.FirstOrDefault(t => t.TeamVm.Team.Id == teams[i].Team.Id);
                 if (slot != null) slot.IsAssigned = true;
-                _assignedTeamIds.Add(teams[i].Team.Id);
+                assignedTeamIds.Add(teams[i].Team.Id);
             }
 
             foreach (var a in Assignments)
@@ -171,7 +174,7 @@ namespace PubQuizMaster.Desktop.ViewModels
 
         partial void OnRoundNameChanged(string value)
         {
-            if (_svc.QuizNight.Rounds.Any(r => r.Name.Equals(value.Trim(), StringComparison.OrdinalIgnoreCase)))
+            if (quizService.QuizNight.Rounds.Any(r => r.Name.Equals(value.Trim(), StringComparison.OrdinalIgnoreCase)))
                 SetupError = $"Round \"{value.Trim()}\" already exists.";
             else if (SetupError.StartsWith("Round"))
                 SetupError = string.Empty;
@@ -181,8 +184,8 @@ namespace PubQuizMaster.Desktop.ViewModels
 
         private void OnScorerAssignmentChanged(Guid teamId, bool assigned)
         {
-            if (assigned) _assignedTeamIds.Add(teamId);
-            else _assignedTeamIds.Remove(teamId);
+            if (assigned) assignedTeamIds.Add(teamId);
+            else assignedTeamIds.Remove(teamId);
             foreach (var a in Assignments)
                 a.UpdateDisabledStates();
             NotifyStartButton();
@@ -193,7 +196,7 @@ namespace PubQuizMaster.Desktop.ViewModels
         {
             Assignments.Remove(vm);
             foreach (var t in vm.Teams.Where(t => t.IsAssigned))
-                _assignedTeamIds.Remove(t.TeamVm.Team.Id);
+                assignedTeamIds.Remove(t.TeamVm.Team.Id);
             foreach (var a in Assignments)
                 a.UpdateDisabledStates();
             AutoDistributeTeams();
@@ -204,8 +207,8 @@ namespace PubQuizMaster.Desktop.ViewModels
         private void RemoveTeam(TeamViewModel vm)
         {
             Teams.Remove(vm);
-            _svc.QuizNight.MasterTeamList.Remove(vm.Team);
-            _assignedTeamIds.Remove(vm.Team.Id);
+            quizService.QuizNight.MasterTeamList.Remove(vm.Team);
+            assignedTeamIds.Remove(vm.Team.Id);
             NotifyStartButton();
         }
 
