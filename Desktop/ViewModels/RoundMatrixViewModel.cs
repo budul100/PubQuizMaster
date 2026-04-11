@@ -16,24 +16,28 @@ namespace PubQuizMaster.Desktop.ViewModels
         #region Private Fields
 
         private readonly Round _round;
-        private readonly QuizNightService _svc;
-
+        private readonly QuizNightService _svc;      // nur noch eins
+        private string? _exportError;
         [ObservableProperty] private bool _isEditing;
+        private bool _isFinalRound;
 
         #endregion Private Fields
 
         #region Public Constructors
 
-        public RoundMatrixViewModel(Round round, int roundNumber, QuizNightService svc)
+        public RoundMatrixViewModel(QuizNightService svc, Round round, int roundNumber)
         {
             _round = round;
             _svc = svc;
+
             RoundName = round.Name;
             RoundNumber = roundNumber;
 
-            QuestionHeaders = Enumerable.Range(1, round.QuestionCount)
-                                        .Select(i => $"Q{i}")
-                                        .ToList();
+            QuestionHeaders = Enumerable
+                .Range(1, round.QuestionCount)
+                .Select(i => $"Q{i}")
+                .ToList();
+
             Rebuild();
         }
 
@@ -43,15 +47,26 @@ namespace PubQuizMaster.Desktop.ViewModels
 
         public ObservableCollection<int> ColSums { get; } = [];
 
-        public Action? ExportAction { get; set; }
+        public string? ExportError
+        {
+            get => _exportError;
+            private set => SetProperty(ref _exportError, value);
+        }
+
+        public bool IsFinalRound
+        {
+            get => _isFinalRound;
+            set => SetProperty(ref _isFinalRound, value);
+        }
 
         public Action? OnDeleted { get; set; }
 
         public Action? OnSaved { get; set; }
 
+        public Func<Task<string?>>? PickTemplateFileAsync { get; set; }
+
         public int QuestionCount => _round.QuestionCount;
 
-        // Column headers Q1…Qn
         public IReadOnlyList<string> QuestionHeaders { get; }
 
         public string RoundName { get; }
@@ -114,7 +129,41 @@ namespace PubQuizMaster.Desktop.ViewModels
         private void Edit() => IsEditing = true;
 
         [RelayCommand]
-        private void Export() => ExportAction?.Invoke();
+        private async Task Export()
+        {
+            ExportError = null;
+
+            if (PickTemplateFileAsync == null)
+            {
+                ExportError = "File picker not available.";
+                return;
+            }
+
+            string? templatePath;
+            try
+            {
+                templatePath = await PickTemplateFileAsync();
+            }
+            catch (Exception ex)
+            {
+                ExportError = $"File picker error: {ex.Message}";
+                return;
+            }
+
+            if (string.IsNullOrEmpty(templatePath))
+                return;
+
+            try
+            {
+                var outputPath = await ExportService.ExportAsync(_svc, templatePath, IsFinalRound);
+                System.Diagnostics.Debug.WriteLine($"[Export] Completed: {outputPath}");
+            }
+            catch (Exception ex)
+            {
+                ExportError = $"Export failed: {ex.Message}";
+                System.Diagnostics.Debug.WriteLine($"[Export] ERROR: {ex}");
+            }
+        }
 
         partial void OnIsEditingChanged(bool value)
         {

@@ -5,7 +5,7 @@
         x:Class="PubQuizMaster.Desktop.Views.StartupWindow"
         x:DataType="vm:StartupViewModel"
         Title="PubQuizMaster"
-        Width="540" Height="780"
+        Width="540" Height="820"
         WindowStartupLocation="CenterScreen"
         Background="{StaticResource BrushBg}">
 
@@ -209,7 +209,7 @@
                 </DockPanel>
             </Border>
 
-            <Border Height="24"/>
+            <Border Height="12"/>
 
         </StackPanel>
     </ScrollViewer>

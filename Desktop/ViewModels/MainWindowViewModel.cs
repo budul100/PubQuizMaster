@@ -105,7 +105,7 @@ namespace PubQuizMaster.Desktop.ViewModels
         private RoundMatrixViewModel CreateMatrix(Round round)
         {
             var index = _svc.QuizNight.Rounds.IndexOf(round);
-            var matrix = new RoundMatrixViewModel(round, index + 1, _svc);
+            var matrix = new RoundMatrixViewModel(_svc, round, index + 1);
 
             matrix.OnSaved = () => LeftPanel.Refresh(roundIsActive: false);
             matrix.OnDeleted = () =>
