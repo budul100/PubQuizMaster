@@ -1,1 +1,0 @@
-powershell -ExecutionPolicy Bypass -File _dump-code.ps1
