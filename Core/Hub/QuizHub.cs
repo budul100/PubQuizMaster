@@ -12,28 +12,32 @@ namespace PubQuizMaster.Core.Hub
     {
         #region Public Methods
 
-        public static async Task NotifyRoundFinalized(
-            IHubContext<QuizHub> hubContext,
-            Guid roundId,
-            List<LeaderboardEntry> leaderboard)
+        public static async Task NotifyRoundFinalized(IHubContext<QuizHub> hubContext, Guid roundId,
+            IEnumerable<LeaderboardEntry> leaderboard)
         {
-            await hubContext.Clients.All.SendAsync("RoundFinalized", new RoundFinalizedPayload
+            var payload = new RoundFinalizedPayload
             {
                 RoundId = roundId,
-                Leaderboard = leaderboard
-            });
+                Leaderboard = leaderboard.ToList()
+            };
+
+            await hubContext.Clients.All.SendAsync(
+                method: "RoundFinalized",
+                arg1: payload);
         }
 
-        public static async Task NotifyRoundStarted(
-            IHubContext<QuizHub> hubContext,
-            Round round,
-            List<Team> allTeams)
+        public static async Task NotifyRoundStarted(IHubContext<QuizHub> hubContext, Round round,
+            IEnumerable<Team> allTeams)
         {
-            await hubContext.Clients.All.SendAsync("RoundStarted", new RoundStartedPayload
+            var payload = new RoundStartedPayload
             {
                 Round = RoundSummary.From(round),
-                AllTeams = allTeams
-            });
+                AllTeams = allTeams.ToList()
+            };
+
+            await hubContext.Clients.All.SendAsync(
+                method: "RoundStarted",
+                arg1: payload);
         }
 
         public override async Task OnConnectedAsync()

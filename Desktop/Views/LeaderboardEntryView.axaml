@@ -1,0 +1,22 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:PubQuizMaster.Desktop.ViewModels"
+             x:Class="PubQuizMaster.Desktop.Views.LeaderboardEntryView"
+             x:DataType="vm:LeaderboardEntryViewModel">
+    <Grid ColumnDefinitions="20,*,Auto"
+          Margin="0 3">
+        <TextBlock Grid.Column="0"
+                   Text="{Binding Rank}"
+                   Foreground="{StaticResource BrushNeutral}"
+                   FontSize="12"/>
+        <TextBlock Grid.Column="1"
+                   Text="{Binding TeamName}"
+                   FontSize="13"
+                   TextTrimming="CharacterEllipsis"/>
+        <TextBlock Grid.Column="2"
+                   Text="{Binding Score}"
+                   Foreground="{StaticResource BrushCorrect}"
+                   FontWeight="Bold"
+                   FontSize="13"/>
+    </Grid>
+</UserControl>

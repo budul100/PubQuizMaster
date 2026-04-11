@@ -1,14 +1,14 @@
 ﻿namespace PubQuizMaster.Desktop.ViewModels
 {
-    public class LeaderboardEntryViewModel
+    public class LeaderboardEntryViewModel(int rank, decimal score, string teamName)
     {
         #region Public Properties
 
-        public int Rank { get; set; }
+        public int Rank { get; } = rank;
 
-        public decimal Score { get; set; }
+        public decimal Score { get; } = score;
 
-        public string TeamName { get; set; } = string.Empty;
+        public string TeamName { get; } = teamName;
 
         #endregion Public Properties
     }

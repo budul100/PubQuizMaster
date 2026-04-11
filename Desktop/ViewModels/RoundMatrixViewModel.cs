@@ -104,13 +104,12 @@ namespace PubQuizMaster.Desktop.ViewModels
             }
 
             // --- Overall ranks from leaderboard ---
-            var leaderboard = nightService.GetLeaderboard();
+            var leaderboard = nightService.GetLeaderboards();
 
             AssignRanks(
                 Rows.OrderByDescending(r => leaderboard.FirstOrDefault(e => e.Team.Id == r.TeamId)?.TotalScore ?? 0).ToList(),
                 keySelector: r => (int)(leaderboard.FirstOrDefault(e => e.Team.Id == r.TeamId)?.TotalScore ?? 0),
                 rankSetter: (r, rank) => r.OverallRank = rank);
-
 
             // --- Round ranks ---
             AssignRanks(
@@ -159,7 +158,6 @@ namespace PubQuizMaster.Desktop.ViewModels
                 start--;
             return start;
         }
-
 
         [RelayCommand]
         private void Cancel()

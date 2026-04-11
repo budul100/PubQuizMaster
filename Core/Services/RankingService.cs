@@ -8,16 +8,21 @@ namespace PubQuizMaster.Core.Services
     {
         #region Public Methods
 
-        public static decimal ComputeRoundAverage(Round round, List<Team> masterTeamList)
+        public static decimal ComputeRoundAverage(IEnumerable<Team> masterTeamList, Round round)
         {
-            var entries = RankRound(round, masterTeamList);
-            if (entries.Count == 0) return 0m;
+            var entries = GetRanksRound(
+                masterTeamList: masterTeamList,
+                round: round).ToArray();
+
+            if (entries.Length == 0) return 0m;
+
             return entries.Average(e => e.Score);
         }
 
-        public static decimal ComputeTotalAverage(List<LeaderboardEntry> leaderboard)
+        public static decimal ComputeTotalAverage(IEnumerable<LeaderboardEntry> leaderboard)
         {
-            if (leaderboard.Count == 0) return 0m;
+            if (!leaderboard.Any()) return 0m;
+
             return leaderboard.Average(e => e.TotalScore);
         }
 
@@ -35,11 +40,7 @@ namespace PubQuizMaster.Core.Services
             return rounded == 1m ? "1 Punkt" : $"{rounded:0.#} Punkte";
         }
 
-        public static List<Team> GetTeamsAtRank(List<RankedEntry> ranking, int rank) => ranking
-            .Where(e => e.Rank == rank)
-            .Select(e => e.Team).ToList();
-
-        public static List<RankedEntry> RankRound(Round round, List<Team> masterTeamList)
+        public static IEnumerable<RankedEntry> GetRanksRound(IEnumerable<Team> masterTeamList, Round round)
         {
             var scores = round.ActiveTeamIds
                 .Select(id => new
@@ -49,54 +50,47 @@ namespace PubQuizMaster.Core.Services
                 })
                 .Where(x => x.Team != null && x.Score.HasValue)
                 .OrderByDescending(x => x.Score!.Value)
-                .ThenBy(x => x.Team!.Name)
-                .ToList();
+                .ThenBy(x => x.Team!.Name).ToList();
 
-            var result = new List<RankedEntry>();
-            int rank = 1;
+            var rank = 1;
 
-            for (int i = 0; i < scores.Count; i++)
+            for (var index = 0; index < scores.Count; index++)
             {
-                if (i > 0 && scores[i].Score != scores[i - 1].Score)
-                    rank = i + 1;
+                if (index > 0 && scores[index].Score != scores[index - 1].Score)
+                {
+                    rank = index + 1;
+                }
 
-                result.Add(new RankedEntry
+                yield return new RankedEntry
                 {
                     Rank = rank,
-                    Team = scores[i].Team!,
-                    Score = scores[i].Score!.Value
-                });
+                    Team = scores[index].Team!,
+                    Score = scores[index].Score!.Value
+                };
             }
-
-            return result;
         }
 
-        public static List<RankedEntry> RankTotal(List<LeaderboardEntry> leaderboard)
+        public static IEnumerable<RankedEntry> GetRanksTotal(IEnumerable<LeaderboardEntry> leaderboard)
         {
-            var sorted = leaderboard
+            var sorteds = leaderboard
                 .Where(e => e.Team != null)
-                .OrderByDescending(e => e.TotalScore)
-                .ThenBy(e => e.Team.Name)
-                .ToList();
+                .OrderByDescending(e => e.Rank)
+                .ThenBy(e => e.Team.Name).ToArray();
 
-            var result = new List<RankedEntry>();
-            int rank = 1;
-
-            for (int i = 0; i < sorted.Count; i++)
+            foreach (var sorted in sorteds)
             {
-                if (i > 0 && sorted[i].TotalScore != sorted[i - 1].TotalScore)
-                    rank = i + 1;
-
-                result.Add(new RankedEntry
+                yield return new RankedEntry
                 {
-                    Rank = rank,
-                    Team = sorted[i].Team,
-                    Score = sorted[i].TotalScore
-                });
+                    Rank = sorted.Rank,
+                    Team = sorted.Team,
+                    Score = sorted.TotalScore
+                };
             }
-
-            return result;
         }
+
+        public static IEnumerable<Team> GetTeamsAtRank(IEnumerable<RankedEntry> ranking, int rank) => ranking
+                          .Where(e => e.Rank == rank)
+            .Select(e => e.Team).ToList();
 
         #endregion Public Methods
     }

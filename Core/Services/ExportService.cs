@@ -36,9 +36,9 @@ namespace PubQuizMaster.Core.Services
                 var isFirstRound = quizSvc.QuizNight.Rounds.FirstOrDefault()?.Id == round.Id;
 
                 var masterTeams = quizSvc.QuizNight.MasterTeamList;
-                var roundRanking = RankingService.RankRound(round, masterTeams);
-                var totalLeaderboard = quizSvc.GetLeaderboard();
-                var totalRanking = RankingService.RankTotal(totalLeaderboard);
+                var roundRanking = RankingService.GetRanksRound(masterTeams, round);
+                var totalLeaderboard = quizSvc.GetLeaderboards();
+                var totalRanking = RankingService.GetRanksTotal(totalLeaderboard);
 
                 for (int qi = 0; qi < round.QuestionCount && qi < 20; qi++)
                 {
@@ -59,7 +59,7 @@ namespace PubQuizMaster.Core.Services
 
                         if (entriesForPlaces.Any())
                         {
-                            var avg = RankingService.FormatAverage(RankingService.ComputeRoundAverage(round, masterTeams));
+                            var avg = RankingService.FormatAverage(RankingService.ComputeRoundAverage(masterTeams, round));
 
                             FillPlacesSlide(roundPlacesSp, entriesForPlaces, avg);
                             // ScaleAnimationDuration(roundPlacesSp, entriesForPlaces.Count, ["Teams", "Points", "Positions"]);
@@ -70,9 +70,17 @@ namespace PubQuizMaster.Core.Services
                     var roundFirstSp = FindSlideByName(slideOrder, "RoundFirst");
                     if (roundFirstSp != null && roundRanking.Any())
                     {
-                        var winners = RankingService.GetTeamsAtRank(roundRanking, 1);
+                        var winners = RankingService.GetTeamsAtRank(
+                            ranking: roundRanking,
+                            rank: 1).ToArray();
+
                         var winnerScore = roundRanking.First(e => e.Rank == 1).Score;
-                        FillFirstSlide(roundFirstSp, winners, winnerScore);
+
+                        FillFirstSlide(
+                            roundFirstSp,
+                            winners,
+                            winnerScore);
+
                         SetSlideVisible(roundFirstSp, true);
                     }
                 }
@@ -169,24 +177,27 @@ namespace PubQuizMaster.Core.Services
             return Path.Combine(dir, $"{name}_completed.pptx");
         }
 
-        private static void FillFirstSlide(SlidePart sp, List<Team> winners, decimal score)
+        private static void FillFirstSlide(SlidePart sp, IEnumerable<Team> winners, decimal score)
         {
             // Up to 5 slots; extras are left empty
             // Log a warning if more than 5 (edge case: 5-way tie on rank 1)
-            if (winners.Count > 5)
+            if (winners.Count() > 5)
                 System.Diagnostics.Debug.WriteLine(
-                    $"[PptxExport] Warning: {winners.Count} teams at rank 1 — truncated to 5.");
+                    $"[PptxExport] Warning: {winners.Count()} teams at rank 1 — truncated to 5.");
 
             for (int i = 1; i <= 5; i++)
             {
-                var name = i <= winners.Count ? winners[i - 1].Name : string.Empty;
+                var name = i <= winners.Count()
+                    ? winners.ElementAt(i - 1).Name
+                    : string.Empty;
+
                 SetShapeText(sp, $"Team{i}", name);
             }
 
             SetShapeText(sp, "Points", RankingService.FormatScore(score));
         }
 
-        private static void FillPlacesSlide(SlidePart sp, List<RankedEntry> entries, string avg)
+        private static void FillPlacesSlide(SlidePart sp, IEnumerable<RankedEntry> entries, string avg)
         {
             if (!entries.Any()) return;
 

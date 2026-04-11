@@ -7,12 +7,12 @@ using PubQuizMaster.Core.Services;
 
 namespace PubQuizMaster.Desktop.ViewModels
 {
-    public partial class LeftPanelViewModel(QuizNightService svc)
+    public partial class LeftPanelViewModel(QuizNightService quizService)
         : ViewModelBase
     {
         #region Private Fields
 
-        [ObservableProperty] private bool _canAddRound;
+        [ObservableProperty] private bool canAddRound;
 
         #endregion Private Fields
 
@@ -32,32 +32,48 @@ namespace PubQuizMaster.Desktop.ViewModels
 
         public void ClearSelection()
         {
-            foreach (var r in Rounds) r.IsSelected = false;
+            foreach (var round in Rounds)
+            {
+                round.IsSelected = false;
+            }
         }
 
         public void Refresh(bool roundIsActive, bool setupIsActive = false)
         {
-            CanAddRound = !roundIsActive && !setupIsActive
-                && svc.QuizNight.Rounds.All(r => r.IsFinalized);
+            CanAddRound = !roundIsActive
+                && !setupIsActive
+                && quizService.QuizNight.Rounds.All(r => r.IsFinalized);
 
             Rounds.Clear();
-            foreach (var r in svc.QuizNight.Rounds)
+
+            foreach (var round in quizService.QuizNight.Rounds)
+            {
                 Rounds.Add(new RoundEntryViewModel(
-                    r, svc.QuizNight,
-                    entry => OnRoundSelected?.Invoke(entry)));
+                    round: round,
+                    quizNight: quizService.QuizNight,
+                    onSelect: entry => OnRoundSelected?.Invoke(entry)));
+            }
 
             TotalBoard.Clear();
-            var lb = svc.GetLeaderboard();
-            int rank = 1;
-            foreach (var e in lb)
-                TotalBoard.Add(new LeaderboardEntryViewModel
-                { Rank = rank++, TeamName = e.Team.Name, Score = e.TotalScore });
+
+            var leaderBoards = quizService
+                .GetLeaderboards().ToArray();
+
+            foreach (var leaderBoard in leaderBoards)
+            {
+                TotalBoard.Add(new LeaderboardEntryViewModel(
+                    rank: leaderBoard.Rank,
+                    score: leaderBoard.TotalScore,
+                    teamName: leaderBoard.Team.Name));
+            }
         }
 
         public void SelectEntry(Guid roundId)
         {
-            foreach (var r in Rounds)
-                r.IsSelected = r.RoundId == roundId;
+            foreach (var round in Rounds)
+            {
+                round.IsSelected = round.RoundId == roundId;
+            }
         }
 
         #endregion Public Methods

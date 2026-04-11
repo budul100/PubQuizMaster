@@ -35,7 +35,7 @@ namespace PubQuizMaster.Core.Services
 
         #region Public Methods
 
-        public static QuizSessionState CreateNew(PersistenceService persistence, string name)
+        public static QuizSessionState CreateNew(string name)
         {
             var night = new QuizNight
             {
@@ -145,12 +145,36 @@ namespace PubQuizMaster.Core.Services
 
         public ScorerAssignment? GetAssignment(string scorerId)
         {
-            return QuizNight.GetAssignment(
-                roundId: state!.ActiveRoundId,
-                scorerId: scorerId);
+            return QuizNight.Rounds
+                .FirstOrDefault(r => r.Id == state!.ActiveRoundId)?
+                .Assignments
+                .FirstOrDefault(a => a.ScorerId == scorerId);
         }
 
-        public List<LeaderboardEntry> GetLeaderboard() => QuizNight.GetLeaderboard();
+        /// <summary>
+        /// Full leaderboard for the entire evening, sorted by total score descending.
+        /// Returns one entry per team that was active in at least one round.
+        /// </summary>
+        public IEnumerable<LeaderboardEntry> GetLeaderboards()
+        {
+            var activeTeamIds = QuizNight.Rounds
+                .SelectMany(r => r.ActiveTeamIds)
+                .Distinct();
+
+            var sorted = activeTeamIds
+                .Select(GetLeaderboardEntry)
+                .Where(e => e.Team != null)
+                .OrderByDescending(e => e.TotalScore).ToArray();
+
+            for (var i = 0; i < sorted.Length; i++)
+            {
+                sorted[i].Rank = i > 0 && sorted[i].TotalScore == sorted[i - 1].TotalScore
+                    ? sorted[i - 1].Rank
+                    : i + 1;
+            }
+
+            return sorted;
+        }
 
         public (int Recorded, int Expected, double PercentComplete) GetRoundProgress(Guid roundId)
         {
@@ -163,6 +187,20 @@ namespace PubQuizMaster.Core.Services
 
         public Task InitializeAsync(QuizNight quizNight)
         {
+            foreach (var round in quizNight.Rounds)
+            {
+                if (round.ActiveTeamIds.Count == 0)
+                {
+                    var teamsWithAnswers = round.Answers
+                        .Select(a => a.TeamId)
+                        .Distinct().ToList();
+
+                    round.ActiveTeamIds = teamsWithAnswers.Count > 0
+                        ? teamsWithAnswers
+                        : quizNight.MasterTeamList.Select(t => t.Id).ToList();
+                }
+            }
+
             state = new QuizSessionState(quizNight);
             return Task.CompletedTask;
         }
@@ -248,6 +286,21 @@ namespace PubQuizMaster.Core.Services
         #endregion Public Methods
 
         #region Private Methods
+
+        private static RoundScore GetRoundScore(Round round, Guid teamId) => new()
+        {
+            RoundId = round.Id,
+            RoundName = round.Name,
+            Score = round.GetTeamScore(teamId)
+        };
+
+        private LeaderboardEntry GetLeaderboardEntry(Guid teamId) => new()
+        {
+            Team = QuizNight.MasterTeamList.FirstOrDefault(t => t.Id == teamId)
+                ?? throw new InvalidOperationException($"Team with Id '{teamId}' not found in MasterTeamList."),
+            TotalScore = QuizNight.Rounds.Sum(r => r.GetTeamScore(teamId) ?? 0m),
+            ScorePerRound = QuizNight.Rounds.Select(r => GetRoundScore(r, teamId)).ToList()
+        };
 
         private Round GetRoundOrThrow(Guid roundId)
         {

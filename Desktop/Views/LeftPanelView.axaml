@@ -1,6 +1,7 @@
 ﻿<UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:PubQuizMaster.Desktop.ViewModels"
+             xmlns:views="using:PubQuizMaster.Desktop.Views"
              x:Class="PubQuizMaster.Desktop.Views.LeftPanelView"
              x:DataType="vm:LeftPanelViewModel">
 
@@ -9,7 +10,6 @@
         <ScrollViewer>
             <StackPanel Spacing="16">
 
-                <!-- Gesamtstand -->
                 <StackPanel Spacing="6">
                     <TextBlock Text="TOTAL STANDINGS"
                                FontSize="11" FontWeight="Bold"
@@ -18,22 +18,15 @@
                     <ItemsControl ItemsSource="{Binding TotalBoard}">
                         <ItemsControl.ItemTemplate>
                             <DataTemplate x:DataType="vm:LeaderboardEntryViewModel">
-                                <Grid ColumnDefinitions="20,*,Auto" Margin="0 3">
-                                    <TextBlock Grid.Column="0" Text="{Binding Rank}"
-                                               Foreground="{StaticResource BrushNeutral}" FontSize="12"/>
-                                    <TextBlock Grid.Column="1" Text="{Binding TeamName}"
-                                               FontSize="13" TextTrimming="CharacterEllipsis"/>
-                                    <TextBlock Grid.Column="2" Text="{Binding Score}"
-                                               Foreground="{StaticResource BrushCorrect}" FontWeight="Bold" FontSize="13"/>
-                                </Grid>
+                                <views:LeaderboardEntryView/>
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
+
                 </StackPanel>
 
                 <Border Height="1" Background="{StaticResource BrushCard}"/>
 
-                <!-- Rundenliste -->
                 <StackPanel Spacing="6">
                     <TextBlock Text="ROUNDS"
                                FontSize="11" FontWeight="Bold"
@@ -42,80 +35,11 @@
                     <ItemsControl ItemsSource="{Binding Rounds}">
                         <ItemsControl.ItemTemplate>
                             <DataTemplate x:DataType="vm:RoundEntryViewModel">
-                                <Border
-                                    CornerRadius="8"
-                                    Padding="10 8"
-                                    Margin="0 3"
-                                    Cursor="Hand"
-                                    Background="{StaticResource BrushCard}"
-                                    Classes.selected="{Binding IsSelected}"
-                                    PointerPressed="OnRoundEntryPressed">
-
-                                    <Border.Styles>
-                                        <Style Selector="Border.selected">
-                                            <Setter Property="Background" Value="#1a3a6e"/>
-                                            <Setter Property="BorderBrush" Value="{StaticResource BrushAccent}"/>
-                                            <Setter Property="BorderThickness" Value="1"/>
-                                        </Style>
-                                    </Border.Styles>
-
-                                    <StackPanel Spacing="6">
-                                        <!-- Header: nur Name, kein Badge mehr -->
-                                        <TextBlock Text="{Binding RoundName}"
-                                                   FontWeight="Bold" FontSize="13"/>
-
-                                        <!-- Per-Team Scores -->
-                                        <ItemsControl
-                                            ItemsSource="{Binding TeamScores}"
-                                            IsVisible="{Binding IsFinalized}">
-                                            <ItemsControl.ItemTemplate>
-                                                <DataTemplate>
-                                                    <Grid ColumnDefinitions="*,Auto">
-                                                        <TextBlock Grid.Column="0"
-                                                                   Text="{Binding Name}"
-                                                                   FontSize="11"
-                                                                   Foreground="{StaticResource BrushSubtext}"
-                                                                   TextTrimming="CharacterEllipsis"/>
-                                                        <TextBlock Grid.Column="1"
-                                                                   Text="{Binding Score}"
-                                                                   FontSize="11"
-                                                                   Foreground="{StaticResource BrushAccent}"
-                                                                   FontWeight="Bold"/>
-                                                    </Grid>
-                                                </DataTemplate>
-                                            </ItemsControl.ItemTemplate>
-                                        </ItemsControl>
-
-                                        <!-- Per-Question Correct Counts -->
-                                        <StackPanel Orientation="Horizontal" Spacing="4"
-                                                    IsVisible="{Binding IsFinalized}">
-                                            <ItemsControl ItemsSource="{Binding QuestionCorrectCounts}">
-                                                <ItemsControl.ItemsPanel>
-                                                    <ItemsPanelTemplate>
-                                                        <StackPanel Orientation="Horizontal" Spacing="4"/>
-                                                    </ItemsPanelTemplate>
-                                                </ItemsControl.ItemsPanel>
-                                                <ItemsControl.ItemTemplate>
-                                                    <DataTemplate>
-                                                        <Border Width="20" Height="20"
-                                                                CornerRadius="4"
-                                                                Background="{StaticResource BrushSurface}">
-                                                            <TextBlock Text="{Binding}"
-                                                                       FontSize="10"
-                                                                       Foreground="{StaticResource BrushSubtext}"
-                                                                       HorizontalAlignment="Center"
-                                                                       VerticalAlignment="Center"/>
-                                                        </Border>
-                                                    </DataTemplate>
-                                                </ItemsControl.ItemTemplate>
-                                            </ItemsControl>
-                                        </StackPanel>
-
-                                    </StackPanel>
-                                </Border>
+                                <views:RoundEntryView/>
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
+
                 </StackPanel>
 
             </StackPanel>
