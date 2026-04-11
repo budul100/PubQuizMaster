@@ -2,12 +2,16 @@
 setlocal enabledelayedexpansion
 
 set "SCRIPT=.\Code-Dump.ps1"
+set "EXCLUDE=''"
 
 if not exist "%SCRIPT%" (
     echo ERROR: Script not found: %SCRIPT%
     pause
     exit /b 1
 )
+
+echo.
+echo  Excluded file patterns: %EXCLUDE%
 
 :: --- Collect projects (folders containing a .csproj) ---
 set "ROOT=%~dp0.."
@@ -50,7 +54,7 @@ goto ask
 :full_solution
 echo.
 echo  Dumping full solution...
-powershell -ExecutionPolicy Bypass -NoProfile -File "%SCRIPT%"
+powershell -ExecutionPolicy Bypass -NoProfile -File "%SCRIPT%" -excludeFiles %EXCLUDE%
 goto done
 
 :: --- Single project dump ---
@@ -58,7 +62,7 @@ goto done
 set "SELECTED=!PROJECT_%CHOICE%!"
 echo.
 echo  Dumping project: %SELECTED%
-powershell -ExecutionPolicy Bypass -NoProfile -File "%SCRIPT%" -projectFilter "%SELECTED%"
+powershell -ExecutionPolicy Bypass -NoProfile -File "%SCRIPT%" -projectFilter "%SELECTED%" -excludeFiles %EXCLUDE%
 goto done
 
 :done

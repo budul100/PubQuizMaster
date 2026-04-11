@@ -5,101 +5,139 @@
         x:Class="PubQuizMaster.Desktop.Views.StartupWindow"
         x:DataType="vm:StartupViewModel"
         Title="PubQuizMaster"
-        Width="540" Height="580"
-        CanResize="False"
+        Width="540" Height="780"
         WindowStartupLocation="CenterScreen"
-        Background="#1a1a2e">
+        Background="{StaticResource BrushBg}">
 
-    <Window.Styles>
-        <Style Selector="TextBlock">
-            <Setter Property="Foreground" Value="#eaeaea"/>
-        </Style>
-        <Style Selector="TextBox">
-            <Setter Property="Background" Value="#16213e"/>
-            <Setter Property="Foreground" Value="#eaeaea"/>
-            <Setter Property="BorderBrush" Value="#4a4a6a"/>
-            <Setter Property="CornerRadius" Value="6"/>
-            <Setter Property="Padding" Value="10 8"/>
-        </Style>
-        <Style Selector="Button">
-            <Setter Property="Background" Value="#0f3460"/>
-            <Setter Property="Foreground" Value="#eaeaea"/>
-            <Setter Property="CornerRadius" Value="6"/>
-            <Setter Property="Padding" Value="12 8"/>
-            <Setter Property="Cursor" Value="Hand"/>
-        </Style>
-        <Style Selector="Button.primary">
-            <Setter Property="Background" Value="#e94560"/>
-        </Style>
-        <Style Selector="Button:disabled /template/ ContentPresenter">
-            <Setter Property="Background" Value="#4a4a6a"/>
-            <Setter Property="Opacity" Value="1"/>
-        </Style>
-        <Style Selector="Button:disabled">
-            <Setter Property="Foreground" Value="#aaaacc"/>
-        </Style>
-        <Style Selector="ListBox">
-            <Setter Property="Background" Value="#16213e"/>
-            <Setter Property="BorderBrush" Value="#4a4a6a"/>
-            <Setter Property="CornerRadius" Value="6"/>
-        </Style>
-        <Style Selector="ListBoxItem">
-            <Setter Property="Background" Value="Transparent"/>
-            <Setter Property="Foreground" Value="#eaeaea"/>
-            <Setter Property="Padding" Value="10 8"/>
-        </Style>
-        <Style Selector="ListBoxItem:selected /template/ ContentPresenter">
-            <Setter Property="Background" Value="#0f3460"/>
-        </Style>
-        <Style Selector="ListBoxItem:pointerover /template/ ContentPresenter">
-            <Setter Property="Background" Value="#1a2a4e"/>
-        </Style>
-        <Style Selector="CalendarDatePicker">
-            <Setter Property="Background" Value="#16213e"/>
-            <Setter Property="Foreground" Value="#eaeaea"/>
-            <Setter Property="BorderBrush" Value="#4a4a6a"/>
-        </Style>
-    </Window.Styles>
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <StackPanel Margin="32" Spacing="16">
 
-    <Grid RowDefinitions="Auto,*" Margin="32">
+            <!-- Header -->
+            <StackPanel Spacing="4" Margin="0 0 0 12">
+                <TextBlock Text="🎯 PubQuizMaster"
+                           FontSize="28" FontWeight="Bold"
+                           Foreground="{StaticResource BrushAccent}"
+                           HorizontalAlignment="Center"/>
+                <TextBlock Text="Host Setup"
+                           FontSize="14"
+                           Foreground="{StaticResource BrushSubtext}"
+                           HorizontalAlignment="Center"/>
+            </StackPanel>
 
-        <!-- Logo / Title -->
-        <StackPanel Grid.Row="0" Spacing="4" Margin="0 0 0 32">
-            <TextBlock Text="🎯 PubQuizMaster"
-                       FontSize="28" FontWeight="Bold"
-                       Foreground="#e94560"
-                       HorizontalAlignment="Center"/>
-            <TextBlock Text="Host Setup"
-                       FontSize="14" Foreground="#9999bb"
-                       HorizontalAlignment="Center"/>
-        </StackPanel>
+            <!-- ══ CONNECTION CARD ══ -->
+            <Border Background="{StaticResource BrushSurface}"
+                    CornerRadius="10" Padding="20" Margin="0 0 0 16">
+                <StackPanel Spacing="14">
 
-        <!-- Content -->
-        <Grid Grid.Row="1" RowDefinitions="Auto,16,*">
+                    <TextBlock Text="🌐 Client Connection"
+                               FontSize="14" FontWeight="Bold"/>
 
-            <!-- New Night -->
-            <Border Grid.Row="0" Background="#16213e"
+                    <!-- Mode Toggle -->
+                    <StackPanel Orientation="Horizontal" Spacing="20">
+                        <RadioButton Content="💻  Local network"
+                                     GroupName="mode"
+                                     IsChecked="{Binding IsLocalMode}"/>
+                        <RadioButton Content="🌍  Tunnel (external URL)"
+                                     GroupName="mode"
+                                     IsChecked="{Binding IsTunnelMode, Mode=TwoWay}"/>
+                    </StackPanel>
+
+                    <!-- Local: zeig nur die URL -->
+                    <Border Background="{StaticResource BrushCard}"
+                            CornerRadius="8" Padding="12 10"
+                            IsVisible="{Binding IsLocalMode}">
+                        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+                            <Ellipse Grid.Column="0" Width="10" Height="10"
+                                     Fill="{StaticResource BrushCorrect}"
+                                     VerticalAlignment="Center"/>
+                            <TextBlock Grid.Column="1"
+                                       Text="{Binding ClientUrl}"
+                                       FontSize="13" FontWeight="Bold"
+                                       VerticalAlignment="Center"
+                                       TextTrimming="CharacterEllipsis"/>
+                        </Grid>
+                    </Border>
+
+                    <!-- Tunnel: Anleitung + URL-Eingabe -->
+                    <StackPanel Spacing="10" IsVisible="{Binding IsTunnelMode}">
+
+                        <!-- Anleitung -->
+                        <Border Background="{StaticResource BrushCard}"
+                                CornerRadius="8" Padding="12">
+                            <StackPanel Spacing="6">
+                                <TextBlock Text="How to get a tunnel URL:"
+                                           FontSize="12" FontWeight="Bold"/>
+
+                                <TextBlock FontSize="11" Foreground="{StaticResource BrushSubtext}"
+                                           TextWrapping="Wrap"
+                                           Text="Option A — Pinggy (free, no install):"/>
+                                <SelectableTextBlock
+                                    FontSize="11" FontFamily="Courier New"
+                                    Foreground="{StaticResource BrushAccent}"
+                                    TextWrapping="Wrap"
+                                    Text="ssh -p 443 -R0:127.0.0.1:5000 a.pinggy.io"/>
+                                <TextBlock FontSize="11" Foreground="{StaticResource BrushSubtext}"
+                                           TextWrapping="Wrap"
+                                           Text="→ Copy the https://… URL from the terminal output."/>
+
+                                <Border Margin="0,4,0,4" MinHeight="1" MaxHeight="1"
+                                        Background="{StaticResource BrushSubtext}" />
+
+                                <TextBlock FontSize="11" Foreground="{StaticResource BrushSubtext}"
+                                           TextWrapping="Wrap"
+                                           Text="Option B — SSH server:"/>
+                                <SelectableTextBlock
+                                    FontSize="11" FontFamily="Courier New"
+                                    Foreground="{StaticResource BrushAccent}"
+                                    TextWrapping="Wrap"
+                                    Text="ssh -R 80:localhost:5000 -p 8022 [Server IP]"/>
+                                <TextBlock FontSize="11" Foreground="{StaticResource BrushSubtext}"
+                                           TextWrapping="Wrap"
+                                           Text="→ Copy the Forwarding URL from the ssh output."/>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- URL-Eingabe -->
+                        <TextBox Text="{Binding ClientUrl}"
+                                 Watermark="Paste tunnel URL here, e.g. https://abc123.a.pinggy.io"
+                                 FontSize="12"/>
+
+                        <!-- Status -->
+                        <Border Background="{StaticResource BrushCard}"
+                                CornerRadius="8" Padding="12 10"
+                                IsVisible="{Binding IsConnected}">
+                            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+                                <Ellipse Grid.Column="0" Width="10" Height="10"
+                                         Fill="{StaticResource BrushCorrect}"
+                                         VerticalAlignment="Center"/>
+                                <TextBlock Grid.Column="1"
+                                           Text="{Binding ClientUrl}"
+                                           FontSize="12" FontWeight="Bold"
+                                           VerticalAlignment="Center"
+                                           TextTrimming="CharacterEllipsis"/>
+                            </Grid>
+                        </Border>
+
+                    </StackPanel>
+
+                </StackPanel>
+            </Border>
+
+
+            <!-- Card: New Quiz Night -->
+            <Border Background="{StaticResource BrushSurface}"
                     CornerRadius="10" Padding="20">
                 <StackPanel Spacing="12">
                     <TextBlock Text="New Quiz Night"
                                FontSize="14" FontWeight="Bold"/>
-
-                    <Grid ColumnDefinitions="*,16,Auto" RowDefinitions="Auto,Auto"
-                          RowSpacing="8">
-
-                        <TextBox Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="3"
+                    <Grid ColumnDefinitions="*,12,Auto" ColumnSpacing="0">
+                        <TextBox Grid.Column="0"
                                  Text="{Binding NewNightName}"
                                  Watermark="Quiz Night name e.g. Pub Quiz – April 2026"/>
-
-                        <TextBlock Grid.Row="1" Grid.Column="0"
-                                   Text="Date" Foreground="#9999bb"
-                                   VerticalAlignment="Center"/>
-
-                        <CalendarDatePicker Grid.Row="1" Grid.Column="2"
+                        <CalendarDatePicker Grid.Column="2"
                                             SelectedDate="{Binding NewNightDate}"
                                             HorizontalAlignment="Stretch"/>
                     </Grid>
-
                     <Button Content="▶  Create &amp; Start"
                             Classes="primary"
                             HorizontalAlignment="Stretch"
@@ -110,62 +148,59 @@
             </Border>
 
             <!-- Divider -->
-            <Grid Grid.Row="1" ColumnDefinitions="*,Auto,*" VerticalAlignment="Center">
-                <Border Grid.Column="0" Height="1" Background="#0f3460"/>
-                <TextBlock Grid.Column="1" Text="or" Foreground="#4a4a6a"
-                           Margin="12 0" VerticalAlignment="Center"/>
-                <Border Grid.Column="2" Height="1" Background="#0f3460"/>
+            <Grid ColumnDefinitions="*,Auto,*">
+                <Border Grid.Column="0" Height="1"
+                        Background="{StaticResource BrushCard}"
+                        VerticalAlignment="Center"/>
+                <TextBlock Grid.Column="1" Text="or"
+                           Foreground="{StaticResource BrushNeutral}"
+                           Margin="12 0"/>
+                <Border Grid.Column="2" Height="1"
+                        Background="{StaticResource BrushCard}"
+                        VerticalAlignment="Center"/>
             </Grid>
 
-            <!-- Load existing -->
-            <Border Grid.Row="2" Background="#16213e"
+            <!-- Card: Load Saved Night -->
+            <Border Background="{StaticResource BrushSurface}"
                     CornerRadius="10" Padding="20">
                 <DockPanel>
                     <TextBlock DockPanel.Dock="Top"
                                Text="Load Saved Night"
                                FontSize="14" FontWeight="Bold"
                                Margin="0 0 0 10"/>
-
-                    <!-- Error -->
                     <TextBlock DockPanel.Dock="Top"
                                Text="{Binding ErrorMessage}"
-                               Foreground="#e74c3c" FontSize="12"
+                               Foreground="{StaticResource BrushWrong}"
+                               FontSize="12"
                                IsVisible="{Binding ErrorMessage,
                                Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
                                Margin="0 0 0 8"/>
-
                     <Button DockPanel.Dock="Bottom"
                             Content="↩  Load Selected"
                             HorizontalAlignment="Stretch"
                             HorizontalContentAlignment="Center"
-                            Padding="0 12"
-                            Margin="0 10 0 0"
+                            Padding="0 12" Margin="0 10 0 0"
                             IsEnabled="{Binding SelectedNight,
                             Converter={x:Static ObjectConverters.IsNotNull}}"
                             Command="{Binding LoadCommand}"/>
-
-                    <!-- Empty state -->
                     <TextBlock DockPanel.Dock="Top"
                                Text="No saved nights found."
-                               Foreground="#4a4a6a" FontSize="12"
-                               HorizontalAlignment="Center"
-                               Margin="0 16 0 0"
+                               Foreground="{StaticResource BrushNeutral}"
+                               FontSize="12" HorizontalAlignment="Center"
+                               Margin="0 12 0 0"
                                IsVisible="{Binding !SavedNights.Count}"/>
-
                     <ListBox ItemsSource="{Binding SavedNights}"
                              SelectedItem="{Binding SelectedNight}"
-                             IsVisible="{Binding SavedNights.Count}">
+                             IsVisible="{Binding SavedNights.Count}"
+                             MaxHeight="160">
                         <ListBox.ItemTemplate>
                             <DataTemplate x:DataType="md:SavedNightEntry">
                                 <Grid ColumnDefinitions="*,Auto">
-                                    <TextBlock Grid.Column="0"
-                                               Text="{Binding DisplayName}"
-                                               FontSize="13"
-                                               TextTrimming="CharacterEllipsis"/>
-                                    <TextBlock Grid.Column="1"
-                                               Text="{Binding LastModified}"
-                                               Foreground="#9999bb" FontSize="11"
-                                               VerticalAlignment="Center"
+                                    <TextBlock Grid.Column="0" Text="{Binding DisplayName}"
+                                               FontSize="13" TextTrimming="CharacterEllipsis"/>
+                                    <TextBlock Grid.Column="1" Text="{Binding LastModified}"
+                                               Foreground="{StaticResource BrushSubtext}"
+                                               FontSize="11" VerticalAlignment="Center"
                                                Margin="8 0 0 0"/>
                                 </Grid>
                             </DataTemplate>
@@ -174,6 +209,8 @@
                 </DockPanel>
             </Border>
 
-        </Grid>
-    </Grid>
+            <Border Height="24"/>
+
+        </StackPanel>
+    </ScrollViewer>
 </Window>

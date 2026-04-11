@@ -3,7 +3,7 @@ param(
     [string[]]$excludeFiles = @()  # e.g. @("appsettings*.json", "*.Designer.cs")
 )
 
-$extensions  = @("*.sln", "*.csproj", "*.cs", "*.axaml", "*.html", "*.cshtml", "*.razor", "*.razor.css", "*.yml", "*.json")
+$extensions  = @("*.sln", "*.csproj", "*.cs", "*.axaml", "*.html", "*.cshtml", "*.razor", "*.razor.css", "*.sql", "*.yml", "*.json")
 $excludeDirs = @("bin", "obj", ".git", "node_modules")
 $maxChars    = 120000
 

@@ -1,9 +1,9 @@
 ﻿using System.Linq;
 using System.Threading.Tasks;
-using Avalonia;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using PubQuizMaster.Core.Hub;
 using PubQuizMaster.Core.Models.Contents;
 using PubQuizMaster.Core.Models.Event;
 using PubQuizMaster.Core.Services;
@@ -21,7 +21,9 @@ namespace PubQuizMaster.Desktop.ViewModels
         private readonly QuizNightService _svc;
 
         [ObservableProperty] private HostPhase _phase = HostPhase.Review;
+
         [ObservableProperty] private string _serverUrl = string.Empty;
+
         [ObservableProperty] private SetupViewModel _setup = null!;
 
         #endregion Private Fields
@@ -38,7 +40,32 @@ namespace PubQuizMaster.Desktop.ViewModels
             _kestrel = kestrel;
 
             QuizNightName = svc.QuizNight.Name;
-            ServerUrl = $"http://{KestrelHost.GetLocalIpAddress()}:{KestrelHost.Port}";
+
+            var savedClient = App.SettingsService.Settings.ClientUrl;
+            ServerUrl = string.IsNullOrWhiteSpace(savedClient)
+                ? $"http://{KestrelHost.GetLocalIpAddress()}:{KestrelHost.Port}"
+                : savedClient;
+
+            kestrel.ServerReady += url => Dispatcher.UIThread.Post(() =>
+            {
+                if (string.IsNullOrWhiteSpace(App.SettingsService.Settings.ClientUrl))
+                {
+                    ServerUrl = url;
+                }
+            });
+
+            kestrel.TunnelReady += url => Dispatcher.UIThread.Post(() =>
+            {
+                ServerUrl = url;
+
+                var round = _svc.QuizNight.Rounds
+                    .FirstOrDefault(r => r.Id == _svc.ActiveRoundId);
+                if (round != null && Phase == HostPhase.Scoring)
+                {
+                    var (recorded, expected, _) = _svc.GetRoundProgress(round.Id);
+                    ActiveRound.Refresh(round, recorded, expected, url);
+                }
+            });
 
             LeftPanel = new LeftPanelViewModel(svc)
             {
@@ -49,7 +76,6 @@ namespace PubQuizMaster.Desktop.ViewModels
             ShowSetup();
 
             svc.AnswerRecorded += OnAnswerRecorded;
-            kestrel.ServerReady += url => ServerUrl = url;
         }
 
         #endregion Public Constructors
@@ -155,7 +181,7 @@ namespace PubQuizMaster.Desktop.ViewModels
             if (string.IsNullOrEmpty(ServerUrl)) return;
             System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
             {
-                FileName = ServerUrl,
+                FileName = ServerUrl.Trim(),
                 UseShellExecute = true
             });
         }
@@ -190,7 +216,6 @@ namespace PubQuizMaster.Desktop.ViewModels
 
             var (recorded, expected, _) = _svc.GetRoundProgress(round.Id);
             ActiveRound.Initialize(round, recorded, expected, ServerUrl);
-
 
             LeftPanel.Refresh(roundIsActive: true);
             SwitchPhase(HostPhase.Scoring);

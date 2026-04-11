@@ -9,25 +9,23 @@ using PubQuizMaster.Desktop.Models;
 
 namespace PubQuizMaster.Desktop.ViewModels
 {
-    public partial class StartupViewModel
-        : ViewModelBase
+    public partial class StartupViewModel : ViewModelBase
     {
         #region Private Fields
 
         private readonly PersistenceService _persistence;
+        private string _clientUrl = string.Empty;
 
         [ObservableProperty] private string _errorMessage = string.Empty;
+        [ObservableProperty] private DateTime? _newNightDate = DateTime.Today;
 
-        [ObservableProperty]
-        private DateTime? _newNightDate = DateTime.Today;
-
-        [ObservableProperty]
         [NotifyCanExecuteChangedFor(nameof(CreateNewCommand))]
-        private string _newNightName = string.Empty;
+        [ObservableProperty] private string _newNightName = string.Empty;
 
-        [ObservableProperty]
+        [ObservableProperty] private ConnectionMode _selectedMode = ConnectionMode.Local;
+
         [NotifyCanExecuteChangedFor(nameof(LoadCommand))]
-        private SavedNightEntry? _selectedNight;
+        [ObservableProperty] private SavedNightEntry? _selectedNight;
 
         #endregion Private Fields
 
@@ -37,13 +35,47 @@ namespace PubQuizMaster.Desktop.ViewModels
         {
             _persistence = persistence;
             LoadSavedNights();
+
+            // Start in Local mode — set local IP immediately
+            _clientUrl = $"http://{Web.KestrelHost.GetLocalIpAddress()}:{Web.KestrelHost.Port}";
         }
 
         #endregion Public Constructors
 
         #region Public Properties
 
+        public string ClientUrl
+        {
+            get => _clientUrl;
+            set
+            {
+                if (SetProperty(ref _clientUrl, value))
+                {
+                    if (SelectedMode == ConnectionMode.Tunnel)
+                    {
+                        App.SettingsService.Settings.ClientUrl = value;
+                        App.SettingsService.Save();
+                    }
+                    OnPropertyChanged(nameof(IsConnected));
+                }
+            }
+        }
+
         public Action? CloseRequested { get; set; }
+        public bool IsConnected => !string.IsNullOrWhiteSpace(ClientUrl);
+
+        public bool IsLocalMode => SelectedMode == ConnectionMode.Local;
+
+        public bool IsTunnelMode
+        {
+            get => SelectedMode == ConnectionMode.Tunnel;
+            set
+            {
+                SelectedMode = value ? ConnectionMode.Tunnel : ConnectionMode.Local;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(IsLocalMode));
+            }
+        }
 
         public QuizNight? Result { get; private set; }
 
@@ -53,8 +85,7 @@ namespace PubQuizMaster.Desktop.ViewModels
 
         #region Private Methods
 
-        private bool CanCreateNew() =>
-            !string.IsNullOrWhiteSpace(NewNightName);
+        private bool CanCreateNew() => !string.IsNullOrWhiteSpace(NewNightName);
 
         private bool CanLoad() => SelectedNight != null;
 
@@ -73,7 +104,6 @@ namespace PubQuizMaster.Desktop.ViewModels
         private async Task Load()
         {
             if (SelectedNight == null) return;
-
             try
             {
                 Result = await _persistence.LoadAsync(SelectedNight.FilePath);
@@ -90,6 +120,22 @@ namespace PubQuizMaster.Desktop.ViewModels
             SavedNights.Clear();
             foreach (var file in _persistence.ListSavedNights())
                 SavedNights.Add(new SavedNightEntry(file));
+        }
+
+        partial void OnSelectedModeChanged(ConnectionMode value)
+        {
+            if (value == ConnectionMode.Local)
+            {
+                ClientUrl = $"http://{Web.KestrelHost.GetLocalIpAddress()}:{Web.KestrelHost.Port}";
+
+                App.SettingsService.Settings.ClientUrl = null;
+                App.SettingsService.Save();
+            }
+            else
+            {
+                var saved = App.SettingsService.Settings.ClientUrl;
+                ClientUrl = !string.IsNullOrWhiteSpace(saved) ? saved : string.Empty;
+            }
         }
 
         #endregion Private Methods

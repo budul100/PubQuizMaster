@@ -7,7 +7,7 @@
     <DockPanel>
 
         <!-- Toolbar: Edit / Save / Cancel / Export -->
-        <Border DockPanel.Dock="Top" Background="#16213e"
+        <Border DockPanel.Dock="Top" Background="{StaticResource BrushSurface}"
                 CornerRadius="8" Padding="12 10" Margin="0 0 0 12">
             <Grid ColumnDefinitions="*,Auto">
                 <TextBlock Grid.Column="0"
@@ -54,7 +54,7 @@
                 <!-- Header-Zeile -->
                 <StackPanel Orientation="Horizontal">
                     <TextBlock Text="Team" Width="140"
-                               FontSize="11" Foreground="#9999bb"/>
+                               FontSize="11" Foreground="{StaticResource BrushSubtext}"/>
                     <ItemsControl ItemsSource="{Binding QuestionHeaders}">
                         <ItemsControl.ItemsPanel>
                             <ItemsPanelTemplate>
@@ -64,13 +64,13 @@
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
                                 <TextBlock Text="{Binding}" Width="32"
-                                           FontSize="11" Foreground="#9999bb"
+                                           FontSize="11" Foreground="{StaticResource BrushSubtext}"
                                            TextAlignment="Center"/>
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
                     <TextBlock Text="Σ" Width="32"
-                               FontSize="11" Foreground="#9999bb"
+                               FontSize="11" Foreground="{StaticResource BrushSubtext}"
                                TextAlignment="Center"/>
                 </StackPanel>
 
@@ -109,7 +109,7 @@
                                 </ItemsControl>
                                 <TextBlock Text="{Binding Total}"
                                            Width="32" FontSize="13"
-                                           Foreground="#e94560" FontWeight="Bold"
+                                           Foreground="{StaticResource BrushAccent}" FontWeight="Bold"
                                            TextAlignment="Center"
                                            VerticalAlignment="Center"/>
                             </StackPanel>
@@ -118,10 +118,10 @@
                 </ItemsControl>
 
                 <!-- Summenzeile -->
-                <Border Height="1" Background="#0f3460" Margin="0 6"/>
+                <Border Height="1" Background="{StaticResource BrushCard}" Margin="0 6"/>
                 <StackPanel Orientation="Horizontal">
                     <TextBlock Text="Correct" Width="140"
-                               FontSize="11" Foreground="#9999bb"
+                               FontSize="11" Foreground="{StaticResource BrushSubtext}"
                                VerticalAlignment="Center"/>
                     <ItemsControl ItemsSource="{Binding ColSums}">
                         <ItemsControl.ItemsPanel>
@@ -132,7 +132,7 @@
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
                                 <TextBlock Text="{Binding}" Width="32"
-                                           FontSize="13" Foreground="#2ecc71"
+                                           FontSize="13" Foreground="{StaticResource BrushCorrect}"
                                            FontWeight="Bold" TextAlignment="Center"/>
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>

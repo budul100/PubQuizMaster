@@ -58,7 +58,6 @@ namespace PubQuizMaster.Core.Services
 
         #region Public Methods
 
-        /// <summary>Creates a new quiz night and sets it as the active session.</summary>
         public static QuizSessionState CreateNew(PersistenceService persistence, string name)
         {
             var night = new QuizNight
@@ -69,10 +68,6 @@ namespace PubQuizMaster.Core.Services
             return new QuizSessionState(night);
         }
 
-        /// <summary>
-        /// Adds a new team to the master list.
-        /// SheetOrder defaults to next available number.
-        /// </summary>
         public Team AddTeam(string name, int? sheetOrder = null)
         {
             var team = new Team
@@ -86,7 +81,6 @@ namespace PubQuizMaster.Core.Services
             return team;
         }
 
-        /// <summary>Adds a team to an existing round (late join).</summary>
         public void AddTeamToRound(Guid roundId, Guid teamId)
         {
             var round = GetRoundOrThrow(roundId);
@@ -98,10 +92,6 @@ namespace PubQuizMaster.Core.Services
                 round.ActiveTeamIds.Add(teamId);
         }
 
-        /// <summary>
-        /// Assigns a set of teams exclusively to a scorer in the given round.
-        /// Teams must be active in the round and not already assigned.
-        /// </summary>
         public ScorerAssignment AssignScorer(Guid roundId, string scorerId, string label, List<Guid> teamIds)
         {
             var round = GetRoundOrThrow(roundId);
@@ -138,10 +128,6 @@ namespace PubQuizMaster.Core.Services
             return assignment;
         }
 
-        /// <summary>
-        /// Creates a new round and activates it.
-        /// By default all current master teams are added as active.
-        /// </summary>
         public Round CreateRound(string name, int questionCount, List<Guid>? activeTeamIds = null)
         {
             var round = new Round
@@ -166,32 +152,20 @@ namespace PubQuizMaster.Core.Services
             QuizNight.Rounds.Remove(round);
         }
 
-        // ── Rounds ────────────────────────────────
-        /// <summary>Marks a round as finalized. No further answers accepted after this.</summary>
         public void FinalizeRound(Guid roundId)
         {
             var round = GetRoundOrThrow(roundId);
             round.IsFinalized = true;
         }
 
-        /// <summary>
-        /// Returns a scorer's current assignment in the active round.
-        /// Returns null if not assigned.
-        /// </summary>
         public ScorerAssignment? GetAssignment(string scorerId)
         {
             return QuizNight
                 .GetAssignment(_state.ActiveRoundId, scorerId);
         }
 
-        /// <summary>Returns the full leaderboard across all rounds.</summary>
         public List<LeaderboardEntry> GetLeaderboard() => QuizNight.GetLeaderboard();
 
-        // ── Scoring & Leaderboard ─────────────────
-        /// <summary>
-        /// Returns a completion summary for a round:
-        /// how many answers have been recorded vs. expected total.
-        /// </summary>
         public (int Recorded, int Expected, double PercentComplete) GetRoundProgress(Guid roundId)
         {
             var round = GetRoundOrThrow(roundId);
@@ -201,23 +175,18 @@ namespace PubQuizMaster.Core.Services
             return (recorded, expected, Math.Round(pct, 1));
         }
 
-        /// <summary>
-        /// Initializes the service with a QuizNight instance.
-        /// Call after the user has chosen to create a new night or load an existing one.
-        /// </summary>
         public Task InitializeAsync(QuizNight quizNight)
         {
             _state = new QuizSessionState(quizNight);
             return Task.CompletedTask;
         }
 
-        /// <summary>
-        /// Records a boolean answer for the active round.
-        /// Convenience wrapper over QuizSessionState.RecordAnswer.
-        /// </summary>
         public Answer RecordAnswerBool(string scorerId, Guid teamId, int questionIndex, bool correct)
         {
-            return _state?.RecordAnswer(
+            if (_state == null)
+                throw new InvalidOperationException("QuizNightService not initialized. Call InitializeAsync() first.");
+
+            return _state.RecordAnswer(
                 _state.ActiveRoundId,
                 scorerId,
                 teamId,
@@ -225,10 +194,6 @@ namespace PubQuizMaster.Core.Services
                 new AnswerBool { Correct = correct });
         }
 
-        // ── Answers ───────────────────────────────
-        /// <summary>
-        /// Records a point-based answer for the active round.
-        /// </summary>
         public Answer RecordAnswerPoint(string scorerId, Guid teamId, int questionIndex, decimal points)
         {
             return _state.RecordAnswer(
@@ -239,8 +204,6 @@ namespace PubQuizMaster.Core.Services
                 new AnswerPoint { Points = points });
         }
 
-        // ── Scorer Assignments ────────────────────
-        /// <summary>Removes a scorer assignment from a round.</summary>
         public void RemoveScorer(Guid roundId, string scorerId)
         {
             var round = GetRoundOrThrow(roundId);
@@ -249,15 +212,12 @@ namespace PubQuizMaster.Core.Services
                 round.Assignments.Remove(assignment);
         }
 
-        /// <summary>Removes a team from an active round (dropout).</summary>
         public void RemoveTeamFromRound(Guid roundId, Guid teamId)
         {
             var round = GetRoundOrThrow(roundId);
             round.ActiveTeamIds.Remove(teamId);
         }
 
-        // ── Teams ─────────────────────────────────
-        /// <summary>Reorders teams by updating SheetOrder values.</summary>
         public void ReorderTeams(List<Guid> orderedTeamIds)
         {
             for (var i = 0; i < orderedTeamIds.Count; i++)
@@ -268,8 +228,6 @@ namespace PubQuizMaster.Core.Services
             }
         }
 
-        // ── Quiz Night ────────────────────────────
-        /// <summary>Persists the current state to disk.</summary>
         public Task SaveAsync() => _persistence.SaveAsync(QuizNight);
 
         public void SetAnswer(Guid roundId, Guid teamId, int questionIndex, bool? isCorrect)
@@ -299,8 +257,6 @@ namespace PubQuizMaster.Core.Services
         }
 
         #endregion Public Methods
-
-        // ── Helpers ───────────────────────────────
 
         #region Private Methods
 

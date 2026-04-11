@@ -6,75 +6,18 @@
         x:DataType="vm:MainWindowViewModel"
         Title="PubQuizMaster – Host"
         Width="1280" Height="800"
-        Background="#1a1a2e">
-
-    <Window.Styles>
-        <Style Selector="TextBlock">
-            <Setter Property="Foreground" Value="#eaeaea"/>
-        </Style>
-        <Style Selector="TextBox">
-            <Setter Property="Background" Value="#16213e"/>
-            <Setter Property="Foreground" Value="#eaeaea"/>
-            <Setter Property="BorderBrush" Value="#4a4a6a"/>
-            <Setter Property="CornerRadius" Value="6"/>
-            <Setter Property="Padding" Value="8 6"/>
-        </Style>
-        <Style Selector="Button">
-            <Setter Property="Background" Value="#0f3460"/>
-            <Setter Property="Foreground" Value="#eaeaea"/>
-            <Setter Property="CornerRadius" Value="6"/>
-            <Setter Property="Padding" Value="12 8"/>
-            <Setter Property="Cursor" Value="Hand"/>
-        </Style>
-        <Style Selector="Button.primary">
-            <Setter Property="Background" Value="#e94560"/>
-        </Style>
-        <Style Selector="Button.danger">
-            <Setter Property="Background" Value="#c0392b"/>
-        </Style>
-        <Style Selector="Button:disabled /template/ ContentPresenter">
-            <Setter Property="Background" Value="#4a4a6a"/>
-            <Setter Property="Opacity" Value="1"/>
-        </Style>
-        <Style Selector="Button:disabled">
-            <Setter Property="Foreground" Value="#aaaacc"/>
-        </Style>
-        <Style Selector="TabControl">
-            <Setter Property="Background" Value="#16213e"/>
-        </Style>
-        <Style Selector="TabItem">
-            <Setter Property="Background" Value="#0f3460"/>
-            <Setter Property="Foreground" Value="#eaeaea"/>
-            <Setter Property="Padding" Value="10 6"/>
-        </Style>
-        <Style Selector="TabItem:selected">
-            <Setter Property="Background" Value="#16213e"/>
-            <Setter Property="Foreground" Value="#e94560"/>
-        </Style>
-        <Style Selector="TabItem:selected /template/ Border#PART_SelectedPipe">
-            <Setter Property="Background" Value="#e94560"/>
-        </Style>
-        <Style Selector="Expander">
-            <Setter Property="Foreground" Value="#eaeaea"/>
-        </Style>
-        <Style Selector="Expander /template/ ToggleButton">
-            <Setter Property="Foreground" Value="#eaeaea"/>
-        </Style>
-        <Style Selector="CheckBox">
-            <Setter Property="Foreground" Value="#eaeaea"/>
-        </Style>
-    </Window.Styles>
+        Background="{StaticResource BrushBg}">
 
     <Grid RowDefinitions="Auto,*">
 
         <!-- Header -->
-        <Border Grid.Row="0" Background="#16213e" Padding="16 12">
+        <Border Grid.Row="0" Background="{StaticResource BrushSurface}" Padding="16 12">
             <Grid ColumnDefinitions="*,Auto">
                 <StackPanel Orientation="Horizontal" Spacing="16">
                     <TextBlock Text="🎯 PubQuizMaster" FontSize="18" FontWeight="Bold"
-                               Foreground="#e94560"/>
+                               Foreground="{StaticResource BrushAccent}"/>
                     <TextBlock Text="{Binding QuizNightName}" FontSize="14"
-                               Foreground="#9999bb" VerticalAlignment="Center"/>
+                               Foreground="{StaticResource BrushSubtext}" VerticalAlignment="Center"/>
                 </StackPanel>
                 <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
                     <TextBlock Text="🌐" VerticalAlignment="Center"/>
@@ -82,7 +25,7 @@
                             Content="{Binding ServerUrl}"
                             Command="{Binding OpenInBrowserCommand}"
                             FontSize="12"
-                            Foreground="#9999bb"
+                            Foreground="{StaticResource BrushSubtext}"
                             VerticalAlignment="Center"
                             Background="Transparent"
                             Padding="0"
@@ -104,14 +47,14 @@
                   ColumnDefinitions="1*,4,3*">
 
                 <Border Grid.Column="0"
-                        Background="#16213e" CornerRadius="8"
+                        Background="{StaticResource BrushSurface}" CornerRadius="8"
                         Margin="0 0 0 0" Padding="12">
                     <views:LeftPanelView DataContext="{Binding LeftPanel}"/>
                 </Border>
 
                 <GridSplitter Grid.Column="1"
                               ResizeDirection="Columns"
-                              Background="#0f3460"
+                              Background="{StaticResource BrushCard}"
                               HorizontalAlignment="Stretch"
                               VerticalAlignment="Stretch"/>
 
@@ -122,7 +65,7 @@
                             IsVisible="{Binding Setup.SetupError,
                             Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
                         <TextBlock Text="{Binding Setup.SetupError}"
-                                   Foreground="#e74c3c" FontSize="13"/>
+                                   Foreground="{StaticResource BrushWrong}" FontSize="13"/>
                     </Border>
                     <ContentControl Grid.Row="1" Content="{Binding Center.CurrentContent}">
                         <ContentControl.DataTemplates>

@@ -19,6 +19,8 @@ namespace PubQuizMaster.Desktop
 
         public static QuizNightService QuizNightService { get; private set; } = null!;
 
+        public static SettingsService SettingsService { get; private set; } = null!;
+
         #endregion Public Properties
 
         #region Public Methods
@@ -37,6 +39,17 @@ namespace PubQuizMaster.Desktop
             var persistence = new PersistenceService();
             var scorerSession = new ScorerSessionService();
             QuizNightService = new QuizNightService(persistence);
+
+            SettingsService = new SettingsService();
+            SettingsService.Load();
+
+            var saved = SettingsService.Settings.ClientUrl;
+
+            if (!string.IsNullOrWhiteSpace(saved)
+                && !saved.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+            {
+                SettingsService.ClearUrl();
+            }
 
             // -- 2. Startup dialog -------------------------------------------------
             var startupVm = new StartupViewModel(persistence);
@@ -61,9 +74,7 @@ namespace PubQuizMaster.Desktop
 
             // -- 4. Kestrel --------------------------------------------------------
             KestrelHost = new KestrelHost(QuizNightService, persistence, scorerSession);
-            KestrelHost.ServerReady += url =>
-                Console.WriteLine($"[PubQuizMaster] Server ready → {url}");
-            KestrelHost.Start();
+            KestrelHost.ServerReady += url => Console.WriteLine($"[PubQuizMaster] Server ready → {url}");
 
             // -- 5. Main Window ----------------------------------------------------
             var mainWindow = new MainWindow
@@ -73,6 +84,8 @@ namespace PubQuizMaster.Desktop
 
             desktop.MainWindow = mainWindow;
             mainWindow.Show();
+
+            KestrelHost.Start();
 
             desktop.ShutdownRequested += async (_, _) => await KestrelHost.StopAsync();
 

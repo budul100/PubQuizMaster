@@ -713,7 +713,7 @@
                 }
             });
 
-            state.connection.on('AnswerUpdated', (payload) => {
+            state.connection.on('OnAnswerUpdated', (payload) => {
                 const teamIndex = state.teams.findIndex(t => t.id === payload.teamId);
                 if (teamIndex >= 0) {
                     const correct = payload.value?.correct ?? null;

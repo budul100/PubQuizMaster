@@ -13,31 +13,31 @@
                 <StackPanel Spacing="6">
                     <TextBlock Text="TOTAL STANDINGS"
                                FontSize="11" FontWeight="Bold"
-                               Foreground="#9999bb" LetterSpacing="1"/>
+                               Foreground="{StaticResource BrushSubtext}" LetterSpacing="1"/>
 
                     <ItemsControl ItemsSource="{Binding TotalBoard}">
                         <ItemsControl.ItemTemplate>
                             <DataTemplate x:DataType="vm:LeaderboardEntryViewModel">
                                 <Grid ColumnDefinitions="20,*,Auto" Margin="0 3">
                                     <TextBlock Grid.Column="0" Text="{Binding Rank}"
-                                               Foreground="#4a4a6a" FontSize="12"/>
+                                               Foreground="{StaticResource BrushNeutral}" FontSize="12"/>
                                     <TextBlock Grid.Column="1" Text="{Binding TeamName}"
                                                FontSize="13" TextTrimming="CharacterEllipsis"/>
                                     <TextBlock Grid.Column="2" Text="{Binding Score}"
-                                               Foreground="#2ecc71" FontWeight="Bold" FontSize="13"/>
+                                               Foreground="{StaticResource BrushCorrect}" FontWeight="Bold" FontSize="13"/>
                                 </Grid>
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
                 </StackPanel>
 
-                <Border Height="1" Background="#0f3460"/>
+                <Border Height="1" Background="{StaticResource BrushCard}"/>
 
                 <!-- Rundenliste -->
                 <StackPanel Spacing="6">
                     <TextBlock Text="ROUNDS"
                                FontSize="11" FontWeight="Bold"
-                               Foreground="#9999bb" LetterSpacing="1"/>
+                               Foreground="{StaticResource BrushSubtext}" LetterSpacing="1"/>
 
                     <ItemsControl ItemsSource="{Binding Rounds}">
                         <ItemsControl.ItemTemplate>
@@ -47,17 +47,14 @@
                                     Padding="10 8"
                                     Margin="0 3"
                                     Cursor="Hand"
+                                    Background="{StaticResource BrushCard}"
                                     Classes.selected="{Binding IsSelected}"
                                     PointerPressed="OnRoundEntryPressed">
-
-                                    <Border.Background>
-                                        <SolidColorBrush Color="#0f3460"/>
-                                    </Border.Background>
 
                                     <Border.Styles>
                                         <Style Selector="Border.selected">
                                             <Setter Property="Background" Value="#1a3a6e"/>
-                                            <Setter Property="BorderBrush" Value="#e94560"/>
+                                            <Setter Property="BorderBrush" Value="{StaticResource BrushAccent}"/>
                                             <Setter Property="BorderThickness" Value="1"/>
                                         </Style>
                                     </Border.Styles>
@@ -77,12 +74,12 @@
                                                         <TextBlock Grid.Column="0"
                                                                    Text="{Binding Name}"
                                                                    FontSize="11"
-                                                                   Foreground="#9999bb"
+                                                                   Foreground="{StaticResource BrushSubtext}"
                                                                    TextTrimming="CharacterEllipsis"/>
                                                         <TextBlock Grid.Column="1"
                                                                    Text="{Binding Score}"
                                                                    FontSize="11"
-                                                                   Foreground="#e94560"
+                                                                   Foreground="{StaticResource BrushAccent}"
                                                                    FontWeight="Bold"/>
                                                     </Grid>
                                                 </DataTemplate>
@@ -102,10 +99,10 @@
                                                     <DataTemplate>
                                                         <Border Width="20" Height="20"
                                                                 CornerRadius="4"
-                                                                Background="#16213e">
+                                                                Background="{StaticResource BrushSurface}">
                                                             <TextBlock Text="{Binding}"
                                                                        FontSize="10"
-                                                                       Foreground="#9999bb"
+                                                                       Foreground="{StaticResource BrushSubtext}"
                                                                        HorizontalAlignment="Center"
                                                                        VerticalAlignment="Center"/>
                                                         </Border>

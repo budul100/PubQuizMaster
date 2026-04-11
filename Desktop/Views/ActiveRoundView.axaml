@@ -1,22 +1,23 @@
-﻿<UserControl xmlns="https://github.com/avaloniaui"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:vm="using:PubQuizMaster.Desktop.ViewModels"
-             x:Class="PubQuizMaster.Desktop.Views.ActiveRoundView"
-             x:DataType="vm:ActiveRoundViewModel">
+﻿<UserControl
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:vm="using:PubQuizMaster.Desktop.ViewModels"
+    x:Class="PubQuizMaster.Desktop.Views.ActiveRoundView"
+    x:DataType="vm:ActiveRoundViewModel">
 
     <Grid RowDefinitions="Auto,*">
 
-        <Border Grid.Row="0" Background="#16213e" CornerRadius="8"
+        <Border Grid.Row="0" Background="{StaticResource BrushSurface}" CornerRadius="8"
                 Padding="16" Margin="0 0 0 12">
             <Grid ColumnDefinitions="*,Auto">
                 <StackPanel>
                     <TextBlock Text="{Binding ActiveRoundName}"
                                FontSize="20" FontWeight="Bold"/>
                     <TextBlock Text="{Binding AnswerProgress}"
-                               FontSize="14" Foreground="#9999bb" Margin="0 4 0 0"/>
+                               FontSize="14" Foreground="{StaticResource BrushSubtext}" Margin="0 4 0 0"/>
                 </StackPanel>
                 <TextBlock Grid.Column="1" Text="answers recorded"
-                           Foreground="#9999bb" VerticalAlignment="Center"/>
+                           Foreground="{StaticResource BrushSubtext}" VerticalAlignment="Center"/>
             </Grid>
         </Border>
 
@@ -30,17 +31,17 @@
                 <ItemsControl.ItemTemplate>
                     <DataTemplate x:DataType="vm:ScorerStatusViewModel">
 
-                        <Border Background="#16213e" CornerRadius="8"
+                        <Border Background="{StaticResource BrushSurface}" CornerRadius="8"
                                 Padding="20" Margin="0 0 12 12" Width="280">
                             <StackPanel Spacing="6">
                                 <TextBlock Text="{Binding Label}"
                                            FontWeight="Bold" FontSize="14"/>
                                 <TextBlock Text="{Binding ScorerId}"
-                                           Foreground="#9999bb" FontSize="12"/>
+                                           Foreground="{StaticResource BrushSubtext}" FontSize="12"/>
                                 <TextBlock Text="{Binding Progress}"
                                            FontSize="24" FontWeight="Bold"
-                                           Foreground="#e94560" Margin="0 8 0 0"/>
-                                <TextBlock Text="✓ Done" Foreground="#2ecc71"
+                                           Foreground="{StaticResource BrushAccent}" Margin="0 8 0 0"/>
+                                <TextBlock Text="✓ Done" Foreground="{StaticResource BrushCorrect}"
                                            IsVisible="{Binding IsComplete}"
                                            FontWeight="Bold"/>
                                 <Image Source="{Binding QrCode}"
