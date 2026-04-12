@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -19,9 +20,9 @@ namespace PubQuizMaster.Desktop.ViewModels
         private readonly Round round;
 
         private string? exportError;
-
+        [ObservableProperty] private string? exportSuccess;
         [ObservableProperty] private bool isEditing;
-
+        [ObservableProperty] private bool isExporting;
         private bool isFinalRound;
 
         #endregion Private Fields
@@ -138,10 +139,7 @@ namespace PubQuizMaster.Desktop.ViewModels
 
         #region Private Methods
 
-        private static void AssignRanks<T>(
-            List<T> ordered,
-            Func<T, decimal> keySelector,
-            Action<T, int> rankSetter)
+        private static void AssignRanks<T>(List<T> ordered, Func<T, decimal> keySelector, Action<T, int> rankSetter)
         {
             for (int i = 0; i < ordered.Count; i++)
             {
@@ -181,6 +179,7 @@ namespace PubQuizMaster.Desktop.ViewModels
         private async Task Export()
         {
             ExportError = null;
+            ExportSuccess = null;
 
             if (PickTemplateFileAsync == null)
             {
@@ -195,6 +194,8 @@ namespace PubQuizMaster.Desktop.ViewModels
             if (string.IsNullOrEmpty(templatePath))
                 return;
 
+            IsExporting = true;
+
             try
             {
                 var outputPath = await ExportService.ExportAsync(
@@ -202,12 +203,15 @@ namespace PubQuizMaster.Desktop.ViewModels
                     templatePath: templatePath,
                     isFinalRound: IsFinalRound);
 
-                System.Diagnostics.Debug.WriteLine($"[Export] Completed: {outputPath}");
+                ExportSuccess = $"✓ Export done: {Path.GetFileName(outputPath)}";
             }
             catch (Exception ex)
             {
                 ExportError = $"Export failed: {ex.Message}";
-                System.Diagnostics.Debug.WriteLine($"[Export] ERROR: {ex}");
+            }
+            finally
+            {
+                IsExporting = false;
             }
         }
 

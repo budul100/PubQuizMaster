@@ -5,7 +5,6 @@
              x:Class="PubQuizMaster.Desktop.Views.RoundMatrixView"
              x:DataType="vm:RoundMatrixViewModel">
     <DockPanel>
-
         <Border DockPanel.Dock="Top"
                 Background="{StaticResource BrushSurface}"
                 CornerRadius="8"
@@ -19,6 +18,9 @@
                                FontSize="16"
                                FontWeight="Bold"
                                VerticalAlignment="Center"/>
+                    <Button Content="✎ Edit"
+                            IsVisible="{Binding !IsEditing}"
+                            Command="{Binding EditCommand}"/>
                     <Button Content="✓ Save"
                             Classes="primary"
                             IsVisible="{Binding IsEditing}"
@@ -27,19 +29,29 @@
                             Classes="danger"
                             IsVisible="{Binding IsEditing}"
                             Command="{Binding CancelCommand}"/>
+                    <ProgressBar IsVisible="{Binding IsExporting}"
+                                 IsIndeterminate="True"
+                                 Width="80"
+                                 Height="4"
+                                 VerticalAlignment="Center"/>
                 </StackPanel>
                 <StackPanel Grid.Column="1"
                             Orientation="Horizontal"
                             Spacing="8">
-                    <Button Content="✎ Edit"
-                            IsVisible="{Binding !IsEditing}"
-                            Command="{Binding EditCommand}"/>
                     <Button Content="🗑 Delete"
                             Classes="danger"
                             IsVisible="{Binding IsEditing}"
                             Command="{Binding DeleteRoundCommand}"/>
+                    <CheckBox Content="🏆 Final round"
+                              IsVisible="{Binding !IsEditing}"
+                              IsChecked="{Binding IsFinalRound}"
+                              VerticalAlignment="Center"
+                              Foreground="{StaticResource BrushSubtext}"
+                              FontSize="12"/>
                     <Button Content="↗ Export"
-                            Command="{Binding ExportCommand}"/>
+                            Command="{Binding ExportCommand}"
+                            IsVisible="{Binding !IsEditing}"
+                            IsEnabled="{Binding !IsExporting}"/>
                 </StackPanel>
             </Grid>
         </Border>
@@ -54,7 +66,6 @@
                                Width="140"
                                FontSize="11"
                                Foreground="{StaticResource BrushSubtext}"/>
-
                     <TextBlock Text="#R"
                                Width="44"
                                FontSize="11"
@@ -65,13 +76,11 @@
                                FontSize="11"
                                Foreground="{StaticResource BrushSubtext}"
                                TextAlignment="Center"/>
-
                     <TextBlock Text="Pts"
                                Width="44"
                                FontSize="11"
                                Foreground="{StaticResource BrushSubtext}"
                                TextAlignment="Center"/>
-
                     <ItemsControl ItemsSource="{Binding QuestionHeaders}">
                         <ItemsControl.ItemsPanel>
                             <ItemsPanelTemplate>
@@ -88,28 +97,23 @@
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
-
                 </StackPanel>
                 <!-- Correct-per-question sums (directly under header) -->
                 <StackPanel Orientation="Horizontal"
                             Margin="0 2 0 2">
-
                     <TextBlock Text="Correct"
                                Width="140"
                                FontSize="11"
                                Foreground="{StaticResource BrushSubtext}"
                                VerticalAlignment="Center"/>
-
                     <TextBlock Width="44"/>
                     <TextBlock Width="44"/>
-
                     <TextBlock Text="{Binding TotalCorrectCount}"
                                Width="44"
                                FontSize="12"
                                FontWeight="Bold"
                                Foreground="{StaticResource BrushCorrect}"
                                TextAlignment="Center"/>
-
                     <ItemsControl ItemsSource="{Binding ColSums}">
                         <ItemsControl.ItemsPanel>
                             <ItemsPanelTemplate>
@@ -127,14 +131,11 @@
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
-
                 </StackPanel>
-
                 <!-- Divider -->
                 <Border Height="1"
                         Background="{StaticResource BrushCard}"
                         Margin="0 4 0 4"/>
-
                 <!-- Team rows -->
                 <ItemsControl ItemsSource="{Binding Rows}">
                     <ItemsControl.ItemTemplate>
@@ -143,7 +144,6 @@
                         </DataTemplate>
                     </ItemsControl.ItemTemplate>
                 </ItemsControl>
-
             </StackPanel>
         </ScrollViewer>
     </DockPanel>

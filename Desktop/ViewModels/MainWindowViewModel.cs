@@ -20,6 +20,7 @@ namespace PubQuizMaster.Desktop.ViewModels
         private readonly KestrelHost kestrelHost;
         private readonly QuizNightService quizService;
 
+        [ObservableProperty] private RoundMatrixViewModel matrix = null!;
         [ObservableProperty] private HostPhase phase = HostPhase.Review;
         [ObservableProperty] private string serverUrl = string.Empty;
         [ObservableProperty] private SetupViewModel setup = null!;
@@ -83,9 +84,7 @@ namespace PubQuizMaster.Desktop.ViewModels
                 var lastRound = quizService.QuizNight.Rounds.Last();
                 LeftPanel.SelectEntry(lastRound.Id);
 
-                var matrix = CreateMatrix(lastRound);
-                Center.ShowMatrix(matrix);
-
+                CreateMatrix(lastRound);
                 SwitchPhase(HostPhase.Review);
             }
             else
@@ -120,22 +119,23 @@ namespace PubQuizMaster.Desktop.ViewModels
 
         #region Private Methods
 
-        private RoundMatrixViewModel CreateMatrix(Round round)
+        private void CreateMatrix(Round round)
         {
             var index = quizService.QuizNight.Rounds.IndexOf(round);
-            var matrix = new RoundMatrixViewModel(
+
+            Matrix = new RoundMatrixViewModel(
                 nightService: quizService,
                 round: round,
                 roundNumber: index + 1);
 
-            matrix.OnSaved = () => LeftPanel.Refresh(roundIsActive: false);
-            matrix.OnDeleted = () =>
+            Matrix.OnSaved = () => LeftPanel.Refresh(roundIsActive: false);
+            Matrix.OnDeleted = () =>
             {
                 LeftPanel.Refresh(roundIsActive: false);
                 ShowSetup();
             };
 
-            return matrix;
+            Center.ShowMatrix(Matrix);
         }
 
         [RelayCommand]
@@ -164,9 +164,7 @@ namespace PubQuizMaster.Desktop.ViewModels
             LeftPanel.Refresh(roundIsActive: false);
             LeftPanel.SelectEntry(round.Id);
 
-            var matrix = CreateMatrix(round);
-
-            Center.ShowMatrix(matrix);
+            CreateMatrix(round);
             SwitchPhase(HostPhase.Review);
         }
 
@@ -196,9 +194,7 @@ namespace PubQuizMaster.Desktop.ViewModels
             var round = quizService.QuizNight.Rounds.First(r => r.Id == entry.RoundId);
             var index = quizService.QuizNight.Rounds.IndexOf(round);
 
-            var matrix = CreateMatrix(round);
-
-            Center.ShowMatrix(matrix);
+            CreateMatrix(round);
             NotifyShowStartButton();
         }
 

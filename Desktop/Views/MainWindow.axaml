@@ -73,17 +73,42 @@
                 <Grid Grid.Column="2"
                       RowDefinitions="Auto,*"
                       Margin="0 0 0 0">
-                    <Border Grid.Row="0"
-                            Background="#3a1a1a"
-                            CornerRadius="8"
-                            Padding="12 8"
-                            Margin="0 0 0 8"
-                            IsVisible="{Binding Setup.SetupError,
-                            Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
-                        <TextBlock Text="{Binding Setup.SetupError}"
-                                   Foreground="{StaticResource BrushWrong}"
-                                   FontSize="13"/>
-                    </Border>
+                    <StackPanel Grid.Row="0"
+                                Orientation="Vertical">
+                        <Border Background="{StaticResource BrushWarning}"
+                                CornerRadius="8"
+                                Padding="12 8"
+                                Margin="0 0 0 8"
+                                IsVisible="{Binding Setup.SetupError,
+                                Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+                            <TextBlock Text="{Binding Setup.SetupError}"
+                                       Foreground="{StaticResource BrushWrong}"
+                                       FontSize="13"/>
+                        </Border>
+
+                        <Border Background="{StaticResource BrushWarning}"
+                                CornerRadius="8"
+                                Padding="12 8"
+                                Margin="0 0 0 8"
+                                IsVisible="{Binding Matrix.ExportError,
+                                Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+                            <TextBlock Text="{Binding Matrix.ExportError}"
+                                       Foreground="{StaticResource BrushWrong}"
+                                       FontSize="13"/>
+                        </Border>
+
+                        <Border Background="{StaticResource BrushSuccess}"
+                                CornerRadius="8"
+                                Padding="12 8"
+                                Margin="0 0 0 8"
+                                IsVisible="{Binding Matrix.ExportSuccess,
+                                Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+                            <TextBlock Text="{Binding Matrix.ExportSuccess}"
+                                       Foreground="{StaticResource BrushCorrect}"
+                                       FontSize="13"/>
+                        </Border>
+
+                    </StackPanel>
                     <ContentControl Grid.Row="1"
                                     Content="{Binding Center.CurrentContent}">
                         <ContentControl.DataTemplates>
@@ -132,7 +157,5 @@
                     Command="{Binding LeftPanel.NewRoundCommand}"/>
 
         </Grid>
-
     </Grid>
-
 </Window>

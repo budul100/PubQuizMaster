@@ -5,7 +5,7 @@
 
     <Application.Resources>
         <ResourceDictionary>
-            <!-- ── Color Palette ── -->
+
             <Color x:Key="ColorBg">#1a1a2e</Color>
             <Color x:Key="ColorSurface">#16213e</Color>
             <Color x:Key="ColorCard">#0f3460</Color>
@@ -16,6 +16,8 @@
             <Color x:Key="ColorText">#eaeaea</Color>
             <Color x:Key="ColorSubtext">#9999bb</Color>
             <Color x:Key="ColorHover">#1a2a4e</Color>
+            <Color x:Key="ColorWarning">#3a1a1a</Color>
+            <Color x:Key="ColorSuccess">#1a3a1a</Color>
 
             <SolidColorBrush x:Key="BrushBg" Color="{StaticResource ColorBg}"/>
             <SolidColorBrush x:Key="BrushSurface" Color="{StaticResource ColorSurface}"/>
@@ -27,6 +29,9 @@
             <SolidColorBrush x:Key="BrushText" Color="{StaticResource ColorText}"/>
             <SolidColorBrush x:Key="BrushSubtext" Color="{StaticResource ColorSubtext}"/>
             <SolidColorBrush x:Key="BrushHover" Color="{StaticResource ColorHover}"/>
+            <SolidColorBrush x:Key="BrushWarning" Color="{StaticResource ColorWarning}"/>
+            <SolidColorBrush x:Key="BrushSuccess" Color="{StaticResource ColorSuccess}"/>
+
         </ResourceDictionary>
     </Application.Resources>
 
