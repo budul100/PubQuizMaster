@@ -7,7 +7,8 @@
         Title="PubQuizMaster"
         Width="540" Height="820"
         WindowStartupLocation="CenterScreen"
-        Background="{StaticResource BrushBg}">
+        Background="{StaticResource BrushBg}"
+        Icon="avares://PubQuizMaster/Assets/PubQuizMaster.ico">
 
     <ScrollViewer VerticalScrollBarVisibility="Auto">
         <StackPanel Margin="32" Spacing="16">

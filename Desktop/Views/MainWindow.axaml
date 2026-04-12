@@ -7,7 +7,8 @@
         Title="PubQuizMaster – Host"
         Width="1280"
         Height="800"
-        Background="{StaticResource BrushBg}">
+        Background="{StaticResource BrushBg}"
+        Icon="avares://PubQuizMaster/Assets/PubQuizMaster.ico">
 
     <Grid RowDefinitions="Auto,*">
 
