@@ -7,7 +7,7 @@ using PubQuizMaster.Core.Services;
 
 namespace PubQuizMaster.Desktop.ViewModels
 {
-    public partial class LeftPanelViewModel(QuizNightService quizService)
+    public partial class LeftPanelViewModel(DataService dataService)
         : ViewModelBase
     {
         #region Private Fields
@@ -42,21 +42,21 @@ namespace PubQuizMaster.Desktop.ViewModels
         {
             CanAddRound = !roundIsActive
                 && !setupIsActive
-                && quizService.QuizNight.Rounds.All(r => r.IsFinalized);
+                && dataService.QuizNight.Rounds.All(r => r.IsFinalized);
 
             Rounds.Clear();
 
-            foreach (var round in quizService.QuizNight.Rounds)
+            foreach (var round in dataService.QuizNight.Rounds)
             {
                 Rounds.Add(new RoundEntryViewModel(
                     round: round,
-                    quizNight: quizService.QuizNight,
+                    quizNight: dataService.QuizNight,
                     onSelect: entry => OnRoundSelected?.Invoke(entry)));
             }
 
             TotalBoard.Clear();
 
-            var leaderBoards = quizService
+            var leaderBoards = dataService
                 .GetLeaderboards().ToArray();
 
             foreach (var leaderBoard in leaderBoards)

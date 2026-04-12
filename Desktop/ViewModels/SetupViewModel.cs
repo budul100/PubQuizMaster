@@ -14,28 +14,27 @@ namespace PubQuizMaster.Desktop.ViewModels
         #region Private Fields
 
         private readonly HashSet<Guid> assignedTeamIds = [];
-        private readonly QuizNightService quizService;
+        private readonly DataService dataService;
 
         [ObservableProperty] private string newTeamName = string.Empty;
-
         [ObservableProperty] private int questionCount = 20;
-
         [ObservableProperty] private string roundName = string.Empty;
-
         [ObservableProperty] private string setupError = string.Empty;
 
         #endregion Private Fields
 
         #region Public Constructors
 
-        public SetupViewModel(QuizNightService svc)
+        public SetupViewModel(DataService dataService)
         {
-            quizService = svc;
+            this.dataService = dataService;
 
-            foreach (var t in svc.QuizNight.MasterTeamList.OrderBy(t => t.Name))
-                Teams.Add(new TeamViewModel(t));
+            foreach (var team in dataService.QuizNight.MasterTeamList.OrderBy(t => t.Name))
+            {
+                Teams.Add(new TeamViewModel(team));
+            }
 
-            RoundName = $"Round {svc.QuizNight.Rounds.Count + 1}";
+            RoundName = $"Round {dataService.QuizNight.Rounds.Count + 1}";
 
             AddScorerInternal();
             AutoDistributeTeams();
@@ -51,14 +50,22 @@ namespace PubQuizMaster.Desktop.ViewModels
         {
             get
             {
-                if (!Teams.Any() || !Assignments.Any()) return false;
+                if (!Teams.Any() || !Assignments.Any())
+                {
+                    return false;
+                }
 
                 var allAssigned = Assignments.SelectMany(a => a.SelectedTeams).Select(t => t.Team.Id).ToList();
                 if (allAssigned.Count != Teams.Count || allAssigned.Distinct().Count() != Teams.Count)
+                {
                     return false;
+                }
 
-                if (quizService.QuizNight.Rounds.Any(r => r.Name.Equals(RoundName.Trim(), StringComparison.OrdinalIgnoreCase)))
+                if (dataService.QuizNight.Rounds
+                    .Any(r => r.Name.Equals(RoundName.Trim(), StringComparison.OrdinalIgnoreCase)))
+                {
                     return false;
+                }
 
                 var labels = Assignments.Select(a => a.Label.Trim()).ToList();
                 if (labels.Distinct(StringComparer.OrdinalIgnoreCase).Count() != labels.Count)
@@ -68,7 +75,9 @@ namespace PubQuizMaster.Desktop.ViewModels
                 }
 
                 if (SetupError == "Scorer labels must be unique.")
+                {
                     SetupError = string.Empty;
+                }
 
                 return true;
             }
@@ -82,12 +91,14 @@ namespace PubQuizMaster.Desktop.ViewModels
 
         public void PrepareForNextRound()
         {
-            RoundName = $"Round {quizService.QuizNight.Rounds.Count + 1}";
-            QuestionCount = 6;
+            RoundName = $"Round {dataService.QuizNight.Rounds.Count + 1}";
             SetupError = string.Empty;
 
             foreach (var a in Assignments)
+            {
                 a.ClearSelections();
+            }
+
             assignedTeamIds.Clear();
 
             AutoDistributeTeams();
@@ -125,7 +136,10 @@ namespace PubQuizMaster.Desktop.ViewModels
         private void AddTeam()
         {
             var name = NewTeamName.Trim();
-            if (string.IsNullOrWhiteSpace(name)) return;
+            if (string.IsNullOrWhiteSpace(name))
+            {
+                return;
+            }
 
             if (Teams.Any(t => t.Name.Equals(name, StringComparison.OrdinalIgnoreCase)))
             {
@@ -134,18 +148,24 @@ namespace PubQuizMaster.Desktop.ViewModels
             }
 
             SetupError = string.Empty;
-            var team = quizService.AddTeam(name);
+
+            var team = dataService.AddTeam(name);
             var vm = new TeamViewModel(team);
+
             NewTeamName = string.Empty;
 
             // Insert at correct alphabetical position — single event, no Clear
             var insertIndex = 0;
             while (insertIndex < Teams.Count &&
                    string.Compare(Teams[insertIndex].Name, name, StringComparison.OrdinalIgnoreCase) < 0)
+            {
                 insertIndex++;
+            }
+
             Teams.Insert(insertIndex, vm);
 
-            quizService.ReorderTeams(Teams.Select(t => t.Team.Id).ToList());
+            dataService
+                .ReorderTeams(Teams.Select(t => t.Team.Id).ToList());
 
             AutoDistributeTeams();
             NotifyStartButton();
@@ -153,41 +173,68 @@ namespace PubQuizMaster.Desktop.ViewModels
 
         private void AutoDistributeTeams()
         {
-            if (!Assignments.Any() || !Teams.Any()) return;
+            if (!Assignments.Any() || !Teams.Any())
+            {
+                return;
+            }
+
             assignedTeamIds.Clear();
-            foreach (var a in Assignments) a.ClearSelections();
+            foreach (var a in Assignments)
+            {
+                a.ClearSelections();
+            }
 
             var teams = Teams.ToList();
             for (int i = 0; i < teams.Count; i++)
             {
                 var scorer = Assignments[i % Assignments.Count];
                 var slot = scorer.Teams.FirstOrDefault(t => t.TeamVm.Team.Id == teams[i].Team.Id);
-                if (slot != null) slot.IsAssigned = true;
+                if (slot != null)
+                {
+                    slot.IsAssigned = true;
+                }
+
                 assignedTeamIds.Add(teams[i].Team.Id);
             }
 
             foreach (var a in Assignments)
+            {
                 a.UpdateDisabledStates();
+            }
         }
 
         private void NotifyStartButton() => OnPropertyChanged(nameof(CanStartRound));
 
         partial void OnRoundNameChanged(string value)
         {
-            if (quizService.QuizNight.Rounds.Any(r => r.Name.Equals(value.Trim(), StringComparison.OrdinalIgnoreCase)))
+            if (dataService.QuizNight.Rounds.Any(r => r.Name.Equals(value.Trim(), StringComparison.OrdinalIgnoreCase)))
+            {
                 SetupError = $"Round \"{value.Trim()}\" already exists.";
+            }
             else if (SetupError.StartsWith("Round"))
+            {
                 SetupError = string.Empty;
+            }
 
             NotifyStartButton();
         }
 
         private void OnScorerAssignmentChanged(Guid teamId, bool assigned)
         {
-            if (assigned) assignedTeamIds.Add(teamId);
-            else assignedTeamIds.Remove(teamId);
+            if (assigned)
+            {
+                assignedTeamIds.Add(teamId);
+            }
+            else
+            {
+                assignedTeamIds.Remove(teamId);
+            }
+
             foreach (var a in Assignments)
+            {
                 a.UpdateDisabledStates();
+            }
+
             NotifyStartButton();
         }
 
@@ -196,9 +243,15 @@ namespace PubQuizMaster.Desktop.ViewModels
         {
             Assignments.Remove(vm);
             foreach (var t in vm.Teams.Where(t => t.IsAssigned))
+            {
                 assignedTeamIds.Remove(t.TeamVm.Team.Id);
+            }
+
             foreach (var a in Assignments)
+            {
                 a.UpdateDisabledStates();
+            }
+
             AutoDistributeTeams();
             NotifyStartButton();
         }
@@ -207,8 +260,10 @@ namespace PubQuizMaster.Desktop.ViewModels
         private void RemoveTeam(TeamViewModel vm)
         {
             Teams.Remove(vm);
-            quizService.QuizNight.MasterTeamList.Remove(vm.Team);
+
+            dataService.QuizNight.MasterTeamList.Remove(vm.Team);
             assignedTeamIds.Remove(vm.Team.Id);
+
             NotifyStartButton();
         }
 

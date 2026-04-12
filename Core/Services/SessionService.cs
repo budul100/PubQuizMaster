@@ -19,7 +19,7 @@ namespace PubQuizMaster.Core.Services
     /// Manages active scorer connections (SignalR connection IDs → scorer IDs).
     /// Thread-safe. Used exclusively by the SignalR hub layer.
     /// </summary>
-    public class ScorerSessionService
+    public class SessionService
     {
         // connectionId → scorerId
         private readonly System.Collections.Concurrent.ConcurrentDictionary<string, string>

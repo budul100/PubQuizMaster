@@ -7,7 +7,7 @@ using PubQuizMaster.Core.Services;
 
 namespace PubQuizMaster.Core.Hub
 {
-    public class QuizHub(QuizNightService quizNightService, ScorerSessionService scorerSessionService)
+    public class QuizHub(DataService dataService, ScoringService scoringService, SessionService sessionService)
         : Microsoft.AspNetCore.SignalR.Hub
     {
         #region Public Methods
@@ -48,17 +48,17 @@ namespace PubQuizMaster.Core.Hub
                 System.Diagnostics.Debug.WriteLine($"[Hub] scorerId = '{scorerId}'");
                 if (scorerId == null) { Context.Abort(); return; }
 
-                scorerSessionService.RegisterConnection(Context.ConnectionId, scorerId);
+                sessionService.RegisterConnection(Context.ConnectionId, scorerId);
                 System.Diagnostics.Debug.WriteLine("[Hub] RegisterConnection OK");
 
                 await Groups.AddToGroupAsync(Context.ConnectionId, scorerId);
                 System.Diagnostics.Debug.WriteLine("[Hub] AddToGroup OK");
 
-                var assignment = quizNightService.GetAssignment(scorerId);
+                var assignment = scoringService.GetAssignment(scorerId);
                 System.Diagnostics.Debug.WriteLine($"[Hub] Assignment = {assignment?.ScorerId ?? "null"}");
 
-                var round = quizNightService.QuizNight.Rounds
-                    .FirstOrDefault(r => r.Id == quizNightService.ActiveRoundId);
+                var round = dataService.QuizNight.Rounds
+                    .FirstOrDefault(r => r.Id == scoringService.ActiveRoundId);
                 System.Diagnostics.Debug.WriteLine($"[Hub] Round = {round?.Name ?? "null"}");
 
                 var payload = new ScorerConnectedPayload
@@ -67,7 +67,7 @@ namespace PubQuizMaster.Core.Hub
                     Assignment = assignment,
                     Round = round != null ? RoundSummary.From(round) : null,
                     Teams = assignment?.TeamIds
-                        .Select(id => quizNightService.QuizNight.MasterTeamList
+                        .Select(id => dataService.QuizNight.MasterTeamList
                             .FirstOrDefault(t => t.Id == id))
                         .Where(t => t != null)
                         .ToList(),
@@ -91,11 +91,11 @@ namespace PubQuizMaster.Core.Hub
 
         public override async Task OnDisconnectedAsync(Exception? exception)
         {
-            var scorerId = scorerSessionService.GetScorerId(Context.ConnectionId);
+            var scorerId = sessionService.GetScorerId(Context.ConnectionId);
 
             if (scorerId != null)
             {
-                scorerSessionService.RemoveConnection(Context.ConnectionId);
+                sessionService.RemoveConnection(Context.ConnectionId);
                 await Groups.RemoveFromGroupAsync(Context.ConnectionId, scorerId);
 
                 // Notify Avalonia host that a scorer went offline
@@ -110,10 +110,10 @@ namespace PubQuizMaster.Core.Hub
             var scorerId = GetScorerIdFromContext();
             if (scorerId == null) return;
 
-            var assignment = quizNightService.GetAssignment(scorerId);
+            var assignment = scoringService.GetAssignment(scorerId);
 
-            var round = quizNightService.QuizNight.Rounds
-                .FirstOrDefault(r => r.Id == quizNightService.ActiveRoundId);
+            var round = dataService.QuizNight.Rounds
+                .FirstOrDefault(r => r.Id == scoringService.ActiveRoundId);
 
             var payload = new ScorerConnectedPayload
             {
@@ -121,7 +121,7 @@ namespace PubQuizMaster.Core.Hub
                 Assignment = assignment,
                 Round = round != null ? RoundSummary.From(round) : null,
                 Teams = assignment?.TeamIds
-                    .Select(id => quizNightService.QuizNight.MasterTeamList
+                    .Select(id => dataService.QuizNight.MasterTeamList
                         .FirstOrDefault(t => t.Id == id))
                     .Where(t => t != null)
                     .ToList(),
@@ -149,10 +149,20 @@ namespace PubQuizMaster.Core.Hub
                 return;
             }
 
+            if (roundId != scoringService.ActiveRoundId)
+            {
+                await Clients.Caller.SendAsync("OnError", new ErrorPayload
+                {
+                    Code = "WRONG_ROUND",
+                    Message = "Submitted answer for inactive round."
+                });
+                return;
+            }
+
             try
             {
-                var answer = quizNightService.RecordAnswerBool(scorerId, teamId, questionIndex, correct);
-                await quizNightService.SaveAsync();
+                var answer = scoringService.RecordAnswerBool(scorerId, teamId, questionIndex, correct);
+                await dataService.SaveAsync();
                 await BroadcastAnswerUpdate(answer, scorerId); // reuse existing method — sends "OnAnswerUpdated"
             }
             catch (Exception ex)
@@ -163,7 +173,7 @@ namespace PubQuizMaster.Core.Hub
 
         public async Task SubmitPointAnswer(Guid teamId, int questionIndex, decimal points)
         {
-            var scorerId = scorerSessionService.GetScorerId(Context.ConnectionId);
+            var scorerId = sessionService.GetScorerId(Context.ConnectionId);
             if (scorerId == null) return;
 
             if (!ValidateOwnership(scorerId, teamId))
@@ -178,8 +188,8 @@ namespace PubQuizMaster.Core.Hub
 
             try
             {
-                var answer = quizNightService.RecordAnswerPoint(scorerId, teamId, questionIndex, points);
-                await quizNightService.SaveAsync();
+                var answer = scoringService.RecordAnswerPoint(scorerId, teamId, questionIndex, points);
+                await dataService.SaveAsync();
 
                 await BroadcastAnswerUpdate(answer, scorerId);
             }
@@ -195,10 +205,10 @@ namespace PubQuizMaster.Core.Hub
 
         public async Task UpdateProgress(int currentQuestionIndex)
         {
-            var scorerId = scorerSessionService.GetScorerId(Context.ConnectionId);
+            var scorerId = sessionService.GetScorerId(Context.ConnectionId);
             if (scorerId == null) return;
 
-            var assignment = quizNightService.GetAssignment(scorerId);
+            var assignment = scoringService.GetAssignment(scorerId);
             if (assignment == null) return;
 
             assignment.CurrentQuestionIndex = currentQuestionIndex;
@@ -249,7 +259,7 @@ namespace PubQuizMaster.Core.Hub
 
         private bool ValidateOwnership(string scorerId, Guid teamId)
         {
-            var assignment = quizNightService.GetAssignment(scorerId);
+            var assignment = scoringService.GetAssignment(scorerId);
             return assignment?.TeamIds.Contains(teamId) == true;
         }
 

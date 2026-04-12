@@ -9,13 +9,14 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using PubQuizMaster.Core.Converters;
 using PubQuizMaster.Core.Hub;
 using PubQuizMaster.Core.Services;
 
 namespace PubQuizMaster.Desktop.Web
 {
-    public class KestrelHost(QuizNightService quizNightService, PersistenceService persistenceService,
-        ScorerSessionService scorerSessionService)
+    public class KestrelHost(PersistenceService persistenceService, DataService dataService,
+        ScoringService scoringService, SessionService sessionService)
     {
         #region Public Fields
 
@@ -35,9 +36,6 @@ namespace PubQuizMaster.Desktop.Web
 
         // Fired when the server is ready — carries the local URL for QR code display
         public event Action<string>? ServerReady;
-
-        /// <summary>Fired when the tunnel drops.</summary>
-        public event Action? TunnelLost;
 
         /// <summary>Fired when the tunnel URL is available.</summary>
         public event Action<string>? TunnelReady;
@@ -106,9 +104,10 @@ namespace PubQuizMaster.Desktop.Web
             // ── Service registration ─────────────────────────────────────────
             // Register the shared singleton instances — the same objects
             // that the Avalonia ViewModels use. No duplication of state.
-            builder.Services.AddSingleton(quizNightService);
             builder.Services.AddSingleton(persistenceService);
-            builder.Services.AddSingleton(scorerSessionService);
+            builder.Services.AddSingleton(dataService);
+            builder.Services.AddSingleton(scoringService);
+            builder.Services.AddSingleton(sessionService);
 
             // SignalR with JSON polymorphism support for AnswerBase
             builder.Services.AddSignalR()
@@ -173,7 +172,16 @@ namespace PubQuizMaster.Desktop.Web
             _cts.Cancel();
 
             if (_runTask != null)
-                await _runTask.ConfigureAwait(false);
+            {
+                try
+                {
+                    await _runTask.ConfigureAwait(false);
+                }
+                catch (OperationCanceledException)
+                {
+                    // Expected on clean shutdown — ignore
+                }
+            }
 
             await _app.DisposeAsync();
         }

@@ -2,14 +2,17 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
-namespace PubQuizMaster.Core.Services
+namespace PubQuizMaster.Core.Converters
 {
     /// <summary>
     /// Polymorphic JSON converter for AnswerBase (AnswerBool / AnswerPoint).
     /// Writes a "$type" discriminator so deserialization knows which subclass to use.
     /// </summary>
-    public class AnswerBaseJsonConverter : JsonConverter<AnswerBase>
+    public class AnswerBaseJsonConverter
+        : JsonConverter<AnswerBase>
     {
+        #region Public Methods
+
         public override AnswerBase Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
         {
             using var doc = JsonDocument.ParseValue(ref reader);
@@ -35,5 +38,7 @@ namespace PubQuizMaster.Core.Services
                 prop.WriteTo(writer);
             writer.WriteEndObject();
         }
+
+        #endregion Public Methods
     }
 }

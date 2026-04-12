@@ -2,6 +2,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
+using PubQuizMaster.Core.Converters;
 using PubQuizMaster.Core.Models.Event;
 
 namespace PubQuizMaster.Core.Services

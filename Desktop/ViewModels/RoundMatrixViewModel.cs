@@ -16,23 +16,23 @@ namespace PubQuizMaster.Desktop.ViewModels
     {
         #region Private Fields
 
-        private readonly QuizNightService nightService;
+        private readonly DataService dataService;
         private readonly Round round;
 
-        private string? exportError;
+        [ObservableProperty] private string? exportError;
         [ObservableProperty] private string? exportSuccess;
         [ObservableProperty] private bool isEditing;
         [ObservableProperty] private bool isExporting;
-        private bool isFinalRound;
+        [ObservableProperty] private bool isFinalRound;
 
         #endregion Private Fields
 
         #region Public Constructors
 
-        public RoundMatrixViewModel(QuizNightService nightService, Round round, int roundNumber)
+        public RoundMatrixViewModel(DataService dataService, Round round, int roundNumber)
         {
             this.round = round;
-            this.nightService = nightService;
+            this.dataService = dataService;
 
             RoundName = round.Name;
             RoundNumber = roundNumber;
@@ -49,18 +49,6 @@ namespace PubQuizMaster.Desktop.ViewModels
         #region Public Properties
 
         public ObservableCollection<int> ColSums { get; } = [];
-
-        public string? ExportError
-        {
-            get => exportError;
-            private set => SetProperty(ref exportError, value);
-        }
-
-        public bool IsFinalRound
-        {
-            get => isFinalRound;
-            set => SetProperty(ref isFinalRound, value);
-        }
 
         public Action? OnDeleted { get; set; }
 
@@ -89,7 +77,7 @@ namespace PubQuizMaster.Desktop.ViewModels
             Rows.Clear();
             ColSums.Clear();
 
-            var teams = nightService.QuizNight.MasterTeamList
+            var teams = dataService.QuizNight.MasterTeamList
                 .OrderBy(t => t.Name, StringComparer.OrdinalIgnoreCase).ToList();
 
             foreach (var team in teams)
@@ -104,35 +92,48 @@ namespace PubQuizMaster.Desktop.ViewModels
                     answers: cells));
             }
 
-            // --- Overall ranks from leaderboard ---
-            var leaderboard = nightService.GetLeaderboards();
+            var ranksRound = Rows
+                .OrderByDescending(r => r.Total).ToList();
 
             AssignRanks(
-                Rows.OrderByDescending(r => leaderboard.FirstOrDefault(e => e.Team.Id == r.TeamId)?.TotalScore ?? 0).ToList(),
-                keySelector: r => (int)(leaderboard.FirstOrDefault(e => e.Team.Id == r.TeamId)?.TotalScore ?? 0),
-                rankSetter: (r, rank) => r.OverallRank = rank);
-
-            // --- Round ranks ---
-            AssignRanks(
-                Rows.OrderByDescending(r => r.Total).ToList(),
+                ordered: ranksRound,
                 keySelector: r => r.Total,
                 rankSetter: (r, rank) => r.RoundRank = rank);
 
-            // --- Sort rows by round rank for display ---
-            var sorted = Rows.OrderBy(r => r.RoundRank).ThenBy(r => r.TeamName).ToList();
-            Rows.Clear();
-            foreach (var row in sorted)
-                Rows.Add(row);
+            var leaderboard = dataService.GetLeaderboardsUpTo(round.Id);
 
-            // --- Column sums ---
+            var ranksTotal = Rows
+                .OrderByDescending(r => leaderboard.FirstOrDefault(e => e.Team.Id == r.TeamId)?.TotalScore ?? 0).ToList();
+
+            AssignRanks(
+                ordered: ranksTotal,
+                keySelector: r => leaderboard.FirstOrDefault(e => e.Team.Id == r.TeamId)?.TotalScore ?? 0,
+                rankSetter: (r, rank) => r.OverallRank = rank);
+
+            var sorted = Rows
+                .OrderBy(r => r.RoundRank).ThenBy(r => r.TeamName).ToList();
+
+            Rows.Clear();
+
+            foreach (var row in sorted)
+            {
+                Rows.Add(row);
+            }
+
             for (var i = 0; i < QuestionCount; i++)
+            {
                 ColSums.Add(Rows.Count(r => r.Answers[i].IsCorrect == true));
+            }
 
             OnPropertyChanged(nameof(TotalCorrectCount));
 
             foreach (var row in Rows)
+            {
                 foreach (var cell in row.Answers)
+                {
                     cell.IsEditing = IsEditing;
+                }
+            }
         }
 
         #endregion Public Methods
@@ -153,7 +154,10 @@ namespace PubQuizMaster.Desktop.ViewModels
             decimal val = keySelector(ordered[i]);
             int start = i;
             while (start > 0 && keySelector(ordered[start - 1]) == val)
+            {
                 start--;
+            }
+
             return start;
         }
 
@@ -167,8 +171,8 @@ namespace PubQuizMaster.Desktop.ViewModels
         [RelayCommand]
         private async Task DeleteRound()
         {
-            nightService.DeleteRound(round.Id);
-            await nightService.SaveAsync();
+            dataService.DeleteRound(round.Id);
+            await dataService.SaveAsync();
             OnDeleted?.Invoke();
         }
 
@@ -188,8 +192,15 @@ namespace PubQuizMaster.Desktop.ViewModels
             }
 
             string? templatePath;
-            try { templatePath = await PickTemplateFileAsync(); }
-            catch (Exception ex) { ExportError = $"File picker error: {ex.Message}"; return; }
+            try
+            {
+                templatePath = await PickTemplateFileAsync();
+            }
+            catch (Exception ex)
+            {
+                ExportError = $"File picker error: {ex.Message}";
+                return;
+            }
 
             if (string.IsNullOrEmpty(templatePath))
                 return;
@@ -198,10 +209,11 @@ namespace PubQuizMaster.Desktop.ViewModels
 
             try
             {
-                var outputPath = await ExportService.ExportAsync(
-                    quizSvc: nightService,
-                    templatePath: templatePath,
-                    isFinalRound: IsFinalRound);
+                var outputPath = await Task.Run(() => ExportService.ExportAsync(
+                    dataService: dataService,
+                    roundId: round.Id,
+                    isFinalRound: IsFinalRound,
+                    templatePath: templatePath));
 
                 ExportSuccess = $"✓ Export done: {Path.GetFileName(outputPath)}";
             }
@@ -230,12 +242,16 @@ namespace PubQuizMaster.Desktop.ViewModels
         private void Save()
         {
             foreach (var row in Rows)
+            {
                 for (var i = 0; i < QuestionCount; i++)
-                    nightService.SetAnswer(
+                {
+                    dataService.SetAnswer(
                         roundId: round.Id,
                         teamId: row.TeamId,
                         questionIndex: i,
                         isCorrect: row.Answers[i].IsCorrect);
+                }
+            }
 
             Rebuild();
             IsEditing = false;

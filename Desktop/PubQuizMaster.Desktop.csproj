@@ -44,10 +44,6 @@
 	<PropertyGroup>
 		<ApplicationIcon>Assets\PubQuizMaster.ico</ApplicationIcon>
 	</PropertyGroup>
-
-	<ItemGroup>
-		<AvaloniaResource Include="Assets\PubQuizMaster.ico"/>
-	</ItemGroup>
 		
 	<ItemGroup>
 		<Content Include="wwwroot\**\*">

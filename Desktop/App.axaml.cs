@@ -15,10 +15,10 @@ namespace PubQuizMaster.Desktop
     {
         #region Public Properties
 
+        public static DataService DataService { get; private set; } = null!;
+
         public static KestrelHost KestrelHost { get; private set; } = null!;
-
-        public static QuizNightService QuizNightService { get; private set; } = null!;
-
+        public static ScoringService ScoringService { get; private set; } = null!;
         public static SettingsService SettingsService { get; private set; } = null!;
 
         #endregion Public Properties
@@ -37,8 +37,9 @@ namespace PubQuizMaster.Desktop
 
             // -- 1. Services -------------------------------------------------------
             var persistence = new PersistenceService();
-            var scorerSession = new ScorerSessionService();
-            QuizNightService = new QuizNightService(persistence);
+
+            DataService = new DataService(persistence);
+            ScoringService = new ScoringService(DataService);
 
             SettingsService = new SettingsService();
             SettingsService.Load();
@@ -70,16 +71,19 @@ namespace PubQuizMaster.Desktop
             }
 
             // -- 3. Service initialisieren -----------------------------------------
-            await QuizNightService.InitializeAsync(startupVm.Result);
+            await DataService.InitializeAsync(startupVm.Result);
+            ScoringService.Initialize();
 
             // -- 4. Kestrel --------------------------------------------------------
-            KestrelHost = new KestrelHost(QuizNightService, persistence, scorerSession);
+            var scorerSession = new SessionService();
+
+            KestrelHost = new KestrelHost(persistence, DataService, ScoringService, scorerSession);
             KestrelHost.ServerReady += url => Console.WriteLine($"[PubQuizMaster] Server ready → {url}");
 
             // -- 5. Main Window ----------------------------------------------------
             var mainWindow = new MainWindow
             {
-                DataContext = new MainWindowViewModel(QuizNightService, KestrelHost)
+                DataContext = new MainWindowViewModel()
             };
 
             desktop.MainWindow = mainWindow;

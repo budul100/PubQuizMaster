@@ -17,8 +17,9 @@ namespace PubQuizMaster.Desktop.ViewModels
     {
         #region Private Fields
 
+        private readonly DataService dataService;
         private readonly KestrelHost kestrelHost;
-        private readonly QuizNightService quizService;
+        private readonly ScoringService scoringService;
 
         [ObservableProperty] private RoundMatrixViewModel matrix = null!;
         [ObservableProperty] private HostPhase phase = HostPhase.Review;
@@ -30,15 +31,12 @@ namespace PubQuizMaster.Desktop.ViewModels
         #region Public Constructors
 
         public MainWindowViewModel()
-            : this(App.QuizNightService, App.KestrelHost)
-        { }
-
-        public MainWindowViewModel(QuizNightService quizService, KestrelHost kestrelHost)
         {
-            this.quizService = quizService;
-            this.kestrelHost = kestrelHost;
+            this.dataService = App.DataService;
+            this.scoringService = App.ScoringService;
+            this.kestrelHost = App.KestrelHost;
 
-            QuizNightName = quizService.QuizNight.Name;
+            QuizNightName = dataService.QuizNight.Name;
 
             var savedClient = App.SettingsService.Settings.ClientUrl;
 
@@ -58,30 +56,30 @@ namespace PubQuizMaster.Desktop.ViewModels
             {
                 ServerUrl = url;
 
-                var round = this.quizService.QuizNight.Rounds
-                    .FirstOrDefault(r => r.Id == this.quizService.ActiveRoundId);
+                var round = this.dataService.QuizNight.Rounds
+                    .FirstOrDefault(r => r.Id == this.scoringService.ActiveRoundId);
                 if (round != null && Phase == HostPhase.Scoring)
                 {
-                    var (recorded, expected, _) = this.quizService.GetRoundProgress(round.Id);
+                    var (recorded, expected, _) = this.dataService.GetRoundProgress(round.Id);
                     ActiveRound.Refresh(round, recorded, expected, url);
                 }
             });
 
-            LeftPanel = new LeftPanelViewModel(quizService)
+            LeftPanel = new LeftPanelViewModel(dataService)
             {
                 OnRoundSelected = OnRoundSelected,
                 OnNewRound = ShowSetup
             };
 
-            if (quizService.QuizNight.Rounds.Count > 0)
+            if (dataService.QuizNight.Rounds.Count > 0)
             {
-                Setup = new SetupViewModel(quizService);
+                Setup = new SetupViewModel(dataService);
 
                 LeftPanel.Refresh(
                     roundIsActive: false,
                     setupIsActive: false);
 
-                var lastRound = quizService.QuizNight.Rounds.Last();
+                var lastRound = dataService.QuizNight.Rounds.Last();
                 LeftPanel.SelectEntry(lastRound.Id);
 
                 CreateMatrix(lastRound);
@@ -92,7 +90,7 @@ namespace PubQuizMaster.Desktop.ViewModels
                 ShowSetup();
             }
 
-            quizService.AnswerRecorded += OnAnswerRecorded;
+            scoringService.AnswerRecorded += OnAnswerRecorded;
         }
 
         #endregion Public Constructors
@@ -121,10 +119,10 @@ namespace PubQuizMaster.Desktop.ViewModels
 
         private void CreateMatrix(Round round)
         {
-            var index = quizService.QuizNight.Rounds.IndexOf(round);
+            var index = dataService.QuizNight.Rounds.IndexOf(round);
 
             Matrix = new RoundMatrixViewModel(
-                nightService: quizService,
+                dataService: dataService,
                 round: round,
                 roundNumber: index + 1);
 
@@ -141,19 +139,23 @@ namespace PubQuizMaster.Desktop.ViewModels
         [RelayCommand]
         private async Task FinalizeRound()
         {
-            var round = quizService.QuizNight.Rounds
-                .FirstOrDefault(r => r.Id == quizService.ActiveRoundId);
-            if (round == null) return;
+            var round = dataService.QuizNight.Rounds
+                .FirstOrDefault(r => r.Id == scoringService.ActiveRoundId);
 
-            quizService.FinalizeRound(round.Id);
-            await quizService.SaveAsync();
+            if (round == null)
+            {
+                return;
+            }
 
-            var (recorded, expected, _) = quizService.GetRoundProgress(round.Id);
+            dataService.FinalizeRound(round.Id);
+            await dataService.SaveAsync();
+
+            var (recorded, expected, _) = dataService.GetRoundProgress(round.Id);
             ActiveRound.Refresh(round, recorded, expected);
 
-            var leaderboard = quizService.GetLeaderboards();
+            var leaderboard = dataService.GetLeaderboards();
 
-            if (kestrelHost?.HubContext != null)
+            if (kestrelHost.HubContext != null)
             {
                 await QuizHub.NotifyRoundFinalized(
                     hubContext: kestrelHost.HubContext,
@@ -178,11 +180,14 @@ namespace PubQuizMaster.Desktop.ViewModels
         {
             Dispatcher.UIThread.Post(() =>
             {
-                var round = quizService.QuizNight.Rounds
-                    .FirstOrDefault(r => r.Id == quizService.ActiveRoundId);
-                if (round == null) return;
+                var round = dataService.QuizNight.Rounds
+                    .FirstOrDefault(r => r.Id == scoringService.ActiveRoundId);
+                if (round == null)
+                {
+                    return;
+                }
 
-                var (recorded, expected, _) = quizService.GetRoundProgress(round.Id);
+                var (recorded, expected, _) = dataService.GetRoundProgress(round.Id);
                 ActiveRound.Refresh(round, recorded, expected, ServerUrl);
             });
         }
@@ -191,17 +196,20 @@ namespace PubQuizMaster.Desktop.ViewModels
         {
             LeftPanel.SelectEntry(entry.RoundId);
 
-            var round = quizService.QuizNight.Rounds.First(r => r.Id == entry.RoundId);
-            var index = quizService.QuizNight.Rounds.IndexOf(round);
-
+            var round = dataService.QuizNight.Rounds.First(r => r.Id == entry.RoundId);
             CreateMatrix(round);
+
             NotifyShowStartButton();
         }
 
         [RelayCommand]
         private void OpenInBrowser()
         {
-            if (string.IsNullOrEmpty(ServerUrl)) return;
+            if (string.IsNullOrEmpty(ServerUrl))
+            {
+                return;
+            }
+
             System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
             {
                 FileName = ServerUrl.Trim(),
@@ -211,33 +219,56 @@ namespace PubQuizMaster.Desktop.ViewModels
 
         private void ShowSetup()
         {
-            Setup = new SetupViewModel(quizService);
+            Setup = new SetupViewModel(dataService);
+
             Center.ShowSetup(Setup);
+
             LeftPanel.ClearSelection();
-            LeftPanel.Refresh(roundIsActive: false, setupIsActive: true);
+            LeftPanel.Refresh(
+                roundIsActive: false,
+                setupIsActive: true);
+
             NotifyShowStartButton();
         }
 
         [RelayCommand]
         private async Task StartRound()
         {
-            if (!Setup.CanStartRound) return;
+            if (!Setup.CanStartRound)
+            {
+                return;
+            }
 
             var allTeamIds = Setup.Teams.Select(t => t.Team.Id).ToList();
-            var round = quizService.CreateRound(Setup.RoundName, Setup.QuestionCount, allTeamIds);
 
-            foreach (var a in Setup.Assignments)
+            var round = dataService.CreateRound(
+                name: Setup.RoundName,
+                questionCount: Setup.QuestionCount,
+                activeTeamIds: allTeamIds);
+
+            scoringService.SetActiveRound(round.Id);
+
+            foreach (var assignement in Setup.Assignments)
             {
-                var ids = a.SelectedTeams.Select(t => t.Team.Id).ToList();
+                var ids = assignement.SelectedTeams.Select(t => t.Team.Id).ToList();
+
                 if (ids.Count > 0)
-                    quizService.AssignScorer(round.Id, a.ScorerId, a.Label, ids);
+                {
+                    dataService.AssignScorer(
+                        roundId: round.Id,
+                        scorerId: assignement.ScorerId,
+                        label: assignement.Label,
+                        teamIds: ids);
+                }
             }
 
             if (kestrelHost.HubContext != null)
+            {
                 await QuizHub.NotifyRoundStarted(
-                    kestrelHost.HubContext, round, quizService.QuizNight.MasterTeamList);
+                    kestrelHost.HubContext, round, dataService.QuizNight.MasterTeamList);
+            }
 
-            var (recorded, expected, _) = quizService.GetRoundProgress(round.Id);
+            var (recorded, expected, _) = dataService.GetRoundProgress(round.Id);
             ActiveRound.Initialize(round, recorded, expected, ServerUrl);
 
             LeftPanel.Refresh(roundIsActive: true);
