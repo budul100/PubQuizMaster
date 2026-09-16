@@ -1,0 +1,114 @@
+@page "/teams"
+@inject TeamService TeamService
+@inject ToastService ToastService
+
+<PageTitle>Teams – PubQuizMaster</PageTitle>
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h4 class="mb-0 fw-bold">👥 Team Registry</h4>
+        <small class="text-muted">Manage team identities and resolve duplicate team names</small>
+    </div>
+</div>
+
+<div class="row g-4">
+    <!-- Left Column: Add Team & Team List -->
+    <div class="col-12 col-lg-7">
+        <div class="card shadow-sm mb-3">
+            <div class="card-header fw-semibold">Register New Team</div>
+            <div class="card-body">
+                <TeamSelector @bind-Value="newTeamName"
+                              OnCreateNewConfirmed="CreateTeamAsync"
+                              OnTeamSelected="SelectExistingTeam"
+                              Placeholder="Enter new team name…"
+                              AddButtonText="Create Team" />
+            </div>
+        </div>
+
+        <div class="card shadow-sm">
+            <div class="card-header d-flex justify-content-between align-items-center py-2">
+                <span class="fw-semibold">All Registered Teams (@teams.Length)</span>
+                <input type="search" class="form-control form-control-sm w-auto" placeholder="Filter list…" @bind="filterQuery" @bind:event="oninput" />
+            </div>
+            <div class="list-group list-group-flush" style="max-height: 520px; overflow-y: auto;">
+                @foreach (var team in FilteredTeams)
+                {
+                    var isSelected = selectedTeam?.Id == team.Id;
+                    <div class="list-group-item list-group-item-action d-flex justify-content-between align-items-center @(isSelected ? "active" : "")"
+                         style="cursor: pointer;"
+                         @onclick="() => SelectTeam(team)">
+                        <div>
+                            <div class="fw-semibold @(isSelected ? "text-white" : "")">@team.Name</div>
+                            <small class="@(isSelected ? "text-white-50" : "text-muted")">
+                                Created: @team.CreatedAt.ToString("dd.MM.yyyy")
+                            </small>
+                        </div>
+                        <span class="badge @(isSelected ? "bg-light text-dark" : "bg-secondary")">
+                            Select
+                        </span>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+
+    <!-- Right Column: Edit / Merge Selected Team -->
+    <div class="col-12 col-lg-5">
+        @if (selectedTeam == null)
+        {
+            <div class="card shadow-sm p-4 text-center text-muted">
+                Select a team from the list to rename or merge duplicate entries.
+            </div>
+        }
+        else
+        {
+            <div class="card shadow-sm border-primary">
+                <div class="card-header bg-primary text-white fw-semibold">
+                    Manage Team: @selectedTeam.Name
+                </div>
+                <div class="card-body">
+                    <!-- Rename Form -->
+                    <div class="mb-4">
+                        <label class="form-label small fw-bold">Edit Team Name</label>
+                        <div class="input-group mb-2">
+                            <input type="text" class="form-control" @bind="renameInput" />
+                            <button class="btn btn-outline-primary" disabled="@isBusy" @onclick="RenameSelectedTeamAsync">
+                                Save
+                            </button>
+                        </div>
+                    </div>
+
+                    <hr />
+
+                    <!-- Merge Tool -->
+                    <div>
+                        <label class="form-label small fw-bold text-danger">Merge Into Another Team</label>
+                        <p class="small text-muted mb-2">
+                            Move all answers, rounds, scorer assignments, participations and legacy scores of <strong>@selectedTeam.Name</strong> into another team, then delete this duplicate.
+                            Where both teams have an entry for the same question or legacy quiz night, the target team's entry is kept.
+                        </p>
+                        <select class="form-select mb-3" @bind="targetMergeTeamId">
+                            <option value="@Guid.Empty">— Select target destination team —</option>
+                            @foreach (var t in teams.Where(t => t.Id != selectedTeam.Id).OrderBy(t => t.Name))
+                            {
+                                <option value="@t.Id">@t.Name</option>
+                            }
+                        </select>
+                        <button class="btn btn-danger btn-sm w-100"
+                                disabled="@(targetMergeTeamId == Guid.Empty || isBusy)"
+                                @onclick="() => showMergeModal = true">
+                            ⚠️ Merge and Remove Duplicate
+                        </button>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+</div>
+
+<ConfirmModal IsOpen="@showMergeModal"
+              Title="Merge Teams"
+              Message="@($"Merge \"{selectedTeam?.Name}\" into \"{MergeTargetName}\"? \"{selectedTeam?.Name}\" will be deleted. This cannot be undone.")"
+              ConfirmText="Merge"
+              OnConfirmed="MergeTeamsAsync"
+              OnCanceled="() => showMergeModal = false" />

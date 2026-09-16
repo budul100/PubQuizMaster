@@ -1,0 +1,210 @@
+@page "/events"
+@page "/quiz-nights"
+@namespace PubQuizMaster.Web.Pages.Event
+@inject QuizService LiveQuizService
+@inject ToastService ToastService
+@inject NavigationManager Nav
+
+<PageTitle>Quiz Nights – PubQuizMaster</PageTitle>
+
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+    <div>
+        <h4 class="mb-0 fw-bold">📅 Quiz Nights</h4>
+        <small class="text-muted">Manage scheduled and historic quiz sessions</small>
+    </div>
+</div>
+
+<div class="row g-4">
+    <!-- Left Column: Create New Quiz Night Form -->
+    <div class="col-12 col-lg-4">
+        <div class="card shadow-sm border-0">
+            <div class="card-header bg-dark text-white fw-semibold py-2">
+                ➕ New Quiz Night
+            </div>
+            <div class="card-body">
+                @if (hasActiveQuiz)
+                {
+                    <div class="alert alert-warning py-2 small mb-3">
+                        ⚠️ <strong>Active Quiz in Progress:</strong> You cannot create a new quiz while another quiz is currently active. Finalize or remove the active quiz first.
+                    </div>
+                }
+
+                <fieldset disabled="@hasActiveQuiz">
+                    <div class="mb-3">
+                        <label class="form-label small fw-bold">Title</label>
+                        <input type="text" class="form-control" @bind="newTitle" placeholder="e.g. Pub Quiz #42" />
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label small fw-bold">Date</label>
+                        <input type="date" class="form-control" @bind="newDate" />
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label small fw-bold">Description (Optional)</label>
+                        <textarea class="form-control" rows="2" @bind="newDescription" placeholder="Notes, special rounds, or theme..."></textarea>
+                    </div>
+
+                    <button class="btn btn-primary w-100" @onclick="CreateQuizNightAsync" disabled="@(isSubmitting || hasActiveQuiz)">
+                        @(isSubmitting ? "Creating…" : "+ Create Quiz Night")
+                    </button>
+                </fieldset>
+            </div>
+        </div>
+    </div>
+
+    <!-- Right Column: Quiz Nights List -->
+    <div class="col-12 col-lg-8">
+        <div class="card shadow-sm border-0">
+            <div class="card-header fw-semibold bg-light py-2 d-flex justify-content-between align-items-center">
+                <span>All Events (@quizNights.Count)</span>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light small">
+                        <tr>
+                            <th style="width: 110px;">Date</th>
+                            <th>Title</th>
+                            <th style="width: 100px;">Status</th>
+                            <th style="width: 80px;" class="text-center">Teams</th>
+                            <th style="width: 80px;" class="text-center">Rounds</th>
+                            <th style="width: 180px;" class="text-end pe-3">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @if (isLoading)
+                        {
+                            <tr>
+                                <td colspan="6" class="text-center py-4 text-muted">
+                                    <div class="spinner-border spinner-border-sm me-1" role="status"></div>
+                                    Loading events…
+                                </td>
+                            </tr>
+                        }
+                        else if (quizNights.Count == 0)
+                        {
+                            <tr>
+                                <td colspan="6" class="text-center py-4 text-muted">No quiz events found.</td>
+                            </tr>
+                        }
+                        else
+                        {
+                            @foreach (var quiz in quizNights)
+                            {
+                                var isActive = !quiz.IsCompleted && !quiz.IsLegacyImport;
+                                <tr class="@(isActive ? "table-primary bg-opacity-25" : "")">
+                                    <td class="small text-secondary">@quiz.Date.ToString("dd.MM.yyyy")</td>
+                                    <td>
+                                        <div class="fw-semibold">
+                                            @if (isActive)
+                                            {
+                                                <a href="/" class="text-decoration-none text-primary fw-bold" title="Open Live Session">
+                                                    🎯 @quiz.Title
+                                                </a>
+                                            }
+                                            else
+                                            {
+                                                <span class="text-dark cursor-pointer" role="button" @onclick="() => OpenEditModal(quiz)">
+                                                    @quiz.Title
+                                                </span>
+                                            }
+                                        </div>
+                                        @if (!string.IsNullOrEmpty(quiz.Description))
+                                        {
+                                            <div class="text-muted small text-truncate" style="max-width: 250px;">
+                                                @quiz.Description
+                                            </div>
+                                        }
+                                    </td>
+                                    <td>
+                                        @if (quiz.IsLegacyImport)
+                                        {
+                                            <span class="badge bg-secondary">Legacy</span>
+                                        }
+                                        else if (quiz.IsCompleted)
+                                        {
+                                            <span class="badge bg-success">Completed</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="badge bg-primary">Active</span>
+                                        }
+                                    </td>
+                                    <td class="text-center small">@quiz.ParticipatingTeams.Count</td>
+                                    <td class="text-center small">@quiz.Rounds.Count</td>
+                                    <td class="text-end pe-3">
+                                        <div class="btn-group btn-group-sm">
+                                            @if (isActive)
+                                            {
+                                                <a class="btn btn-outline-primary py-0 px-2" href="/" title="Go to Live Scoring">
+                                                    Live
+                                                </a>
+                                            }
+                                            @if (quiz.IsCompleted && !quiz.IsLegacyImport)
+                                            {
+                                                var canExport = quiz.Rounds.Any(r => r.IsFinalized);
+                                                var exportDisabled = !canExport || exportingQuizId != null;
+                                                <label class="btn btn-outline-primary py-0 px-2 mb-0 @(exportDisabled ? "disabled" : null)"
+                                                       title="@(canExport ? "Select presentation and export final results" : "No finalized round to export")">
+                                                    @if (exportingQuizId == quiz.Id)
+                                                    {
+                                                        <span class="spinner-border spinner-border-sm" role="status"></span>
+                                                    }
+                                                    else
+                                                    {
+                                                        <span>PPTX</span>
+                                                    }
+                                                    <InputFile @key="@($"{quiz.Id}-{exportVersion}")"
+                                                               class="d-none"
+                                                               accept=".pptx,.ppsx,.potx"
+                                                               disabled="@exportDisabled"
+                                                               OnChange="e => ExportFinalAsync(quiz, e.File)" />
+                                                </label>
+                                                <button class="btn btn-outline-warning py-0 px-2"
+                                                        disabled="@hasActiveQuiz"
+                                                        title="@(hasActiveQuiz ? "Complete the active quiz night first" : "Reopen quiz night")"
+                                                        @onclick="() => PromptReopen(quiz)">
+                                                    ↺
+                                                </button>
+                                            }
+                                            <button class="btn btn-outline-secondary py-0 px-2" @onclick="() => OpenEditModal(quiz)" title="Edit Name & Date">
+                                                ✎
+                                            </button>
+                                            <button class="btn btn-outline-danger py-0 px-2" @onclick="() => PromptDelete(quiz)" title="Delete Quiz">
+                                                🗑
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Modal -->
+<QuizEditModal IsOpen="@showEditModal"
+               Quiz="@quizToEdit"
+               OnSaved="HandleQuizSavedAsync"
+               OnCanceled="() => showEditModal = false" />
+
+<!-- Delete Confirmation Modal -->
+<ConfirmModal IsOpen="@showDeleteModal"
+              Title="Delete Quiz Night"
+              Message="@($"Are you sure you want to delete \"{quizToDelete?.Title}\"? This will permanently remove all associated rounds, teams, and answers.")"
+              ConfirmText="Yes, Delete"
+              OnConfirmed="HandleDeleteConfirmedAsync"
+              OnCanceled="() => showDeleteModal = false" />
+
+<!-- Reopen Confirmation Modal -->
+<ConfirmModal IsOpen="@showReopenModal"
+              Title="Reopen Quiz Night"
+              Message="@($"Reopen \"{quizToReopen?.Title}\"? It becomes the active quiz night again and is removed from the all-time standings until it is completed.")"
+              ConfirmText="Reopen"
+              ConfirmButtonClass="btn-warning"
+              HeaderClass="bg-warning"
+              OnConfirmed="HandleReopenConfirmedAsync"
+              OnCanceled="() => showReopenModal = false" />

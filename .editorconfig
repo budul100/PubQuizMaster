@@ -1,0 +1,10 @@
+root = true
+
+# Encoding and line endings for all text files; editors apply this on save
+[*]
+charset = utf-8
+end_of_line = lf
+
+# Windows batch files need CRLF
+[*.{bat,cmd}]
+end_of_line = crlf

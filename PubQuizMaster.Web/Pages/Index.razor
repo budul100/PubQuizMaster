@@ -1,0 +1,89 @@
+@page "/"
+@namespace PubQuizMaster.Web.Pages
+@using PubQuizMaster.Web.Components.Player
+@using PubQuizMaster.Web.Components.Event
+@inject QuizService LiveQuizService
+@inject ScorerService SessionService
+@inject ToastService ToastService
+@implements IDisposable
+
+<PageTitle>PubQuizMaster – Live Dashboard</PageTitle>
+
+@if (isLoading)
+{
+    <div class="d-flex align-items-center gap-2 text-muted py-5 justify-content-center">
+        <div class="spinner-border spinner-border-sm" role="status"></div>
+        <span>Loading live quiz session…</span>
+    </div>
+}
+else if (activeNight == null)
+{
+    <div class="card p-5 text-center shadow-sm border-0 my-4">
+        <h4 class="text-muted mb-3">No Active Quiz Night</h4>
+        <p class="text-secondary mb-4">There is currently no live quiz night in progress.</p>
+        <div>
+            <a class="btn btn-primary" href="/events">+ Go to Quiz Nights</a>
+        </div>
+    </div>
+}
+else
+{
+    <!-- Top Action Bar -->
+    <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+        <div>
+            <h3 class="mb-0 fw-bold">🎯 @activeNight.Title</h3>
+            <span class="text-muted small">@activeNight.Date.ToString("dd.MM.yyyy") • @teamStandings.Length teams active</span>
+        </div>
+        <div class="d-flex gap-2">
+            <button class="btn btn-outline-success btn-sm"
+                    disabled="@(activeRound != null || isProcessing)"
+                    title="@(activeRound != null ? "Finalize the active round first" : "Close this quiz night")"
+                    @onclick="() => showCompleteModal = true">
+                🏁 Complete Quiz Night
+            </button>
+            <a class="btn btn-outline-secondary btn-sm" href="/events">
+                ← All Events
+            </a>
+        </div>
+    </div>
+
+    <!-- 1. FULL WIDTH (100%) AKTIV-SICHT: Nur wenn eine Runde erfasst wird -->
+    @if (activeRound != null)
+    {
+        <div class="mb-4">
+            <ActiveScoringBanner Round="activeRound"
+                                 IsProcessing="isProcessing"
+                                 OnFinalizeRound="FinalizeRoundAsync" />
+        </div>
+    }
+
+    <!-- 2. GETEILTE ANSICHT (50:50): Links Teams, Rechts Runden -->
+    <div class="row g-3 align-items-stretch">
+        <div class="col-12 col-lg-6">
+            <TeamListPanel Standings="teamStandings"
+                           OnRegisterTeam="AddTeamAsync" />
+        </div>
+        <div class="col-12 col-lg-6">
+            <RoundListPanel Rounds="activeNight.Rounds"
+                            ActiveRound="activeRound"
+                            IsExporting="isExporting"
+                            OnStartRoundClick="OpenStartRoundModal"
+                            OnExportPptx="ExportRoundPresentationAsync" />
+        </div>
+    </div>
+}
+
+<StartRoundModal IsOpen="@showSetupModal"
+                 Quiz="@activeNight"
+                 ErrorMessage="@startRoundError"
+                 OnStartRound="StartRoundConfirmedAsync"
+                 OnCanceled="CloseStartRoundModal" />
+
+<ConfirmModal IsOpen="@showCompleteModal"
+              Title="Complete Quiz Night"
+              Message="@($"Complete \"{activeNight?.Title}\"? Results will be added to the all-time standings and no further rounds can be started. The final presentation can still be exported from the Quiz Nights page.")"
+              ConfirmText="Complete"
+              ConfirmButtonClass="btn-success"
+              HeaderClass="bg-success"
+              OnConfirmed="CompleteQuizAsync"
+              OnCanceled="() => showCompleteModal = false" />

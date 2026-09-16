@@ -1,0 +1,234 @@
+@page "/scorer"
+@page "/scorer/{ScorerIdRoute}"
+@layout Shared.ScorerLayout
+@attribute [AllowAnonymous]
+@using PubQuizMaster.Web.Enums
+
+<PageTitle>PubQuizMaster – Scorer</PageTitle>
+
+<div class="scorer-wrapper d-flex flex-column h-100 p-3"
+     @onkeydown="HandleKeyDown"
+     tabindex="0"
+     @ref="containerRef">
+
+    <!-- Header -->
+    <header class="d-flex justify-content-between align-items-center mb-3 pb-2 border-bottom border-secondary flex-shrink-0">
+        <div>
+            <h5 class="mb-0 fw-bold text-danger">🎯 @(round?.Name ?? "Scorer")</h5>
+            <small class="text-secondary">@(assignment?.Label ?? currentScorerId)</small>
+        </div>
+        <div class="d-flex align-items-center gap-2">
+            @if (currentPhase == ScorerPagePhase.Scoring)
+            {
+                <button class="btn btn-outline-light btn-sm" @onclick="() => SetPhase(ScorerPagePhase.Overview)">
+                    📋 Overview
+                </button>
+            }
+            else if (currentPhase == ScorerPagePhase.Overview)
+            {
+                <button class="btn btn-outline-light btn-sm" @onclick="() => SetPhase(ScorerPagePhase.Scoring)">
+                    ← Back
+                </button>
+            }
+        </div>
+    </header>
+
+    @if (newTeamsHint != null && (currentPhase == ScorerPagePhase.Scoring || currentPhase == ScorerPagePhase.Overview))
+    {
+        <div class="alert alert-warning py-2 small mb-3 d-flex justify-content-between align-items-center gap-2 flex-shrink-0">
+            <span>New team added at the end of your sheet stack: <strong>@newTeamsHint</strong></span>
+            <button type="button" class="btn-close" aria-label="Dismiss" @onclick="() => newTeamsHint = null"></button>
+        </div>
+    }
+
+    @if (currentPhase == ScorerPagePhase.Connect)
+    {
+        <div class="card bg-dark text-light border-secondary my-auto p-4 shadow">
+            <h4 class="text-center text-danger fw-bold mb-3">Scorer Identification</h4>
+            <p class="text-secondary text-center small mb-4">
+                Enter your assigned Scorer ID to join the session.
+            </p>
+
+            @if (!string.IsNullOrEmpty(errorMessage))
+            {
+                <div class="alert alert-danger py-2 small mb-3">@errorMessage</div>
+            }
+
+            <div class="mb-3">
+                <label class="form-label small text-secondary">Scorer ID</label>
+                <input type="text" class="form-control bg-secondary text-light border-0"
+                       placeholder="e.g. k7m2x9qp4a"
+                       @bind="inputScorerId"
+                       @bind:event="oninput" />
+            </div>
+
+            <button class="btn btn-danger w-100 py-2 fw-bold" @onclick="ConnectAsync" disabled="@isLoading">
+                @(isLoading ? "Connecting…" : "Join Session")
+            </button>
+        </div>
+    }
+    else if (currentPhase == ScorerPagePhase.Waiting)
+    {
+        <div class="card bg-dark text-light border-secondary my-auto p-4 shadow text-center">
+            <div class="spinner-border text-danger mx-auto mb-3" role="status"></div>
+            <h5 class="fw-bold mb-2">Waiting for the next round</h5>
+            <p class="text-secondary small mb-4">
+                No active assignment for <code>@currentScorerId</code>.
+                This page updates automatically as soon as the host starts a round.
+            </p>
+
+            @if (!string.IsNullOrEmpty(errorMessage))
+            {
+                <div class="alert alert-danger py-2 small mb-3">@errorMessage</div>
+            }
+
+            <button class="btn btn-outline-light btn-sm" @onclick="ChangeScorerId">
+                Use a different Scorer ID
+            </button>
+        </div>
+    }
+    else if (currentPhase == ScorerPagePhase.SortSheets)
+    {
+        <div class="d-flex flex-column flex-grow-1 justify-content-between">
+            <div>
+                <div class="alert alert-info py-2 small mb-3">
+                    Sort your physical answer sheets in this top-to-bottom order:
+                </div>
+                <div class="list-group list-group-flush mb-3">
+                    @for (int i = 0; i < assignedTeams.Count; i++)
+                    {
+                        var team = assignedTeams[i];
+                        <div class="list-group-item bg-dark text-light border-secondary d-flex align-items-center gap-3 py-3 rounded mb-2">
+                            <div class="badge rounded-circle bg-danger fs-6 p-2" style="width: 36px; height: 36px; display: grid; place-items: center;">
+                                @(i + 1)
+                            </div>
+                            <span class="fs-5 fw-semibold">@team.Name</span>
+                        </div>
+                    }
+                </div>
+            </div>
+
+            <button class="btn btn-success w-100 py-3 fs-5 fw-bold mb-2 shadow" @onclick="StartScoring">
+                ▶ Start Scoring
+            </button>
+        </div>
+    }
+    else if (currentPhase == ScorerPagePhase.Scoring)
+    {
+        <div class="mb-3 flex-shrink-0">
+            <div class="d-flex justify-content-between small text-secondary mb-1">
+                <span>Question @(currentQuestionIndex + 1) of @questionCount</span>
+                <span>Team @(currentTeamIndex + 1) of @assignedTeams.Count</span>
+            </div>
+            <div class="progress bg-dark" style="height: 8px;">
+                <div class="progress-bar bg-danger" style="width: @CompletionPercentage%"></div>
+            </div>
+        </div>
+
+        @if (CurrentTeam != null)
+        {
+            <div class="card bg-dark text-light border-secondary text-center p-4 my-auto shadow">
+                <div class="text-secondary text-uppercase fw-bold small mb-2">Question</div>
+                <div class="display-3 fw-bold text-light mb-3">@(currentQuestionIndex + 1)</div>
+
+                <div class="fs-2 fw-bold text-danger mb-2 text-truncate">@CurrentTeam.Name</div>
+                <div class="text-secondary small mb-3">Sheet #@(currentTeamIndex + 1)</div>
+
+                @{
+                    var existingAnswer = GetCurrentAnswer();
+                }
+                <div class="answer-status-pill mx-auto mb-2">
+                    @if (existingAnswer == true)
+                    {
+                        <span class="badge bg-success fs-5 px-3 py-2">✓ Correct</span>
+                    }
+                    else if (existingAnswer == false)
+                    {
+                        <span class="badge bg-danger fs-5 px-3 py-2">✗ Incorrect</span>
+                    }
+                    else
+                    {
+                        <span class="badge bg-secondary fs-6 px-3 py-2 text-light opacity-50">— Unanswered —</span>
+                    }
+                </div>
+            </div>
+
+            <div class="row g-3 mt-auto mb-3 flex-shrink-0">
+                <div class="col-6">
+                    <button class="btn btn-success w-100 py-4 fs-1 fw-bold shadow active-scale"
+                            @onclick="() => RecordAnswerAsync(true)">
+                        ✓
+                    </button>
+                </div>
+                <div class="col-6">
+                    <button class="btn btn-danger w-100 py-4 fs-1 fw-bold shadow active-scale"
+                            @onclick="() => RecordAnswerAsync(false)">
+                        ✗
+                    </button>
+                </div>
+            </div>
+
+            <div class="d-flex justify-content-between gap-2 flex-shrink-0">
+                <button class="btn btn-secondary flex-fill py-2"
+                        @onclick="NavigatePrevious"
+                        disabled="@(currentTeamIndex == 0 && currentQuestionIndex == 0)">
+                    ← Previous
+                </button>
+                <button class="btn btn-secondary flex-fill py-2"
+                        @onclick="NavigateNext"
+                        disabled="@(currentTeamIndex == assignedTeams.Count - 1 && currentQuestionIndex == questionCount - 1)">
+                    Next →
+                </button>
+            </div>
+        }
+    }
+    else if (currentPhase == ScorerPagePhase.Overview)
+    {
+        <div class="d-flex flex-column flex-grow-1 overflow-hidden">
+            <h6 class="fw-bold mb-2 text-light">Answer Matrix Overview</h6>
+            <div class="flex-grow-1 overflow-auto pe-1 mb-3">
+                @for (int t = 0; t < assignedTeams.Count; t++)
+                {
+                    var teamIdx = t;
+                    var team = assignedTeams[teamIdx];
+                    var score = GetTeamScore(team.Id);
+
+                    <div class="card bg-dark text-light border-secondary p-3 mb-2">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <span class="fw-bold text-truncate" style="max-width: 260px;">@team.Name</span>
+                            <span class="badge bg-primary fs-6">@score / @questionCount Pts</span>
+                        </div>
+                        <div class="d-flex flex-wrap gap-1">
+                            @for (int q = 0; q < questionCount; q++)
+                            {
+                                var qIdx = q;
+                                var answer = GetAnswer(team.Id, qIdx);
+                                <button type="button"
+                                        class="btn btn-sm p-0 rounded-circle @GetDotClass(answer)"
+                                        style="width: 26px; height: 26px; font-size: 0.75rem; font-weight: bold;"
+                                        @onclick="() => JumpToCell(teamIdx, qIdx)">
+                                    @(qIdx + 1)
+                                </button>
+                            }
+                        </div>
+                    </div>
+                }
+            </div>
+
+            <button class="btn btn-primary w-100 py-3 fw-bold flex-shrink-0" @onclick="() => SetPhase(ScorerPagePhase.Scoring)">
+                ✎ Continue Scoring / Review
+            </button>
+        </div>
+    }
+
+</div>
+
+<style>
+    .active-scale:active {
+        transform: scale(0.96);
+    }
+
+    .scorer-wrapper:focus {
+        outline: none;
+    }
+</style>

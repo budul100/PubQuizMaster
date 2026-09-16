@@ -1,0 +1,36 @@
+<Project>
+
+	<!-- Central package management: projects reference packages without a version, all versions live here -->
+	<PropertyGroup>
+		<ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+	</PropertyGroup>
+
+	<!-- Keep in line with the target framework (net9.0). Microsoft ships EF Core and the
+	     runtime extensions with the same patch number, update both together. -->
+	<PropertyGroup>
+		<EfCoreVersion>9.0.20</EfCoreVersion>
+		<ExtensionsVersion>9.0.20</ExtensionsVersion>
+	</PropertyGroup>
+
+	<ItemGroup Label="Entity Framework Core">
+		<PackageVersion Include="Microsoft.EntityFrameworkCore" Version="$(EfCoreVersion)" />
+		<PackageVersion Include="Microsoft.EntityFrameworkCore.Design" Version="$(EfCoreVersion)" />
+		<PackageVersion Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="9.0.4" />
+	</ItemGroup>
+
+	<ItemGroup Label="Configuration (design-time factory)">
+		<PackageVersion Include="Microsoft.Extensions.Configuration" Version="$(ExtensionsVersion)" />
+		<PackageVersion Include="Microsoft.Extensions.Configuration.CommandLine" Version="$(ExtensionsVersion)" />
+		<PackageVersion Include="Microsoft.Extensions.Configuration.EnvironmentVariables" Version="$(ExtensionsVersion)" />
+		<PackageVersion Include="Microsoft.Extensions.Configuration.FileExtensions" Version="$(ExtensionsVersion)" />
+		<PackageVersion Include="Microsoft.Extensions.Configuration.Json" Version="$(ExtensionsVersion)" />
+		<PackageVersion Include="Microsoft.Extensions.Configuration.UserSecrets" Version="$(ExtensionsVersion)" />
+	</ItemGroup>
+
+	<ItemGroup Label="Documents and QR codes">
+		<PackageVersion Include="ClosedXML" Version="0.105.1" />
+		<PackageVersion Include="DocumentFormat.OpenXml" Version="3.5.1" />
+		<PackageVersion Include="QRCoder" Version="1.8.0" />
+	</ItemGroup>
+
+</Project>

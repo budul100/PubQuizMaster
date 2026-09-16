@@ -1,0 +1,30 @@
+@inherits LayoutComponentBase
+
+<div class="scorer-layout-container">
+    @Body
+</div>
+
+@* Scorer errors (e.g. failed saves) were previously only visible on admin browsers *@
+<ToastVisualizer />
+
+<style>
+    html, body {
+        height: 100%;
+        margin: 0;
+        padding: 0;
+        background-color: #1a1a2e;
+        color: #eaeaea;
+        overflow-x: hidden;
+        user-select: none;
+        -webkit-user-select: none;
+    }
+
+    .scorer-layout-container {
+        display: flex;
+        flex-direction: column;
+        min-height: 100dvh;
+        max-width: 520px;
+        margin: 0 auto;
+        background-color: #1a1a2e;
+    }
+</style>

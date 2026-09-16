@@ -1,0 +1,20 @@
+/* ==========================================================================
+   Blazor error bar (#blazor-error-ui in Pages/_Host.cshtml)
+   Blazor shows the bar on an unhandled error by setting style="display: block".
+   It has to be hidden by a normal rule: Bootstrap's d-none uses !important,
+   which an inline style cannot override, so the bar would never appear.
+   ========================================================================== */
+#blazor-error-ui {
+    display: none;
+    /* Above the custom modal backdrops (Bootstrap modals use 1050) */
+    z-index: 1060;
+}
+
+#blazor-error-ui .reload {
+    margin-left: 0.5rem;
+}
+
+#blazor-error-ui .dismiss {
+    margin-left: 0.75rem;
+    cursor: pointer;
+}

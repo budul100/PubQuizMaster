@@ -1,0 +1,26 @@
+﻿@namespace PubQuizMaster.Web.Components.Common
+
+@if (IsOpen)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);" role="dialog">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content shadow">
+                <div class="modal-header @HeaderClass text-white py-2">
+                    <h5 class="modal-title fw-bold">@Title</h5>
+                    <button type="button" class="btn-close btn-close-white" @onclick="Cancel"></button>
+                </div>
+                <div class="modal-body py-3">
+                    <p class="mb-0">@Message</p>
+                </div>
+                <div class="modal-footer py-2">
+                    <button type="button" class="btn btn-secondary btn-sm" @onclick="Cancel">
+                        @CancelText
+                    </button>
+                    <button type="button" class="btn @ConfirmButtonClass btn-sm" @onclick="Confirm">
+                        @ConfirmText
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}

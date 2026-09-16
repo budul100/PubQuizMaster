@@ -11,6 +11,9 @@
 # Note: This is only used by command line
 ###############################################################################
 #*.cs     diff=csharp
+*.sh text eol=lf
+*.bat text eol=crlf
+*.cmd text eol=crlf
 
 ###############################################################################
 # Set the merge driver for project and solution files
@@ -44,6 +47,10 @@
 #*.png   binary
 #*.gif   binary
 
+*.png binary
+*.jpg binary
+*.ico binary
+
 ###############################################################################
 # diff behavior for common document formats
 # 
@@ -61,3 +68,6 @@
 #*.PDF   diff=astextplain
 #*.rtf   diff=astextplain
 #*.RTF   diff=astextplain
+
+*.pptx binary
+*.xlsx binary

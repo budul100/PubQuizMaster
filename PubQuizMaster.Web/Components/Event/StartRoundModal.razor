@@ -1,0 +1,109 @@
+@namespace PubQuizMaster.Web.Components.Event
+
+@if (IsOpen && Quiz != null)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);" role="dialog">
+        <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+            <div class="modal-content shadow">
+                <div class="modal-header bg-primary text-white py-2">
+                    <h5 class="modal-title fw-bold">Start New Round</h5>
+                    <button type="button" class="btn-close btn-close-white" @onclick="Cancel"></button>
+                </div>
+                <div class="modal-body">
+                    @if (!string.IsNullOrEmpty(ErrorMessage))
+                    {
+                        <div class="alert alert-danger py-2 small mb-3">@ErrorMessage</div>
+                    }
+
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-8">
+                            <label class="form-label small fw-bold">Round Name</label>
+                            <input type="text" class="form-control" @bind="roundName" />
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label small fw-bold">Question Count</label>
+                            <input type="number" class="form-control" min="1" max="@QuizService.MaxQuestionCount" @bind="questionCount" />
+                        </div>
+                    </div>
+
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <h6 class="fw-bold mb-0">Scorer Assignments (@assignments.Count Scorers)</h6>
+                        <div class="d-flex gap-2">
+                            <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="AutoDistributeTeams">
+                                🔄 Auto-Distribute
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline-primary" @onclick="AddScorer">
+                                + Add Scorer
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="d-flex flex-column gap-3 mb-2">
+                        @for (int s = 0; s < assignments.Count; s++)
+                        {
+                            var sIdx = s;
+                            var sc = assignments[sIdx];
+
+                            <div class="card border p-3 bg-light">
+                                <div class="row g-2 align-items-center mb-2">
+                                    <div class="col-md-5">
+                                        <input type="text" class="form-control form-control-sm" placeholder="Label (e.g. Scorer A)" @bind="sc.Label" />
+                                    </div>
+                                    <div class="col-md-5">
+                                        <div class="input-group input-group-sm">
+                                            <input type="text" class="form-control font-monospace" value="@sc.ScorerId" readonly title="Scorer token (part of the scorer URL)" />
+                                            <button type="button" class="btn btn-outline-secondary"
+                                                    title="Generate new token (old scorer URL stops working)"
+                                                    @onclick="() => sc.ScorerId = ScorerTokens.Create()">
+                                                ↻
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-2 text-end">
+                                        <button type="button" class="btn btn-outline-danger btn-sm"
+                                                disabled="@(assignments.Count <= 1)"
+                                                @onclick="() => RemoveScorer(sIdx)">
+                                            ✕ Remove
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div class="small fw-semibold text-secondary mb-1">Assigned Teams (@sc.TeamIds.Count):</div>
+                                @if (sc.TeamIds.Count == 0)
+                                {
+                                    <div class="small text-warning-emphasis mb-1">
+                                        No teams yet. The station waits and receives late registrations first.
+                                    </div>
+                                }
+                                <div class="d-flex flex-wrap gap-2">
+                                    @foreach (var pt in Quiz.ParticipatingTeams.OrderBy(p => p.SheetOrder))
+                                    {
+                                        var isAssignedToThis = sc.TeamIds.Contains(pt.TeamId);
+                                        var isAssignedToOther = !isAssignedToThis && assignments.Any(other => other != sc && other.TeamIds.Contains(pt.TeamId));
+
+                                        <div class="form-check form-check-inline">
+                                            <input class="form-check-input" type="checkbox"
+                                                   id="@($"chk_{sIdx}_{pt.TeamId}")"
+                                                   checked="@isAssignedToThis"
+                                                   disabled="@isAssignedToOther"
+                                                   @onchange="(e) => ToggleTeam(sc, pt.TeamId, (bool)(e.Value ?? false))" />
+                                            <label class="form-check-label small @(isAssignedToOther ? "text-muted" : "")" for="@($"chk_{sIdx}_{pt.TeamId}")">
+                                                @pt.Team.Name
+                                            </label>
+                                        </div>
+                                    }
+                                </div>
+                            </div>
+                        }
+                    </div>
+                </div>
+                <div class="modal-footer py-2">
+                    <button type="button" class="btn btn-secondary btn-sm" @onclick="Cancel">Cancel</button>
+                    <button type="button" class="btn btn-primary btn-sm" @onclick="SubmitAsync" disabled="@isSubmitting">
+                        @(isSubmitting ? "Starting…" : "▶ Start Round")
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}

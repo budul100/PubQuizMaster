@@ -1,0 +1,30 @@
+using PubQuizMaster.Core.Records.Event;
+
+namespace PubQuizMaster.Web.ViewModels
+{
+    /// <summary>
+    /// Editable scorer station in the start-round dialog. Decoupled from the Scorer entity.
+    /// </summary>
+    public class ScorerAssignmentViewModel
+    {
+        #region Public Properties
+
+        public string Label { get; set; } = string.Empty;
+
+        public string ScorerId { get; set; } = string.Empty;
+
+        /// <summary>Team IDs in sheet order, mutable for the checkbox toggles.</summary>
+        public List<Guid> TeamIds { get; set; } = [];
+
+        #endregion Public Properties
+
+        #region Public Methods
+
+        public AssignmentRequest ToRequest()
+        {
+            return new AssignmentRequest(ScorerId.Trim(), Label.Trim(), [.. TeamIds]);
+        }
+
+        #endregion Public Methods
+    }
+}

@@ -1,0 +1,89 @@
+@page "/standings"
+@using PubQuizMaster.Services
+@using PubQuizMaster.Services.Player
+@inject LeaderboardService LeaderboardService
+
+<PageTitle>All-Time Standings – PubQuizMaster</PageTitle>
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+        <h4 class="mb-0 fw-bold">🏆 All-Time Standings</h4>
+        <small class="text-muted">Aggregated rankings across legacy nights and live events</small>
+    </div>
+    <div class="d-flex gap-2">
+        <input type="search" class="form-control form-control-sm" placeholder="Search team…" @bind="searchTerm" @bind:event="oninput" style="width: 220px;" />
+    </div>
+</div>
+
+@if (isLoading)
+{
+    <div class="d-flex align-items-center gap-2 text-muted">
+        <div class="spinner-border spinner-border-sm" role="status"></div>
+        <span>Calculating standings…</span>
+    </div>
+}
+else if (FilteredEntries.Length == 0)
+{
+    <div class="alert alert-secondary text-center p-4">
+        No teams or rankings found.
+    </div>
+}
+else
+{
+    <div class="table-responsive border rounded bg-white shadow-sm">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th style="width: 60px;" class="text-center">Rank</th>
+                    <th>Team</th>
+                    <th style="width: 140px;" class="text-center">Quizzes Played</th>
+                    <th style="width: 140px;" class="text-end pe-4">Total Points</th>
+                    <th style="width: 140px;" class="text-end pe-4">Avg Pts / Quiz</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var entry in FilteredEntries)
+                {
+                    var currentRank = entry.Rank;
+                    var avg = entry.QuizzesPlayed > 0 ? entry.TotalScore / entry.QuizzesPlayed : 0m;
+
+                    <tr>
+                        <td class="text-center fw-bold text-muted">
+                            @if (currentRank == 1)
+                            {
+                                <span class="badge bg-warning text-dark">🥇 1</span>
+                            }
+                            else if (currentRank == 2)
+                            {
+                                <span class="badge bg-secondary text-white">🥈 2</span>
+                            }
+                            else if (currentRank == 3)
+                            {
+                                <span class="badge bg-danger text-white">🥉 3</span>
+                            }
+                            else
+                            {
+                                <span>@currentRank</span>
+                            }
+                        </td>
+                        <td class="fw-semibold">
+                            <a class="text-decoration-none text-dark" href="/teams?teamId=@entry.TeamId">
+                                @entry.TeamName
+                            </a>
+                        </td>
+                        <td class="text-center">
+                            <span class="badge bg-light text-dark border">@entry.QuizzesPlayed</span>
+                        </td>
+                        <td class="text-end pe-4 fw-bold text-primary">
+                            @entry.TotalScore.ToString("0.#")
+                        </td>
+                        <td class="text-end pe-4 text-muted small">
+                            @avg.ToString("0.#")
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+

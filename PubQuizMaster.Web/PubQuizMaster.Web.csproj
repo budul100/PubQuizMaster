@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+	<PropertyGroup>
+		<TargetFramework>net9.0</TargetFramework>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<Nullable>enable</Nullable>
+		<UserSecretsId>66862871-2d67-4717-bb87-1b2ce255ab9c</UserSecretsId>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<PackageReference Include="Microsoft.EntityFrameworkCore.Design">
+			<PrivateAssets>all</PrivateAssets>
+			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+		</PackageReference>
+	</ItemGroup>
+	
+	<ItemGroup>
+		<ProjectReference Include="..\PubQuizMaster.Core\PubQuizMaster.Core.csproj" />
+		<ProjectReference Include="..\PubQuizMaster.Data\PubQuizMaster.Data.csproj" />
+		<ProjectReference Include="..\PubQuizMaster.Services\PubQuizMaster.Services.csproj" />
+	</ItemGroup>
+
+</Project>

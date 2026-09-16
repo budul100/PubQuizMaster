@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+	<PropertyGroup>
+		<TargetFramework>net9.0</TargetFramework>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<Nullable>enable</Nullable>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<PackageReference Include="ClosedXML" />
+		<PackageReference Include="DocumentFormat.OpenXml" />
+		<PackageReference Include="QRCoder" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<ProjectReference Include="..\PubQuizMaster.Core\PubQuizMaster.Core.csproj" />
+		<ProjectReference Include="..\PubQuizMaster.Data\PubQuizMaster.Data.csproj" />
+	</ItemGroup>
+
+</Project>

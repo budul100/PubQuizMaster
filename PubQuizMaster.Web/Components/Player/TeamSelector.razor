@@ -1,0 +1,46 @@
+@using PubQuizMaster.Services
+@inject MatchingService TeamMatchingService
+
+<div class="position-relative">
+    <div class="input-group">
+        <input type="text"
+               class="form-control"
+               placeholder="@Placeholder"
+               value="@Value"
+               @oninput="HandleInputAsync" />
+        @if (ShowAddButton)
+        {
+            <button class="btn btn-primary" type="button" @onclick="ConfirmCreate" disabled="@string.IsNullOrWhiteSpace(Value)">
+                @AddButtonText
+            </button>
+        }
+    </div>
+
+    @if (similarCandidates.Length > 0)
+    {
+        <div class="card position-absolute w-100 shadow mt-1 border-warning" style="z-index: 1050;">
+            <div class="card-header bg-warning-subtle py-1 px-3 d-flex justify-content-between align-items-center">
+                <small class="fw-bold text-dark">⚠️ Similar Teams Found</small>
+                <button type="button" class="btn-close btn-sm" style="font-size: 0.6rem;" @onclick="CancelSearch"></button>
+            </div>
+            <div class="list-group list-group-flush small">
+                @foreach (var candidate in similarCandidates)
+                {
+                    var matchPercent = (int)Math.Round(candidate.Similarity * 100);
+                    <button type="button"
+                            class="list-group-item list-group-item-action d-flex justify-content-between align-items-center py-2"
+                            @onclick="() => SelectCandidate(candidate.Team)">
+                        <span>
+                            <strong>@candidate.Team.Name</strong>
+                            <span class="text-muted ms-1">(Click to use)</span>
+                        </span>
+                        <span class="badge @(matchPercent >= 85 ? "bg-danger" : "bg-warning text-dark")">
+                            @matchPercent% match
+                        </span>
+                    </button>
+                }
+            </div>
+        </div>
+    }
+</div>
+

@@ -1,0 +1,42 @@
+@namespace PubQuizMaster.Web.Components.Event
+
+@if (IsOpen)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);" role="dialog">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content shadow">
+                <div class="modal-header bg-primary text-white py-2">
+                    <h5 class="modal-title fw-bold">Edit Quiz Details</h5>
+                    <button type="button" class="btn-close btn-close-white" @onclick="Cancel"></button>
+                </div>
+                <div class="modal-body">
+                    @if (!string.IsNullOrEmpty(errorMessage))
+                    {
+                        <div class="alert alert-danger py-2 small mb-3">@errorMessage</div>
+                    }
+
+                    <div class="mb-3">
+                        <label class="form-label small fw-bold">Title</label>
+                        <input type="text" class="form-control" @bind="editTitle" />
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label small fw-bold">Date</label>
+                        <input type="date" class="form-control" @bind="editDate" />
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label small fw-bold">Description (Optional)</label>
+                        <textarea class="form-control" rows="3" @bind="editDescription" placeholder="Notes, theme, special rules..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer py-2">
+                    <button type="button" class="btn btn-secondary btn-sm" @onclick="Cancel">Cancel</button>
+                    <button type="button" class="btn btn-primary btn-sm" disabled="@isSaving" @onclick="SaveAsync">
+                        @(isSaving ? "Saving\u2026" : "Save Changes")
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}

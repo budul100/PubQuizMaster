@@ -1,0 +1,347 @@
+using Microsoft.AspNetCore.Components;
+using PubQuizMaster.Core.Models.Event;
+using PubQuizMaster.Core.Records.Event;
+using PubQuizMaster.Core.Scoring;
+using PubQuizMaster.Web.Records;
+using PubQuizMaster.Web.Services;
+
+namespace PubQuizMaster.Web.Pages
+{
+    public partial class Index
+    {
+        #region Private Fields
+
+        // Poll ticks every 2 s; after this many ticks the graph is reloaded even without a detected change
+        private const int FullReloadEveryTicks = 15;
+
+        private readonly CancellationTokenSource cts = new();
+        private Quiz? activeNight;
+        private Round? activeRound;
+        private bool isExporting;
+        private bool isLoading = true;
+        private bool isProcessing;
+        private bool isReloading;
+        private QuizFingerprint? lastFingerprint;
+        private PeriodicTimer? pollTimer;
+        private bool showCompleteModal;
+        private bool showSetupModal;
+        private string? startRoundError;
+        private TeamStanding[] teamStandings = [];
+        private int ticksSinceFullReload;
+
+        #endregion Private Fields
+
+        #region Private Properties
+
+        [Inject] private ILogger<Index> Logger { get; set; } = null!;
+
+        [Inject] private PresentationDownloadService PresentationDownloadService { get; set; } = null!;
+
+        #endregion Private Properties
+
+        #region Public Methods
+
+        public void Dispose()
+        {
+            SessionService.OnStatusChanged -= HandleStatusChanged;
+            SessionService.OnAnswersChanged -= HandleDataChanged;
+            SessionService.OnRoundChanged -= HandleDataChanged;
+            cts.Cancel();
+            cts.Dispose();
+            pollTimer?.Dispose();
+        }
+
+        #endregion Public Methods
+
+        #region Protected Methods
+
+        protected override async Task OnInitializedAsync()
+        {
+            await LoadDashboardStateAsync();
+
+            // No live subscriptions for the prerendered throwaway instance
+            if (!RendererInfo.IsInteractive) return;
+
+            SessionService.OnStatusChanged += HandleStatusChanged;
+            SessionService.OnAnswersChanged += HandleDataChanged;
+            SessionService.OnRoundChanged += HandleDataChanged;
+
+            pollTimer = new PeriodicTimer(TimeSpan.FromSeconds(2));
+            _ = PollProgressLoopAsync();
+        }
+
+        #endregion Protected Methods
+
+        #region Private Methods
+
+        private async Task AddTeamAsync(string name)
+        {
+            if (activeNight == null || string.IsNullOrWhiteSpace(name)) return;
+
+            try
+            {
+                var registration = await LiveQuizService.AddTeamAsync(activeNight.Id, name);
+
+                if (registration.AddedToOpenRound)
+                {
+                    // Scorer stations reload their assignment
+                    SessionService.NotifyRoundChanged();
+                }
+
+                if (!registration.AddedToOpenRound)
+                {
+                    ToastService.ShowSuccess($"Team '{registration.TeamName}' registered.");
+                }
+                else if (registration.ScorerLabel != null)
+                {
+                    ToastService.ShowSuccess(
+                        $"Team '{registration.TeamName}' registered and assigned to {registration.ScorerLabel}.");
+                }
+                else
+                {
+                    ToastService.ShowError(
+                        $"Team '{registration.TeamName}' registered, but the running round has no scorer. " +
+                        "Record its answers in the matrix.");
+                }
+
+                await LoadDashboardStateAsync();
+            }
+            catch (Exception ex)
+            {
+                ToastService.ShowError(ex.Message);
+            }
+        }
+
+        private void CloseStartRoundModal()
+        {
+            showSetupModal = false;
+            startRoundError = null;
+        }
+
+        private async Task CompleteQuizAsync()
+        {
+            if (activeNight == null) return;
+
+            showCompleteModal = false;
+            isProcessing = true;
+
+            try
+            {
+                var title = activeNight.Title;
+
+                await LiveQuizService.CompleteQuizAsync(activeNight.Id);
+                SessionService.NotifyRoundChanged();
+
+                ToastService.ShowSuccess($"Quiz night '{title}' completed.");
+
+                await LoadDashboardStateAsync();
+            }
+            catch (Exception ex)
+            {
+                ToastService.ShowError($"Failed to complete quiz night: {ex.Message}");
+            }
+            finally
+            {
+                isProcessing = false;
+                StateHasChanged();
+            }
+        }
+
+        private void ComputeTeamStandings()
+        {
+            if (activeNight == null) return;
+
+            var targetRound = activeRound ?? activeNight.Rounds.LastOrDefault();
+            var targetRoundTeamIds = targetRound?.GetTeamIds() ?? Array.Empty<Guid>();
+
+            // Pre-sorted by name, so teams with equal totals appear alphabetically
+            var entries = activeNight.ParticipatingTeams
+                .Select(pt => new
+                {
+                    pt.TeamId,
+                    pt.Team.Name,
+                    LatestScore = targetRound != null && targetRoundTeamIds.Contains(pt.TeamId)
+                        ? targetRound.Answers.Where(a => a.TeamId == pt.TeamId).Sum(a => a.Value.GetScore())
+                        : (decimal?)null,
+                    TotalScore = activeNight.Rounds
+                        .SelectMany(r => r.Answers)
+                        .Where(a => a.TeamId == pt.TeamId)
+                        .Sum(a => a.Value.GetScore())
+                })
+                .OrderBy(x => x.Name)
+                .ToArray();
+
+            teamStandings = [.. CompetitionRanking.Rank(entries, x => x.TotalScore)
+                .Select(r => new TeamStanding(
+                    r.Item.TeamId,
+                    r.Item.Name,
+                    r.Item.LatestScore,
+                    r.Item.TotalScore,
+                    r.Rank))];
+        }
+
+        private async Task ExportRoundPresentationAsync(RoundExportRequest request)
+        {
+            if (activeNight == null || isExporting) return;
+
+            // Snapshot, the poll loop replaces activeNight while the export runs
+            var quiz = activeNight;
+            isExporting = true;
+
+            try
+            {
+                await PresentationDownloadService.DownloadAsync(quiz, request.RoundId, request.Mode, request.SourceFile, cts.Token);
+            }
+            finally
+            {
+                isExporting = false;
+            }
+        }
+
+        private async Task FinalizeRoundAsync()
+        {
+            if (activeRound == null) return;
+
+            isProcessing = true;
+            try
+            {
+                await LiveQuizService.FinalizeRoundAsync(activeRound.Id);
+                SessionService.NotifyRoundChanged();
+
+                ToastService.ShowSuccess($"{activeRound.Name} finalized.");
+
+                await LoadDashboardStateAsync();
+            }
+            catch (Exception ex)
+            {
+                ToastService.ShowError($"Failed to finalize round: {ex.Message}");
+            }
+            finally
+            {
+                isProcessing = false;
+                StateHasChanged();
+            }
+        }
+
+        private void HandleDataChanged()
+        {
+            _ = ReloadAsync();
+        }
+
+        private void HandleStatusChanged()
+        {
+            // Status lives in memory, a re-render is sufficient
+            _ = InvokeAsync(StateHasChanged);
+        }
+
+        private async Task LoadDashboardStateAsync()
+        {
+            // Taken before the graph: a change in between is picked up by the next poll
+            var fingerprint = await LiveQuizService.GetActiveQuizFingerprintAsync();
+
+            activeNight = await LiveQuizService.GetActiveQuizAsync();
+            lastFingerprint = fingerprint;
+            ticksSinceFullReload = 0;
+
+            activeRound = activeNight?.Rounds.LastOrDefault(r => !r.IsFinalized);
+            isLoading = false;
+
+            ComputeTeamStandings();
+        }
+
+        private async Task PollProgressLoopAsync()
+        {
+            var token = cts.Token;
+
+            try
+            {
+                while (pollTimer != null && await pollTimer.WaitForNextTickAsync(token))
+                {
+                    await PollAsync();
+                }
+            }
+            catch (OperationCanceledException)
+            {
+            }
+            catch (ObjectDisposedException)
+            {
+            }
+        }
+
+        private void OpenStartRoundModal()
+        {
+            startRoundError = null;
+            showSetupModal = true;
+        }
+
+        private Task PollAsync() => InvokeAsync(async () =>
+        {
+            if (isReloading) return;
+
+            ticksSinceFullReload++;
+
+            try
+            {
+                // Cheap query first, the full graph only when something changed.
+                // The periodic full reload also catches changes the fingerprint does not cover (e.g. team renames).
+                var fingerprint = await LiveQuizService.GetActiveQuizFingerprintAsync();
+                if (fingerprint == lastFingerprint && ticksSinceFullReload < FullReloadEveryTicks) return;
+            }
+            catch (Exception ex)
+            {
+                Logger.LogWarning(ex, "Dashboard poll failed.");
+                return;
+            }
+
+            await ReloadAsync();
+        });
+
+        private Task ReloadAsync() => InvokeAsync(async () =>
+        {
+            // Coalesce overlapping reloads; the poll loop catches up on skipped ones
+            if (isReloading) return;
+            isReloading = true;
+
+            try
+            {
+                await LoadDashboardStateAsync();
+                StateHasChanged();
+            }
+            catch (Exception ex)
+            {
+                // Never let a single failure kill the poll loop
+                Logger.LogWarning(ex, "Dashboard reload failed.");
+            }
+            finally
+            {
+                isReloading = false;
+            }
+        });
+
+        private async Task StartRoundConfirmedAsync(RoundRequest request)
+        {
+            isProcessing = true;
+            try
+            {
+                var newRound = await LiveQuizService.StartRoundAsync(request);
+                SessionService.NotifyRoundChanged();
+
+                ToastService.ShowSuccess($"{newRound.Name} started.");
+                CloseStartRoundModal();
+                await LoadDashboardStateAsync();
+            }
+            catch (Exception ex)
+            {
+                // Shown inside the dialog, a toast would be hidden behind it
+                startRoundError = ex.Message;
+            }
+            finally
+            {
+                isProcessing = false;
+                StateHasChanged();
+            }
+        }
+
+        #endregion Private Methods
+    }
+}

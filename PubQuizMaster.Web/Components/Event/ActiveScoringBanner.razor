@@ -1,0 +1,86 @@
+@namespace PubQuizMaster.Web.Components.Event
+@using PubQuizMaster.Services.Common
+@using PubQuizMaster.Services.Event
+@inject ScorerService SessionService
+@inject QrCodeService QrCodeService
+@inject NavigationManager Nav
+
+<div class="card border border-primary border-3 shadow-sm">
+    <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center py-2">
+        <div>
+            <span class="badge bg-white text-primary me-2 fw-bold">ACTIVE ROUND</span>
+            <strong class="fs-5">@Round.Name</strong>
+            <span class="ms-2 opacity-75 small">(@Round.QuestionCount Questions • @TeamCount Teams)</span>
+        </div>
+        <div class="d-flex gap-2">
+            <a class="btn btn-light btn-sm fw-semibold" href="/matrix/@Round.Id">
+                ✎ Open Matrix
+            </a>
+            <button class="btn btn-success btn-sm fw-semibold" @onclick="OnFinalizeRound" disabled="@IsProcessing">
+                🏁 Finalize Round
+            </button>
+        </div>
+    </div>
+    <div class="card-body py-3">
+        @{
+            var totalExpected = TeamCount * Round.QuestionCount;
+            var totalRecorded = Round.Answers.Count;
+            var pct = totalExpected > 0 ? (int)(100.0 * totalRecorded / totalExpected) : 0;
+        }
+        <div class="d-flex justify-content-between align-items-center mb-1 small">
+            <span class="fw-bold text-secondary">Recording Progress</span>
+            <span class="badge bg-secondary">@totalRecorded / @totalExpected (@pct%)</span>
+        </div>
+        <div class="progress mb-3" style="height: 12px;">
+            <div class="progress-bar progress-bar-striped progress-bar-animated bg-success"
+                 style="width: @pct%"
+                 role="progressbar"></div>
+        </div>
+
+        <!-- Scorer Station Cards -->
+        <div class="row g-2">
+            @foreach (var assignment in Round.Assignments.OrderBy(a => a.Label, StringComparer.OrdinalIgnoreCase))
+            {
+                var isConnected = SessionService.IsConnected(assignment.ScorerId);
+                var status = SessionService.GetStatus(assignment.ScorerId);
+                var positionText = GetPositionText(status, assignment);
+                var assignedCount = assignment.TeamIds.Count * Round.QuestionCount;
+                var answeredCount = Round.Answers.Count(a => assignment.TeamIds.Contains(a.TeamId));
+                var scorerPct = assignedCount > 0 ? (int)(100.0 * answeredCount / assignedCount) : 0;
+                var scorerUrl = GetScorerStationUrl(assignment.ScorerId);
+                var qrCodeDataUrl = QrCodeService.GetQrCodeDataUrl(scorerUrl);
+
+                <div class="col-12 col-md-6 col-xl-4">
+                    <div class="card h-100 border p-2 bg-light shadow-sm">
+                        <div class="d-flex align-items-center gap-2">
+                            <a href="@scorerUrl" target="_blank" class="flex-shrink-0 bg-white p-1 rounded border" title="Scan or click to open scorer UI">
+                                <img src="@qrCodeDataUrl" alt="QR" style="width: 64px; height: 64px;" />
+                            </a>
+                            <div class="flex-grow-1 text-truncate">
+                                <div class="d-flex justify-content-between align-items-center mb-1">
+                                    <span class="fw-bold small text-truncate">@assignment.Label</span>
+                                    <span class="badge @(isConnected ? "bg-success" : "bg-danger")" style="font-size: 0.65rem;">
+                                        @(isConnected ? "Online" : "Offline")
+                                    </span>
+                                </div>
+                                <div class="small text-muted mb-1 text-truncate">
+                                    <a href="@scorerUrl" target="_blank" class="text-decoration-none"><code>/scorer/@assignment.ScorerId</code></a>
+                                </div>
+                                <div class="small mb-1 text-truncate @(status?.RoundId == Round.Id ? "text-dark" : "text-muted fst-italic")">
+                                    @positionText
+                                </div>
+                                <div class="d-flex justify-content-between text-secondary" style="font-size: 0.75rem;">
+                                    <span>@answeredCount / @assignedCount answered</span>
+                                    <span>@scorerPct%</span>
+                                </div>
+                                <div class="progress" style="height: 4px;">
+                                    <div class="progress-bar @(scorerPct == 100 ? "bg-success" : "bg-info")" style="width: @scorerPct%"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+</div>

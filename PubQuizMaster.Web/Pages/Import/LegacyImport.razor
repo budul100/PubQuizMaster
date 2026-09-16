@@ -1,0 +1,63 @@
+@page "/legacy-import"
+@inject ImportService LegacyImportService
+@inject ToastService ToastService
+
+<PageTitle>Legacy Import – PubQuizMaster</PageTitle>
+
+<div class="mb-4">
+    <h4 class="fw-bold mb-1">📥 Legacy Excel Import</h4>
+    <small class="text-muted">Import historic aggregated quiz night records from spreadsheet tables</small>
+</div>
+
+<div class="card shadow-sm border-0 mb-4" style="max-width: 700px;">
+    <div class="card-body">
+        <div class="mb-3">
+            <label class="form-label fw-semibold">Select Excel File (.xlsx)</label>
+            <InputFile OnChange="HandleFileSelected" accept=".xlsx" class="form-control" />
+            <div class="form-text">
+                Expected column layout: <strong>A</strong> Date, <strong>B</strong> Title, <strong>C</strong> Remarks/Description, <strong>D</strong> Rank, <strong>E</strong> Team Name, <strong>F</strong> Total Points.
+                Importing the same file again updates existing results instead of duplicating them.
+            </div>
+        </div>
+
+        @if (selectedFile != null)
+        {
+            <div class="alert alert-info py-2 small mb-3">
+                Selected: <strong>@selectedFile.Name</strong> (@(selectedFile.Size / 1024) KB)
+            </div>
+
+            <button class="btn btn-primary" @onclick="ExecuteImportAsync" disabled="@isProcessing">
+                @(isProcessing ? "Importing records…" : "Start Import")
+            </button>
+        }
+    </div>
+</div>
+
+@if (summary != null)
+{
+    <div class="card shadow-sm border-success mb-4" style="max-width: 700px;">
+        <div class="card-header bg-success text-white fw-bold">Import Completed</div>
+        <div class="card-body">
+            <ul class="list-unstyled mb-0">
+                <li>✅ <strong>@summary.QuizzesCreated</strong> Quiz Nights imported</li>
+                <li>👥 <strong>@summary.TeamsCreated</strong> New Teams registered</li>
+                <li>📊 <strong>@summary.ResultsCreated</strong> Team results recorded</li>
+                <li>✏️ <strong>@summary.ResultsUpdated</strong> Existing results updated</li>
+                <li>➖ <strong>@summary.ResultsUnchanged</strong> Existing results unchanged</li>
+            </ul>
+
+            @if (summary.Warnings.Length > 0)
+            {
+                <hr />
+                <h6 class="text-warning-emphasis fw-bold">Warnings:</h6>
+                <div class="small text-muted" style="max-height: 160px; overflow-y: auto;">
+                    @foreach (var warning in summary.Warnings)
+                    {
+                        <div>⚠️ @warning</div>
+                    }
+                </div>
+            }
+        </div>
+    </div>
+}
+

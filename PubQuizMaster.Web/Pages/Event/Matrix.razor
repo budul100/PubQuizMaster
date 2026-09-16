@@ -1,0 +1,129 @@
+@page "/matrix/{RoundId:guid}"
+@using PubQuizMaster.Services
+@using PubQuizMaster.Services.Common
+@inject QuizService LiveQuizService
+@inject ToastService ToastService
+@inject NavigationManager Nav
+
+<PageTitle>Matrix – @(round?.Name ?? "Round")</PageTitle>
+
+@if (isLoading)
+{
+    <div class="d-flex align-items-center gap-2 text-muted">
+        <div class="spinner-border spinner-border-sm" role="status"></div>
+        <span>Loading matrix…</span>
+    </div>
+}
+else if (round == null)
+{
+    <div class="alert alert-danger">Round not found.</div>
+}
+else
+{
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+            <h4 class="mb-0">@round.Name – Review &amp; Edit</h4>
+            <small class="text-muted">@teams.Length teams, @round.QuestionCount questions</small>
+        </div>
+        <div class="d-flex gap-2">
+            @if (isEditing)
+            {
+                <button class="btn btn-success btn-sm" @onclick="SaveMatrixAsync" disabled="@isSaving">
+                    @(isSaving ? "Saving…" : "✓ Save Changes")
+                </button>
+                <button class="btn btn-outline-secondary btn-sm" @onclick="CancelEditing" disabled="@isSaving">
+                    ✕ Cancel
+                </button>
+            }
+            else
+            {
+                <button class="btn btn-outline-primary btn-sm" @onclick="() => isEditing = true">
+                    ✎ Quick Edit
+                </button>
+                <a class="btn btn-outline-secondary btn-sm" href="/">
+                    ← Back to Dashboard
+                </a>
+            }
+        </div>
+    </div>
+
+    <div class="table-responsive border rounded bg-white shadow-sm">
+        <table class="table table-sm table-bordered text-center align-middle mb-0 matrix-table">
+            <thead class="table-light">
+                <tr>
+                    <th class="text-start ps-3" style="min-width: 180px;">Team</th>
+                    <th style="width: 48px;" title="Round Rank">#R</th>
+                    <th style="width: 52px;" title="Round Points">Pts</th>
+                    <th style="width: 48px;" title="Overall Evening Rank">#T</th>
+                    <th style="width: 55px;" title="Overall Evening Points">Tot</th>
+                    @for (int q = 0; q < round.QuestionCount; q++)
+                    {
+                        var qNum = q + 1;
+                        <th style="width: 40px;">Q@(qNum)</th>
+                    }
+                </tr>
+                <tr class="table-secondary fw-semibold">
+                    <td class="text-start ps-3">Total Correct</td>
+                    <td>—</td>
+                    <td class="text-success fw-bold">@columnSums.Sum()</td>
+                    <td>—</td>
+                    <td>—</td>
+                    @for (int q = 0; q < round.QuestionCount; q++)
+                    {
+                        var colIdx = q;
+                        <td class="text-success">@columnSums[colIdx]</td>
+                    }
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var row in rows)
+                {
+                    <tr>
+                        <td class="text-start ps-3 fw-semibold text-truncate" style="max-width: 220px;">
+                            @row.TeamName
+                        </td>
+                        <td class="text-muted small">@row.RoundRank</td>
+                        <td class="fw-bold text-success">@row.RoundScore</td>
+                        <td class="text-secondary small">@row.OverallRank</td>
+                        <td class="fw-bold text-primary">@row.OverallScore.ToString("0.#")</td>
+
+                        @for (int q = 0; q < round.QuestionCount; q++)
+                        {
+                            var qIdx = q;
+                            var answer = row.Answers[qIdx];
+
+                            <td class="matrix-cell p-0 @(isEditing ? "cursor-pointer" : "")"
+                                @onclick="() => HandleCellClick(row.TeamId, qIdx)">
+                                @if (answer == true)
+                                {
+                                    <span class="text-success fw-bold">✓</span>
+                                }
+                                else if (answer == false)
+                                {
+                                    <span class="text-danger fw-bold">✗</span>
+                                }
+                                else
+                                {
+                                    <span class="text-muted opacity-25">—</span>
+                                }
+                            </td>
+                        }
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+<style>
+    .matrix-table th, .matrix-table td {
+        vertical-align: middle;
+        user-select: none;
+    }
+    .cursor-pointer {
+        cursor: pointer;
+    }
+    .matrix-cell:hover {
+        background-color: #f1f5f9;
+    }
+</style>

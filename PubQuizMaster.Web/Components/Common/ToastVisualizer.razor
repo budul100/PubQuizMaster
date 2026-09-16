@@ -1,0 +1,17 @@
+﻿@using PubQuizMaster.Services
+@using PubQuizMaster.Services.Common
+@inject ToastService ToastService
+@implements IDisposable
+
+@if (visible)
+{
+    <div class="toast-container position-fixed bottom-0 start-50 translate-middle-x mb-3" style="z-index: 9999;">
+        <div class="toast show align-items-center text-white border-0 @(isError ? "bg-danger" : "bg-success")" role="alert">
+            <div class="d-flex">
+                <div class="toast-body">@message</div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" @onclick="Hide"></button>
+            </div>
+        </div>
+    </div>
+}
+
