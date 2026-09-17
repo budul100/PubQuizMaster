@@ -1,4 +1,4 @@
-﻿namespace PubQuizMaster.Web.Records
+namespace PubQuizMaster.Web.Records
 {
     /// <summary>
     /// One team row in the round matrix, including round and overall ranking.
@@ -6,7 +6,7 @@
     public record MatrixRow(
         Guid TeamId,
         string TeamName,
-        bool?[] Answers,
+        bool[] Answers,
         int RoundScore,
         decimal OverallScore,
         int RoundRank = 0,

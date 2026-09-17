@@ -6,16 +6,15 @@ using PubQuizMaster.Web.Records;
 
 namespace PubQuizMaster.Web.Pages.Event
 {
-    public partial class Matrix
+    public partial class Matrix : IDisposable
     {
         #region Private Fields
 
-        private readonly Dictionary<(Guid TeamId, int QuestionIndex), bool?> cellModifications = new();
+        private readonly Dictionary<(Guid TeamId, int QuestionIndex), bool> answersLookup = [];
+        private readonly SemaphoreSlim saveLock = new(1, 1);
 
         private int[] columnSums = [];
-        private bool isEditing;
         private bool isLoading = true;
-        private bool isSaving;
         private Dictionary<Guid, decimal> priorScores = [];
         private Round? round;
         private MatrixRow[] rows = [];
@@ -29,10 +28,21 @@ namespace PubQuizMaster.Web.Pages.Event
 
         #endregion Public Properties
 
+        #region Public Methods
+
+        public void Dispose()
+        {
+            SessionService.OnAnswersChanged -= HandleAnswersChanged;
+            saveLock.Dispose();
+        }
+
+        #endregion Public Methods
+
         #region Protected Methods
 
         protected override async Task OnInitializedAsync()
         {
+            SessionService.OnAnswersChanged += HandleAnswersChanged;
             await LoadMatrixDataAsync();
         }
 
@@ -58,32 +68,13 @@ namespace PubQuizMaster.Web.Pages.Event
                 .ToArray();
         }
 
-        private void CancelEditing()
+        private void HandleAnswersChanged()
         {
-            cellModifications.Clear();
-            RebuildMatrixRows();
-            isEditing = false;
-        }
-
-        private void HandleCellClick(Guid teamId, int questionIndex)
-        {
-            if (!isEditing) return;
-
-            var key = (teamId, questionIndex);
-            var current = cellModifications.TryGetValue(key, out var val)
-                ? val
-                : round?.Answers.FirstOrDefault(a => a.TeamId == teamId && a.QuestionIndex == questionIndex)?.Value.GetScore() > 0;
-
-            // Tri-state cycle: null -> true -> false -> null
-            bool? next = current switch
+            _ = InvokeAsync(async () =>
             {
-                null => true,
-                true => false,
-                false => null
-            };
-
-            cellModifications[key] = next;
-            RebuildMatrixRows();
+                await LoadMatrixDataAsync();
+                StateHasChanged();
+            });
         }
 
         private async Task LoadMatrixDataAsync()
@@ -98,8 +89,14 @@ namespace PubQuizMaster.Web.Pages.Event
                 teams = data?.Teams ?? [];
                 priorScores = data?.PriorScores ?? [];
 
+                answersLookup.Clear();
                 if (round != null)
                 {
+                    foreach (var answer in round.Answers)
+                    {
+                        answersLookup[(answer.TeamId, answer.QuestionIndex)] = answer.Value.GetScore() > 0;
+                    }
+
                     RebuildMatrixRows();
                 }
             }
@@ -124,63 +121,57 @@ namespace PubQuizMaster.Web.Pages.Event
             for (var teamIndex = 0; teamIndex < teams.Length; teamIndex++)
             {
                 var team = teams[teamIndex];
-                var answers = new bool?[round.QuestionCount];
+                var teamAnswers = new bool[round.QuestionCount];
 
                 for (var q = 0; q < round.QuestionCount; q++)
                 {
-                    if (cellModifications.TryGetValue((team.Id, q), out var modifiedVal))
-                    {
-                        answers[q] = modifiedVal;
-                    }
-                    else
-                    {
-                        var match = round.Answers.FirstOrDefault(a => a.TeamId == team.Id && a.QuestionIndex == q);
-                        answers[q] = match == null ? null : match.Value.GetScore() > 0;
-                    }
+                    var isCorrect = answersLookup.GetValueOrDefault((team.Id, q), false);
+                    teamAnswers[q] = isCorrect;
 
-                    if (answers[q] == true)
+                    if (isCorrect)
                     {
                         columnSums[q]++;
                     }
                 }
 
-                var roundScore = answers.Count(a => a == true);
-
-                // Overall score across all rounds up to and including this one
+                var roundScore = teamAnswers.Count(a => a);
                 var overallScore = priorScores.GetValueOrDefault(team.Id) + roundScore;
 
-                unranked[teamIndex] = new MatrixRow(team.Id, team.Name, answers, roundScore, overallScore);
+                unranked[teamIndex] = new MatrixRow(team.Id, team.Name, teamAnswers, roundScore, overallScore);
             }
 
             rows = AssignRanks(unranked);
         }
 
-        private async Task SaveMatrixAsync()
+        private async Task ToggleAnswerAsync(Guid teamId, int questionIndex)
         {
-            if (cellModifications.Count == 0)
-            {
-                isEditing = false;
-                return;
-            }
+            if (round == null) return;
 
-            isSaving = true;
+            var key = (teamId, questionIndex);
+            var previousValue = answersLookup.GetValueOrDefault(key, false);
+            var newValue = !previousValue;
 
+            // Optimistic local update
+            answersLookup[key] = newValue;
+            RebuildMatrixRows();
+
+            await saveLock.WaitAsync();
             try
             {
-                await LiveQuizService.UpdateAnswersAsync(RoundId, cellModifications);
-                cellModifications.Clear();
-                await LoadMatrixDataAsync();
-
-                isEditing = false;
-                ToastService.ShowSuccess("Matrix changes saved successfully.");
+                var updates = new Dictionary<(Guid TeamId, int QuestionIndex), bool> { [key] = newValue };
+                await LiveQuizService.UpdateAnswersAsync(RoundId, updates);
+                SessionService.NotifyAnswerRecorded();
             }
             catch (Exception ex)
             {
-                ToastService.ShowError($"Failed to save matrix: {ex.Message}");
+                // Rollback
+                answersLookup[key] = previousValue;
+                RebuildMatrixRows();
+                ToastService.ShowError($"Failed to save cell: {ex.Message}");
             }
             finally
             {
-                isSaving = false;
+                saveLock.Release();
             }
         }
 

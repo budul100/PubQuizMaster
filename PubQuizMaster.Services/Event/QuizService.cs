@@ -411,7 +411,7 @@ namespace PubQuizMaster.Services.Event
         }
 
         public async Task UpdateAnswersAsync(Guid roundId,
-            Dictionary<(Guid TeamId, int QuestionIndex), bool?> cellUpdates, CancellationToken ct = default)
+            Dictionary<(Guid TeamId, int QuestionIndex), bool> cellUpdates, CancellationToken ct = default)
         {
             if (cellUpdates.Count == 0) return;
 
@@ -539,7 +539,7 @@ namespace PubQuizMaster.Services.Event
         }
 
         private async Task UpdateAnswersCoreAsync(Guid roundId,
-            Dictionary<(Guid TeamId, int QuestionIndex), bool?> cellUpdates, CancellationToken ct)
+            Dictionary<(Guid TeamId, int QuestionIndex), bool> cellUpdates, CancellationToken ct)
         {
             await using var db = await dbFactory.CreateDbContextAsync(ct);
 
@@ -567,21 +567,9 @@ namespace PubQuizMaster.Services.Event
 
             foreach (var (key, value) in cellUpdates)
             {
-                lookup.TryGetValue(key, out var existing);
-
-                if (value == null)
+                if (lookup.TryGetValue(key, out var existing))
                 {
-                    if (existing != null)
-                    {
-                        db.Answers.Remove(existing);
-                    }
-
-                    continue;
-                }
-
-                if (existing != null)
-                {
-                    existing.Value = new AnswerBool { Correct = value.Value };
+                    existing.Value = new AnswerBool { Correct = value };
                     existing.RecordedByScorerId = "host";
                     existing.RecordedAt = DateTime.UtcNow;
                 }
@@ -592,7 +580,7 @@ namespace PubQuizMaster.Services.Event
                         RoundId = roundId,
                         TeamId = key.TeamId,
                         QuestionIndex = key.QuestionIndex,
-                        Value = new AnswerBool { Correct = value.Value },
+                        Value = new AnswerBool { Correct = value },
                         RecordedByScorerId = "host",
                         RecordedAt = DateTime.UtcNow
                     });
@@ -607,7 +595,7 @@ namespace PubQuizMaster.Services.Event
                 await transaction.CommitAsync(ct);
             }
         }
-
+        
         /// <summary>
         /// Single place for all start-round rules, the dialog only shows the resulting message.
         /// </summary>
