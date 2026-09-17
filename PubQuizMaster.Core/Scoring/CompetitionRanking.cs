@@ -30,6 +30,48 @@ namespace PubQuizMaster.Core.Scoring
             return ranked;
         }
 
+        /// <summary>
+        /// Competition ranking with non-competitive (AK) support:
+        /// 1. Regular ranks are computed solely among regular teams (1, 1, 3).
+        /// 2. Non-competitive teams receive the rank: 1 + count of regular teams with higher score.
+        /// 3. Ordering: Rank ascending, regular teams before non-competitive teams, preserving pre-sort.
+        /// </summary>
+        public static (T Item, int Rank)[] Rank<T>(
+            IEnumerable<T> items,
+            Func<T, decimal> score,
+            Func<T, bool> isNonCompetitive)
+        {
+            var inputArray = items.ToArray();
+            if (inputArray.Length == 0) return [];
+
+            var regularTeams = inputArray.Where(x => !isNonCompetitive(x)).ToArray();
+            var regularRanked = Rank(regularTeams, score);
+
+            var rankedResult = new (T Item, int Rank)[inputArray.Length];
+            var index = 0;
+
+            foreach (var item in inputArray)
+            {
+                if (!isNonCompetitive(item))
+                {
+                    var match = regularRanked.First(r => EqualityComparer<T>.Default.Equals(r.Item, item));
+                    rankedResult[index++] = (item, match.Rank);
+                }
+                else
+                {
+                    var itemScore = score(item);
+                    var higherRegularCount = regularTeams.Count(r => score(r) > itemScore);
+                    var akRank = 1 + higherRegularCount;
+                    rankedResult[index++] = (item, akRank);
+                }
+            }
+
+            // Ordering: Rank asc, regular teams first, stable relative order preserved
+            return [.. rankedResult
+                .OrderBy(r => r.Rank)
+                .ThenBy(r => isNonCompetitive(r.Item) ? 1 : 0)];
+        }
+
         #endregion Public Methods
     }
 }

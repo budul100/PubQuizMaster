@@ -5,7 +5,7 @@ namespace PubQuizMaster.Core.Models.Event
     /// <summary>
     /// One quiz round (e.g. "Round 3 - Geography").
     /// Rounds are self-contained: scorer assignments and answers belong to the round.
-    /// The teams of a round are the teams assigned to its scorers.
+    /// The teams of a round are the teams assigned to its scorers or having recorded answers.
     /// </summary>
     public class Round
     {
@@ -37,10 +37,16 @@ namespace PubQuizMaster.Core.Models.Event
         #region Public Methods
 
         /// <summary>
-        /// Teams taking part in this round, derived from the scorer assignments.
-        /// Requires Assignments to be loaded.
+        /// Teams taking part in this round, derived from scorer assignments and recorded answers.
+        /// Requires Assignments and Answers to be loaded.
         /// </summary>
-        public Guid[] GetTeamIds() => [.. Assignments.SelectMany(a => a.TeamIds)];
+        public Guid[] GetTeamIds()
+        {
+            var assignmentTeamIds = Assignments.SelectMany(a => a.TeamIds);
+            var answerTeamIds = Answers.Select(a => a.TeamId);
+
+            return assignmentTeamIds.Union(answerTeamIds).ToArray();
+        }
 
         #endregion Public Methods
     }
