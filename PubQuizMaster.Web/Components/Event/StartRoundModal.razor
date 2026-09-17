@@ -29,8 +29,8 @@
                     <div class="d-flex justify-content-between align-items-center mb-2">
                         <h6 class="fw-bold mb-0">Scorer Assignments (@assignments.Count Scorers)</h6>
                         <div class="d-flex gap-2">
-                            <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="AutoDistributeTeams">
-                                🔄 Auto-Distribute
+                            <button type="button" class="btn btn-sm btn-outline-secondary d-flex align-items-center gap-1" @onclick="AutoDistributeTeams">
+                                <span class="mif-loop2" aria-hidden="true"></span> Auto-Distribute
                             </button>
                             <button type="button" class="btn btn-sm btn-outline-primary" @onclick="AddScorer">
                                 + Add Scorer
@@ -55,15 +55,15 @@
                                             <button type="button" class="btn btn-outline-secondary"
                                                     title="Generate new token (old scorer URL stops working)"
                                                     @onclick="() => sc.ScorerId = ScorerTokens.Create()">
-                                                ↻
+                                                <span class="mif-undo" aria-hidden="true"></span>
                                             </button>
                                         </div>
                                     </div>
                                     <div class="col-md-2 text-end">
-                                        <button type="button" class="btn btn-outline-danger btn-sm"
+                                        <button type="button" class="btn btn-outline-danger btn-sm d-inline-flex align-items-center gap-1"
                                                 disabled="@(assignments.Count <= 1)"
                                                 @onclick="() => RemoveScorer(sIdx)">
-                                            ✕ Remove
+                                            <span class="mif-cross" aria-hidden="true"></span> Remove
                                         </button>
                                     </div>
                                 </div>
@@ -99,8 +99,16 @@
                 </div>
                 <div class="modal-footer py-2">
                     <button type="button" class="btn btn-secondary btn-sm" @onclick="Cancel">Cancel</button>
-                    <button type="button" class="btn btn-primary btn-sm" @onclick="SubmitAsync" disabled="@isSubmitting">
-                        @(isSubmitting ? "Starting…" : "▶ Start Round")
+                    <button type="button" class="btn btn-primary btn-sm d-flex align-items-center gap-1" @onclick="SubmitAsync" disabled="@isSubmitting">
+                        @if (isSubmitting)
+                        {
+                            <span>Starting…</span>
+                        }
+                        else
+                        {
+                            <span class="mif-play" aria-hidden="true"></span>
+                            <span>Start Round</span>
+                        }
                     </button>
                 </div>
             </div>

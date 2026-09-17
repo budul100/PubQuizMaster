@@ -20,7 +20,9 @@
     {
         <div class="card position-absolute w-100 shadow mt-1 border-warning" style="z-index: 1050;">
             <div class="card-header bg-warning-subtle py-1 px-3 d-flex justify-content-between align-items-center">
-                <small class="fw-bold text-dark">⚠️ Similar Teams Found</small>
+                <small class="fw-bold text-dark d-flex align-items-center gap-1">
+                    <span class="mif-warning text-warning" aria-hidden="true"></span> Similar Teams Found
+                </small>
                 <button type="button" class="btn-close btn-sm" style="font-size: 0.6rem;" @onclick="CancelSearch"></button>
             </div>
             <div class="list-group list-group-flush small">
@@ -43,4 +45,3 @@
         </div>
     }
 </div>
-

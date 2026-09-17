@@ -14,20 +14,22 @@
     <!-- Header -->
     <header class="d-flex justify-content-between align-items-center mb-3 pb-2 border-bottom border-secondary flex-shrink-0">
         <div>
-            <h5 class="mb-0 fw-bold text-danger">🎯 @(round?.Name ?? "Scorer")</h5>
+            <h5 class="mb-0 fw-bold text-danger d-flex align-items-center gap-1">
+                <span class="mif-target" aria-hidden="true"></span> @(round?.Name ?? "Scorer")
+            </h5>
             <small class="text-secondary">@(assignment?.Label ?? currentScorerId)</small>
         </div>
         <div class="d-flex align-items-center gap-2">
             @if (currentPhase == ScorerPagePhase.Scoring)
             {
-                <button class="btn btn-outline-light btn-sm" @onclick="() => SetPhase(ScorerPagePhase.Overview)">
-                    📋 Overview
+                <button class="btn btn-outline-light btn-sm d-flex align-items-center gap-1" @onclick="() => SetPhase(ScorerPagePhase.Overview)">
+                    <span class="mif-list" aria-hidden="true"></span> Overview
                 </button>
             }
             else if (currentPhase == ScorerPagePhase.Overview)
             {
-                <button class="btn btn-outline-light btn-sm" @onclick="() => SetPhase(ScorerPagePhase.Scoring)">
-                    ← Back
+                <button class="btn btn-outline-light btn-sm d-flex align-items-center gap-1" @onclick="() => SetPhase(ScorerPagePhase.Scoring)">
+                    <span class="mif-arrow-left" aria-hidden="true"></span> Back
                 </button>
             }
         </div>
@@ -108,8 +110,8 @@
                 </div>
             </div>
 
-            <button class="btn btn-success w-100 py-3 fs-5 fw-bold mb-2 shadow" @onclick="StartScoring">
-                ▶ Start Scoring
+            <button class="btn btn-success w-100 py-3 fs-5 fw-bold mb-2 shadow d-flex align-items-center justify-content-center gap-2" @onclick="StartScoring">
+                <span class="mif-play" aria-hidden="true"></span> Start Scoring
             </button>
         </div>
     }
@@ -140,11 +142,15 @@
                 <div class="answer-status-pill mx-auto mb-2">
                     @if (existingAnswer == true)
                     {
-                        <span class="badge bg-success fs-5 px-3 py-2">✓ Correct</span>
+                        <span class="badge bg-success fs-5 px-3 py-2 d-inline-flex align-items-center gap-1">
+                            <span class="mif-checkmark" aria-hidden="true"></span> Correct
+                        </span>
                     }
                     else if (existingAnswer == false)
                     {
-                        <span class="badge bg-danger fs-5 px-3 py-2">✗ Incorrect</span>
+                        <span class="badge bg-danger fs-5 px-3 py-2 d-inline-flex align-items-center gap-1">
+                            <span class="mif-cross" aria-hidden="true"></span> Incorrect
+                        </span>
                     }
                     else
                     {
@@ -156,28 +162,30 @@
             <div class="row g-3 mt-auto mb-3 flex-shrink-0">
                 <div class="col-6">
                     <button class="btn btn-success w-100 py-4 fs-1 fw-bold shadow active-scale"
-                            @onclick="() => RecordAnswerAsync(true)">
-                        ✓
+                            @onclick="() => RecordAnswerAsync(true)"
+                            aria-label="Mark Correct">
+                        <span class="mif-checkmark" aria-hidden="true"></span>
                     </button>
                 </div>
                 <div class="col-6">
                     <button class="btn btn-danger w-100 py-4 fs-1 fw-bold shadow active-scale"
-                            @onclick="() => RecordAnswerAsync(false)">
-                        ✗
+                            @onclick="() => RecordAnswerAsync(false)"
+                            aria-label="Mark Incorrect">
+                        <span class="mif-cross" aria-hidden="true"></span>
                     </button>
                 </div>
             </div>
 
             <div class="d-flex justify-content-between gap-2 flex-shrink-0">
-                <button class="btn btn-secondary flex-fill py-2"
+                <button class="btn btn-secondary flex-fill py-2 d-flex align-items-center justify-content-center gap-1"
                         @onclick="NavigatePrevious"
                         disabled="@(currentTeamIndex == 0 && currentQuestionIndex == 0)">
-                    ← Previous
+                    <span class="mif-arrow-left" aria-hidden="true"></span> Previous
                 </button>
-                <button class="btn btn-secondary flex-fill py-2"
+                <button class="btn btn-secondary flex-fill py-2 d-flex align-items-center justify-content-center gap-1"
                         @onclick="NavigateNext"
                         disabled="@(currentTeamIndex == assignedTeams.Count - 1 && currentQuestionIndex == questionCount - 1)">
-                    Next →
+                    Next <span class="mif-arrow-right" aria-hidden="true"></span>
                 </button>
             </div>
         }
@@ -215,8 +223,11 @@
                 }
             </div>
 
-            <button class="btn btn-primary w-100 py-3 fw-bold flex-shrink-0" @onclick="() => SetPhase(ScorerPagePhase.Scoring)">
-                ✎ Continue Scoring / Review
+            <button class="btn btn-primary w-100 py-3 fw-bold flex-shrink-0 d-flex align-items-center justify-content-center gap-2"
+                    @onclick="() => SetPhase(ScorerPagePhase.Scoring)"
+                    title="Continue Scoring / Review"
+                    aria-label="Continue Scoring / Review">
+                <span class="mif-pencil" aria-hidden="true"></span> Continue Scoring / Review
             </button>
         </div>
     }

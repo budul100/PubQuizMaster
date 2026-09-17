@@ -1,34 +1,36 @@
-<div class="top-row ps-3 navbar navbar-dark">
+<div class="top-row ps-3 navbar navbar-dark bg-dark">
     <div class="container-fluid">
-        <a class="navbar-brand fw-bold" href="">🎯 PubQuizMaster</a>
+        <a class="navbar-brand fw-bold d-flex align-items-center gap-2" href="">
+            <span class="mif-target text-danger" aria-hidden="true"></span> PubQuizMaster
+        </a>
     </div>
 </div>
 
-<div class="nav-scrollable">
-    <nav class="flex-column">
-        <div class="nav-item px-3">
+<div class="nav-scrollable p-2">
+    <nav class="nav flex-column gap-1">
+        <div class="nav-item">
             <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
-                <span class="oi oi-play-circle" aria-hidden="true"></span> Live Quiz
+                <span class="mif-play" aria-hidden="true"></span> Live Quiz
             </NavLink>
         </div>
-        <div class="nav-item px-3">
+        <div class="nav-item">
             <NavLink class="nav-link" href="/events" Match="NavLinkMatch.Prefix">
-                <span class="oi oi-calendar" aria-hidden="true"></span> Events
+                <span class="mif-calendar" aria-hidden="true"></span> Events
             </NavLink>
         </div>
-        <div class="nav-item px-3">
+        <div class="nav-item">
             <NavLink class="nav-link" href="/standings" Match="NavLinkMatch.Prefix">
-                <span class="oi oi-spreadsheet" aria-hidden="true"></span> All-Time Standings
+                <span class="mif-trophy" aria-hidden="true"></span> All-Time Standings
             </NavLink>
         </div>
-        <div class="nav-item px-3">
+        <div class="nav-item">
             <NavLink class="nav-link" href="/teams" Match="NavLinkMatch.Prefix">
-                <span class="oi oi-people" aria-hidden="true"></span> Teams
+                <span class="mif-users" aria-hidden="true"></span> Teams
             </NavLink>
         </div>
-        <div class="nav-item px-3">
+        <div class="nav-item">
             <NavLink class="nav-link" href="/legacy-import" Match="NavLinkMatch.Prefix">
-                <span class="oi oi-data-transfer-upload" aria-hidden="true"></span> Legacy Import
+                <span class="mif-upload" aria-hidden="true"></span> Legacy Import
             </NavLink>
         </div>
     </nav>

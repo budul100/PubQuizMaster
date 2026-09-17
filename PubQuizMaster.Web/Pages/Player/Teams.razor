@@ -6,7 +6,9 @@
 
 <div class="d-flex justify-content-between align-items-center mb-4">
     <div>
-        <h4 class="mb-0 fw-bold">👥 Team Registry</h4>
+        <h4 class="mb-0 fw-bold d-flex align-items-center gap-2">
+            <span class="mif-users text-primary" aria-hidden="true"></span> Team Registry
+        </h4>
         <small class="text-muted">Manage team identities and resolve duplicate team names</small>
     </div>
 </div>
@@ -72,8 +74,12 @@
                         <label class="form-label small fw-bold">Edit Team Name</label>
                         <div class="input-group mb-2">
                             <input type="text" class="form-control" @bind="renameInput" />
-                            <button class="btn btn-outline-primary" disabled="@isBusy" @onclick="RenameSelectedTeamAsync">
-                                Save
+                            <button class="btn btn-outline-primary"
+                                    disabled="@isBusy"
+                                    @onclick="RenameSelectedTeamAsync"
+                                    title="Save Team Name"
+                                    aria-label="Save Team Name">
+                                <span class="mif-pencil" aria-hidden="true"></span>
                             </button>
                         </div>
                     </div>
@@ -94,10 +100,10 @@
                                 <option value="@t.Id">@t.Name</option>
                             }
                         </select>
-                        <button class="btn btn-danger btn-sm w-100"
+                        <button class="btn btn-danger btn-sm w-100 d-flex align-items-center justify-content-center gap-1"
                                 disabled="@(targetMergeTeamId == Guid.Empty || isBusy)"
                                 @onclick="() => showMergeModal = true">
-                            ⚠️ Merge and Remove Duplicate
+                            <span class="mif-warning" aria-hidden="true"></span> Merge and Remove Duplicate
                         </button>
                     </div>
                 </div>

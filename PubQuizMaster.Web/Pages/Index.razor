@@ -31,18 +31,20 @@ else
     <!-- Top Action Bar -->
     <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
         <div>
-            <h3 class="mb-0 fw-bold">🎯 @activeNight.Title</h3>
+            <h3 class="mb-0 fw-bold d-flex align-items-center gap-2">
+                <span class="mif-target text-danger" aria-hidden="true"></span> @activeNight.Title
+            </h3>
             <span class="text-muted small">@activeNight.Date.ToString("dd.MM.yyyy") • @teamStandings.Length teams active</span>
         </div>
         <div class="d-flex gap-2">
-            <button class="btn btn-outline-success btn-sm"
+            <button class="btn btn-outline-success btn-sm d-flex align-items-center gap-1"
                     disabled="@(activeRound != null || isProcessing)"
                     title="@(activeRound != null ? "Finalize the active round first" : "Close this quiz night")"
                     @onclick="() => showCompleteModal = true">
-                🏁 Complete Quiz Night
+                <span class="mif-flag" aria-hidden="true"></span> Complete Quiz Night
             </button>
-            <a class="btn btn-outline-secondary btn-sm" href="/events">
-                ← All Events
+            <a class="btn btn-outline-secondary btn-sm d-flex align-items-center gap-1" href="/events">
+                <span class="mif-calendar" aria-hidden="true"></span> All Events
             </a>
         </div>
     </div>

@@ -5,11 +5,13 @@
 
 <div class="card shadow-sm border-0 h-100">
     <div class="card-header bg-light d-flex justify-content-between align-items-center py-2">
-        <span class="fw-bold small">🎯 QUIZ ROUNDS (@Rounds.Count)</span>
+        <span class="fw-bold small d-flex align-items-center gap-1">
+            <span class="mif-target text-primary" aria-hidden="true"></span> QUIZ ROUNDS (@Rounds.Count)
+        </span>
         @if (ActiveRound == null)
         {
-            <button class="btn btn-sm btn-primary py-0 px-2" @onclick="OnStartRoundClick">
-                ▶ Start Next Round
+            <button class="btn btn-sm btn-primary py-0 px-2 d-flex align-items-center gap-1" @onclick="OnStartRoundClick">
+                <span class="mif-play" aria-hidden="true"></span> Start Next Round
             </button>
         }
     </div>
@@ -90,4 +92,3 @@
         </table>
     </div>
 </div>
-

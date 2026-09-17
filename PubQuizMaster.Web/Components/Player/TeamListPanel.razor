@@ -2,9 +2,20 @@
 
 <div class="card shadow-sm border-0 h-100">
     <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center py-2">
-        <span class="fw-bold small">👥 TEAMS &amp; STANDINGS (@Standings.Length)</span>
-        <button class="btn btn-sm btn-outline-light py-0 px-2" @onclick="() => showAddTeamForm = !showAddTeamForm">
-            @(showAddTeamForm ? "✕ Close" : "+ Register Team")
+        <span class="fw-bold small d-flex align-items-center gap-1">
+            <span class="mif-users" aria-hidden="true"></span> TEAMS &amp; STANDINGS (@Standings.Length)
+        </span>
+        <button class="btn btn-sm btn-outline-light py-0 px-2 d-flex align-items-center gap-1"
+                @onclick="() => showAddTeamForm = !showAddTeamForm">
+            @if (showAddTeamForm)
+            {
+                <span class="mif-cross" aria-hidden="true"></span>
+                <span>Close</span>
+            }
+            else
+            {
+                <span>+ Register Team</span>
+            }
         </button>
     </div>
 

@@ -9,12 +9,10 @@
 
     <main>
         <div class="top-row px-4 d-flex justify-content-between align-items-center">
-            <span class="fw-semibold text-secondary">PubQuiz Master</span>
+            <span class="fw-semibold text-secondary">PubQuizMaster</span>
             <div class="d-flex gap-2 align-items-center">
-                <span class="badge bg-primary">Live Mode</span>
                 <AuthorizeView>
                     <Authorized>
-                        @* target="_top" bypasses Blazor link interception, logout is a Razor Page *@
                         <a class="btn btn-outline-secondary btn-sm py-0" href="/logout" target="_top">Logout</a>
                     </Authorized>
                 </AuthorizeView>
