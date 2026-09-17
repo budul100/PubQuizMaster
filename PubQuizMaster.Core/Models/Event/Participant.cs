@@ -1,13 +1,19 @@
-﻿using PubQuizMaster.Core.Models.Player;
+using PubQuizMaster.Core.Models.Player;
 
 namespace PubQuizMaster.Core.Models.Event
 {
     /// <summary>
-    /// Join entity linking teams to a live quiz night with sheet ordering.
+    /// Join entity linking teams to a live quiz night with sheet ordering and night-specific status.
     /// </summary>
     public class Participant
     {
         #region Public Properties
+
+        /// <summary>Whether the team participates actively in new rounds of this quiz night.</summary>
+        public bool IsActive { get; set; } = true;
+
+        /// <summary>Whether the team plays out of competition (außer Konkurrenz) for this quiz night.</summary>
+        public bool IsNonCompetitive { get; set; } = false;
 
         public Quiz Quiz { get; set; } = null!;
 

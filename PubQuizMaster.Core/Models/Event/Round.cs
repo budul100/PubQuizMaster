@@ -24,6 +24,9 @@ namespace PubQuizMaster.Core.Models.Event
 
         public Guid Id { get; set; } = Guid.NewGuid();
 
+        /// <summary>Whether this round is the final round of the evening.</summary>
+        public bool IsFinal { get; set; } = false;
+
         public bool IsFinalized { get; set; } = false;
 
         public string Name { get; set; } = string.Empty;
