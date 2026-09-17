@@ -11,7 +11,6 @@ namespace PubQuizMaster.Web.Pages
     {
         #region Private Fields
 
-        // Poll ticks every 2 s; after this many ticks the graph is reloaded even without a detected change
         private const int FullReloadEveryTicks = 15;
 
         private readonly CancellationTokenSource cts = new();
@@ -23,7 +22,9 @@ namespace PubQuizMaster.Web.Pages
         private bool isReloading;
         private QuizFingerprint? lastFingerprint;
         private PeriodicTimer? pollTimer;
+        private Round? roundToDelete;
         private bool showCompleteModal;
+        private bool showDeleteRoundModal;
         private bool showSetupModal;
         private string? startRoundError;
         private TeamStanding[] teamStandings = [];
@@ -59,7 +60,6 @@ namespace PubQuizMaster.Web.Pages
         {
             await LoadDashboardStateAsync();
 
-            // No live subscriptions for the prerendered throwaway instance
             if (!RendererInfo.IsInteractive) return;
 
             SessionService.OnStatusChanged += HandleStatusChanged;
@@ -84,7 +84,6 @@ namespace PubQuizMaster.Web.Pages
 
                 if (registration.AddedToOpenRound)
                 {
-                    // Scorer stations reload their assignment
                     SessionService.NotifyRoundChanged();
                 }
 
@@ -154,37 +153,42 @@ namespace PubQuizMaster.Web.Pages
             var targetRound = activeRound ?? activeNight.Rounds.LastOrDefault();
             var targetRoundTeamIds = targetRound?.GetTeamIds() ?? Array.Empty<Guid>();
 
-            // Pre-sorted by name, so teams with equal totals appear alphabetically
+            var allQuizAnswers = activeNight.Rounds.SelectMany(r => r.Answers).ToArray();
+
             var entries = activeNight.ParticipatingTeams
                 .Select(pt => new
                 {
                     pt.TeamId,
                     pt.Team.Name,
+                    pt.IsActive,
+                    pt.IsNonCompetitive,
+                    CanDelete = !allQuizAnswers.Any(a => a.TeamId == pt.TeamId),
                     LatestScore = targetRound != null && targetRoundTeamIds.Contains(pt.TeamId)
                         ? targetRound.Answers.Where(a => a.TeamId == pt.TeamId).Sum(a => a.Value.GetScore())
                         : (decimal?)null,
-                    TotalScore = activeNight.Rounds
-                        .SelectMany(r => r.Answers)
+                    TotalScore = allQuizAnswers
                         .Where(a => a.TeamId == pt.TeamId)
                         .Sum(a => a.Value.GetScore())
                 })
                 .OrderBy(x => x.Name)
                 .ToArray();
 
-            teamStandings = [.. CompetitionRanking.Rank(entries, x => x.TotalScore)
+            teamStandings = [.. CompetitionRanking.Rank(entries, x => x.TotalScore, x => x.IsNonCompetitive)
                 .Select(r => new TeamStanding(
                     r.Item.TeamId,
                     r.Item.Name,
                     r.Item.LatestScore,
                     r.Item.TotalScore,
-                    r.Rank))];
+                    r.Rank,
+                    r.Item.IsActive,
+                    r.Item.IsNonCompetitive,
+                    r.Item.CanDelete))];
         }
 
         private async Task ExportRoundPresentationAsync(RoundExportRequest request)
         {
             if (activeNight == null || isExporting) return;
 
-            // Snapshot, the poll loop replaces activeNight while the export runs
             var quiz = activeNight;
             isExporting = true;
 
@@ -228,15 +232,38 @@ namespace PubQuizMaster.Web.Pages
             _ = ReloadAsync();
         }
 
+        private void HandleDeleteRoundConfirmedAsync()
+        {
+            if (roundToDelete == null) return;
+
+            var rId = roundToDelete.Id;
+            var rName = roundToDelete.Name;
+            showDeleteRoundModal = false;
+            roundToDelete = null;
+
+            _ = InvokeAsync(async () =>
+            {
+                try
+                {
+                    await LiveQuizService.DeleteRoundAsync(rId);
+                    SessionService.NotifyRoundChanged();
+                    ToastService.ShowSuccess($"Round '{rName}' deleted.");
+                    await LoadDashboardStateAsync();
+                }
+                catch (Exception ex)
+                {
+                    ToastService.ShowError(ex.Message);
+                }
+            });
+        }
+
         private void HandleStatusChanged()
         {
-            // Status lives in memory, a re-render is sufficient
             _ = InvokeAsync(StateHasChanged);
         }
 
         private async Task LoadDashboardStateAsync()
         {
-            // Taken before the graph: a change in between is picked up by the next poll
             var fingerprint = await LiveQuizService.GetActiveQuizFingerprintAsync();
 
             activeNight = await LiveQuizService.GetActiveQuizAsync();
@@ -248,6 +275,32 @@ namespace PubQuizMaster.Web.Pages
 
             ComputeTeamStandings();
         }
+
+        private void OpenStartRoundModal()
+        {
+            startRoundError = null;
+            showSetupModal = true;
+        }
+
+        private Task PollAsync() => InvokeAsync(async () =>
+        {
+            if (isReloading) return;
+
+            ticksSinceFullReload++;
+
+            try
+            {
+                var fingerprint = await LiveQuizService.GetActiveQuizFingerprintAsync();
+                if (fingerprint == lastFingerprint && ticksSinceFullReload < FullReloadEveryTicks) return;
+            }
+            catch (Exception ex)
+            {
+                Logger.LogWarning(ex, "Dashboard poll failed.");
+                return;
+            }
+
+            await ReloadAsync();
+        });
 
         private async Task PollProgressLoopAsync()
         {
@@ -268,37 +321,31 @@ namespace PubQuizMaster.Web.Pages
             }
         }
 
-        private void OpenStartRoundModal()
+        private Task PromptDeleteRound(Round round)
         {
-            startRoundError = null;
-            showSetupModal = true;
+            roundToDelete = round;
+            showDeleteRoundModal = true;
+            return Task.CompletedTask;
         }
 
-        private Task PollAsync() => InvokeAsync(async () =>
+        private async Task PromptDeleteTeam(Guid teamId)
         {
-            if (isReloading) return;
-
-            ticksSinceFullReload++;
-
+            if (activeNight == null) return;
             try
             {
-                // Cheap query first, the full graph only when something changed.
-                // The periodic full reload also catches changes the fingerprint does not cover (e.g. team renames).
-                var fingerprint = await LiveQuizService.GetActiveQuizFingerprintAsync();
-                if (fingerprint == lastFingerprint && ticksSinceFullReload < FullReloadEveryTicks) return;
+                await LiveQuizService.RemoveTeamAsync(activeNight.Id, teamId);
+                SessionService.NotifyRoundChanged();
+                ToastService.ShowSuccess("Team removed from quiz night.");
+                await LoadDashboardStateAsync();
             }
             catch (Exception ex)
             {
-                Logger.LogWarning(ex, "Dashboard poll failed.");
-                return;
+                ToastService.ShowError(ex.Message);
             }
-
-            await ReloadAsync();
-        });
+        }
 
         private Task ReloadAsync() => InvokeAsync(async () =>
         {
-            // Coalesce overlapping reloads; the poll loop catches up on skipped ones
             if (isReloading) return;
             isReloading = true;
 
@@ -309,7 +356,6 @@ namespace PubQuizMaster.Web.Pages
             }
             catch (Exception ex)
             {
-                // Never let a single failure kill the poll loop
                 Logger.LogWarning(ex, "Dashboard reload failed.");
             }
             finally
@@ -318,12 +364,12 @@ namespace PubQuizMaster.Web.Pages
             }
         });
 
-        private async Task StartRoundConfirmedAsync(RoundRequest request)
+        private async Task StartRoundConfirmedAsync((RoundRequest Request, bool IsFinal) payload)
         {
             isProcessing = true;
             try
             {
-                var newRound = await LiveQuizService.StartRoundAsync(request);
+                var newRound = await LiveQuizService.StartRoundAsync(payload.Request, payload.IsFinal);
                 SessionService.NotifyRoundChanged();
 
                 ToastService.ShowSuccess($"{newRound.Name} started.");
@@ -332,13 +378,41 @@ namespace PubQuizMaster.Web.Pages
             }
             catch (Exception ex)
             {
-                // Shown inside the dialog, a toast would be hidden behind it
                 startRoundError = ex.Message;
             }
             finally
             {
                 isProcessing = false;
                 StateHasChanged();
+            }
+        }
+
+        private async Task ToggleFinalRoundAsync((Guid RoundId, bool IsFinal) payload)
+        {
+            try
+            {
+                await LiveQuizService.SetFinalRoundAsync(payload.RoundId, payload.IsFinal);
+                SessionService.NotifyRoundChanged();
+                await LoadDashboardStateAsync();
+            }
+            catch (Exception ex)
+            {
+                ToastService.ShowError(ex.Message);
+            }
+        }
+
+        private async Task UpdateParticipantStatusAsync((Guid TeamId, bool IsActive, bool IsAk) status)
+        {
+            if (activeNight == null) return;
+            try
+            {
+                await LiveQuizService.SetParticipantStatusAsync(activeNight.Id, status.TeamId, status.IsActive, status.IsAk);
+                SessionService.NotifyRoundChanged();
+                await LoadDashboardStateAsync();
+            }
+            catch (Exception ex)
+            {
+                ToastService.ShowError(ex.Message);
             }
         }
 

@@ -23,7 +23,8 @@
     {
         <div class="p-3 bg-light border-bottom">
             <label class="form-label small fw-bold mb-1">Add Team to Night</label>
-            <TeamSelector @bind-Value="newTeamName"
+            <TeamSelector @ref="teamSelectorRef"
+                          @bind-Value="newTeamName"
                           OnCreateNewConfirmed="HandleNewTeamCreated"
                           OnTeamSelected="(t) => HandleExistingTeamSelected(t.Name)"
                           Placeholder="Enter team name…"
@@ -37,15 +38,17 @@
                 <tr>
                     <th style="width: 36px;" class="text-center">#</th>
                     <th>Team</th>
+                    <th style="width: 50px;" class="text-center" title="Außer Konkurrenz (Out of Competition)">AK</th>
                     <th style="width: 70px;" class="text-end" title="Latest active round score">Round</th>
-                    <th style="width: 80px;" class="text-end pe-3" title="Total score of the evening">Total</th>
+                    <th style="width: 80px;" class="text-end pe-2" title="Total score of the evening">Total</th>
+                    <th style="width: 60px;" class="text-end pe-3">Action</th>
                 </tr>
             </thead>
             <tbody>
                 @if (Standings.Length == 0)
                 {
                     <tr>
-                        <td colspan="4" class="text-center py-4 text-muted small">
+                        <td colspan="6" class="text-center py-4 text-muted small">
                             No teams registered yet. Add teams above!
                         </td>
                     </tr>
@@ -54,16 +57,55 @@
                 {
                     @foreach (var entry in Standings)
                     {
-                        <tr>
-                            <td class="text-center fw-bold text-secondary small">@entry.OverallRank</td>
-                            <td class="fw-semibold text-truncate small" style="max-width: 180px;">
-                                @entry.TeamName
+                        <tr class="@(!entry.IsActive ? "opacity-50 bg-light" : "")">
+                            <td class="text-center fw-bold text-secondary small">
+                                @(entry.IsActive? entry.OverallRank.ToString() : "—")
+                            </td>
+                            <td class="fw-semibold text-truncate small" style="max-width: 160px;">
+                                <span class="@(!entry.IsActive ? "text-decoration-line-through text-muted" : "")">
+                                    @entry.TeamName
+                                </span>
+                                @if (entry.IsNonCompetitive)
+                                {
+                                    <span class="badge bg-secondary ms-1" title="Out of Competition">AK</span>
+                                }
+                                @if (!entry.IsActive)
+                                {
+                                    <span class="badge bg-warning text-dark ms-1">Inactive</span>
+                                }
+                            </td>
+                            <td class="text-center">
+                                <input type="checkbox"
+                                       class="form-check-input"
+                                       checked="@entry.IsNonCompetitive"
+                                       title="Toggle Out of Competition (AK)"
+                                       @onchange="e => ToggleAkAsync(entry.TeamId, (bool)(e.Value ?? false))" />
                             </td>
                             <td class="text-end text-muted small">
                                 @(entry.LatestRoundScore.HasValue? entry.LatestRoundScore.Value.ToString("0.#") : "—")
                             </td>
-                            <td class="text-end pe-3 fw-bold text-primary small">
+                            <td class="text-end pe-2 fw-bold text-primary small">
                                 @entry.TotalScore.ToString("0.#")
+                            </td>
+                            <td class="text-end pe-3">
+                                @if (entry.CanDelete)
+                                {
+                                    <button class="btn btn-outline-danger btn-sm py-0 px-1"
+                                            title="Delete Team from Night"
+                                            aria-label="Delete Team"
+                                            @onclick="() => OnRemoveTeam.InvokeAsync(entry.TeamId)">
+                                        <span class="mif-bin" aria-hidden="true"></span>
+                                    </button>
+                                }
+                                else
+                                {
+                                    <button class="btn btn-outline-secondary btn-sm py-0 px-1"
+                                            title="@(entry.IsActive ? "Deactivate Team" : "Reactivate Team")"
+                                            aria-label="Toggle Active"
+                                            @onclick="() => ToggleActiveAsync(entry.TeamId, !entry.IsActive)">
+                                        <span class="@(entry.IsActive ? "mif-cross" : "mif-checkmark")" aria-hidden="true"></span>
+                                    </button>
+                                }
                             </td>
                         </tr>
                     }

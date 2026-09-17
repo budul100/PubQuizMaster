@@ -55,12 +55,24 @@ namespace PubQuizMaster.Services.Event
                 .GroupBy(a => (a.QuizId, a.TeamId))
                 .ToDictionary(g => g.Key, g => g.Sum(a => a.Value.GetScore()));
 
+            var participants = await db.Participants
+                               .AsNoTracking()
+                               .Where(p => completedIds.Contains(p.QuizId))
+                               .Select(p => new { p.QuizId, p.TeamId, p.IsNonCompetitive })
+                               .ToArrayAsync(ct);
+
+            var akLookup = participants.ToDictionary(p => (p.QuizId, p.TeamId), p => p.IsNonCompetitive);
+
             foreach (var quiz in completed)
             {
                 var scores = quiz.TeamIds
-                    .Select(teamId => (TeamId: teamId, Score: totals.GetValueOrDefault((quiz.Id, teamId))));
+                    .Select(teamId => (
+                        TeamId: teamId,
+                        Score: totals.GetValueOrDefault((quiz.Id, teamId)),
+                        IsAK: akLookup.GetValueOrDefault((quiz.Id, teamId), false)))
+                    .ToArray();
 
-                foreach (var (entry, rank) in CompetitionRanking.Rank(scores, x => x.Score))
+                foreach (var (entry, rank) in CompetitionRanking.Rank(scores, x => x.Score, x => x.IsAK))
                 {
                     db.Scores.Add(new Result
                     {

@@ -21,10 +21,10 @@ namespace PubQuizMaster.Web.Services
     {
         #region Private Fields
 
+        private const string AdjustedSuffix = "_adjusted";
         private const long DefaultMaxFileSizeMb = 200;
         private const string MaxFileSizeKey = "Export:MaxFileSizeMb";
 
-        // Union of Windows and Unix restrictions, the file is saved on the client
         private static readonly char[] invalidFileNameChars = ['\\', '/', ':', '*', '?', '"', '<', '>', '|'];
 
         #endregion Private Fields
@@ -46,7 +46,6 @@ namespace PubQuizMaster.Web.Services
                 var round = quiz.Rounds.FirstOrDefault(r => r.Id == roundId)
                     ?? throw new InvalidOperationException("Round not found.");
 
-                // BrowserFileStream is not seekable, OpenXml needs random access
                 using var document = new MemoryStream();
                 await using (var upload = sourceFile.OpenReadStream(maxFileSize, ct))
                 {
@@ -54,9 +53,8 @@ namespace PubQuizMaster.Web.Services
                 }
 
                 var format = ExportService.FillPresentation(quiz, roundId, mode, document);
-                var fileName = CreateFileName(quiz, round, mode, format.Extension);
+                var fileName = CreateFileName(sourceFile.Name, format.Extension);
 
-                // DotNetStreamReference disposes the stream once the transfer is done
                 using var streamReference = new DotNetStreamReference(new MemoryStream(document.ToArray()));
                 await js.InvokeVoidAsync("downloadFileFromStream", ct, fileName, format.ContentType, streamReference);
 
@@ -64,11 +62,9 @@ namespace PubQuizMaster.Web.Services
             }
             catch (OperationCanceledException)
             {
-                // Page was left during the export, nothing to report
             }
             catch (JSDisconnectedException)
             {
-                // Circuit is gone, the browser cannot receive the file anymore
             }
             catch (JSException ex)
             {
@@ -112,29 +108,39 @@ namespace PubQuizMaster.Web.Services
                 return;
             }
 
-            // Include gives no ordering guarantee
-            var lastRound = quiz.Rounds
-                .Where(r => r.IsFinalized)
+            // Prefer round marked as IsFinal, fallback to last finalized round
+            var finalRound = quiz.Rounds
+                .Where(r => r.IsFinalized && r.IsFinal)
                 .OrderBy(r => r.CreatedAt)
-                .LastOrDefault();
+                .LastOrDefault()
+                ?? quiz.Rounds
+                    .Where(r => r.IsFinalized)
+                    .OrderBy(r => r.CreatedAt)
+                    .LastOrDefault();
 
-            if (lastRound == null)
+            if (finalRound == null)
             {
                 toastService.ShowError($"Quiz night '{quiz.Title}' has no finalized round to export.");
                 return;
             }
 
-            await DownloadAsync(quiz, lastRound.Id, PresentationMode.Final, sourceFile, ct);
+            await DownloadAsync(quiz, finalRound.Id, PresentationMode.Final, sourceFile, ct);
         }
 
         #endregion Public Methods
 
         #region Private Methods
 
-        private static string CreateFileName(Quiz quiz, Round round, PresentationMode mode, string extension)
+        private static string CreateFileName(string sourceFileName, string extension)
         {
-            var suffix = mode == PresentationMode.Final ? "_Final" : string.Empty;
-            return $"{quiz.Date:yyyy-MM-dd}_{SanitizeFileNamePart(round.Name)}{suffix}{extension}";
+            var baseName = Path.GetFileNameWithoutExtension(sourceFileName);
+            if (!baseName.EndsWith(AdjustedSuffix, StringComparison.OrdinalIgnoreCase))
+            {
+                baseName += AdjustedSuffix;
+            }
+
+            var cleanName = SanitizeFileNamePart(baseName);
+            return $"{cleanName}{extension}";
         }
 
         private static string SanitizeFileNamePart(string value)
@@ -144,7 +150,7 @@ namespace PubQuizMaster.Web.Services
                 .ToArray();
 
             var result = new string(chars);
-            return string.IsNullOrEmpty(result) ? "Round" : result;
+            return string.IsNullOrEmpty(result) ? "Presentation" : result;
         }
 
         private long GetMaxFileSize()

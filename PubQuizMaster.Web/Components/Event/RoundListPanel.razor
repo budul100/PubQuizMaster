@@ -21,8 +21,9 @@
             <thead class="table-light small">
                 <tr>
                     <th>Round</th>
-                    <th style="width: 70px;">Questions</th>
-                    <th style="width: 90px;">Status</th>
+                    <th style="width: 50px;" class="text-center" title="Final round of the quiz night">Final</th>
+                    <th style="width: 60px;">Q</th>
+                    <th style="width: 80px;">Status</th>
                     <th class="text-end pe-3">Actions</th>
                 </tr>
             </thead>
@@ -30,7 +31,7 @@
                 @if (Rounds.Count == 0)
                 {
                     <tr>
-                        <td colspan="4" class="text-center py-4 text-muted small">
+                        <td colspan="5" class="text-center py-4 text-muted small">
                             No rounds started yet. Click "Start Next Round" to begin!
                         </td>
                     </tr>
@@ -41,7 +42,20 @@
                     {
                         var isCurrent = ActiveRound?.Id == round.Id;
                         <tr>
-                            <td class="fw-semibold small">@round.Name</td>
+                            <td class="fw-semibold small">
+                                @round.Name
+                                @if (round.IsFinal)
+                                {
+                                    <span class="badge bg-success ms-1">Final</span>
+                                }
+                            </td>
+                            <td class="text-center">
+                                <input type="checkbox"
+                                       class="form-check-input"
+                                       checked="@round.IsFinal"
+                                       title="Toggle Final Round"
+                                       @onchange="e => OnToggleFinal.InvokeAsync((round.Id, (bool)(e.Value ?? false)))" />
+                            </td>
                             <td class="small text-muted">@round.QuestionCount</td>
                             <td>
                                 @if (round.IsFinalized)
@@ -65,23 +79,23 @@
                                     @if (round.IsFinalized)
                                     {
                                         <label class="btn btn-outline-primary py-0 px-2 mb-0 @(IsExporting ? "disabled" : null)"
-                                               title="Select presentation and export round results">
-                                            Round
-                                            <InputFile @key="@($"{round.Id}-round-{inputVersion}")"
+                                               title="@(round.IsFinal ? "Export final results and podium" : "Export round results")">
+                                            Export
+                                            <InputFile @key="@($"{round.Id}-export-{inputVersion}")"
                                                        class="d-none"
                                                        accept=".pptx,.ppsx,.potx"
                                                        disabled="@IsExporting"
-                                                       OnChange="e => ExportAsync(round.Id, PresentationMode.Round, e)" />
+                                                       OnChange="e => ExportAsync(round, e)" />
                                         </label>
-                                        <label class="btn btn-outline-success py-0 px-2 mb-0 @(IsExporting ? "disabled" : null)"
-                                               title="Select presentation and export final results with podium">
-                                            Final
-                                            <InputFile @key="@($"{round.Id}-final-{inputVersion}")"
-                                                       class="d-none"
-                                                       accept=".pptx,.ppsx,.potx"
-                                                       disabled="@IsExporting"
-                                                       OnChange="e => ExportAsync(round.Id, PresentationMode.Final, e)" />
-                                        </label>
+                                    }
+                                    @if (round.Answers.Count == 0)
+                                    {
+                                        <button class="btn btn-outline-danger py-0 px-2"
+                                                title="Delete Round"
+                                                aria-label="Delete Round"
+                                                @onclick="() => OnDeleteRound.InvokeAsync(round)">
+                                            <span class="mif-bin" aria-hidden="true"></span>
+                                        </button>
                                     }
                                 </div>
                             </td>

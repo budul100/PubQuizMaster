@@ -11,6 +11,7 @@ namespace PubQuizMaster.Web.Components.Event
         #region Private Fields
 
         private List<ScorerAssignmentViewModel> assignments = [];
+        private bool isFinalRound;
         private bool isSubmitting;
         private int questionCount = 20;
         private string roundName = string.Empty;
@@ -19,14 +20,13 @@ namespace PubQuizMaster.Web.Components.Event
 
         #region Public Properties
 
-        /// <summary>Validation or save error from the parent, shown inside the dialog.</summary>
         [Parameter] public string? ErrorMessage { get; set; }
 
         [Parameter] public bool IsOpen { get; set; }
 
         [Parameter] public EventCallback OnCanceled { get; set; }
 
-        [Parameter] public EventCallback<RoundRequest> OnStartRound { get; set; }
+        [Parameter] public EventCallback<(RoundRequest Request, bool IsFinal)> OnStartRound { get; set; }
 
         [Parameter] public Quiz? Quiz { get; set; }
 
@@ -68,7 +68,6 @@ namespace PubQuizMaster.Web.Components.Event
                 .Select(a => a.Label.Trim())
                 .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
-            // First free letter for a readable default label
             var letter = Enumerable.Range('A', 26)
                 .Select(c => (char)c)
                 .FirstOrDefault(c => !usedLabels.Contains($"Scorer {c}"));
@@ -78,8 +77,6 @@ namespace PubQuizMaster.Web.Components.Event
                 ScorerId = ScorerTokens.Create(),
                 Label = letter == default ? $"Scorer {assignments.Count + 1}" : $"Scorer {letter}"
             });
-
-            // The manual distribution stays; "Auto-Distribute" or the checkboxes assign teams to the new scorer
         }
 
         private void AutoDistributeTeams()
@@ -88,10 +85,14 @@ namespace PubQuizMaster.Web.Components.Event
 
             foreach (var a in assignments) a.TeamIds.Clear();
 
-            var orderedTeams = Quiz.ParticipatingTeams.OrderBy(pt => pt.SheetOrder).ToList();
-            for (int i = 0; i < orderedTeams.Count; i++)
+            var activeTeams = Quiz.ParticipatingTeams
+                .Where(pt => pt.IsActive)
+                .OrderBy(pt => pt.SheetOrder)
+                .ToList();
+
+            for (int i = 0; i < activeTeams.Count; i++)
             {
-                assignments[i % assignments.Count].TeamIds.Add(orderedTeams[i].TeamId);
+                assignments[i % assignments.Count].TeamIds.Add(activeTeams[i].TeamId);
             }
         }
 
@@ -101,31 +102,40 @@ namespace PubQuizMaster.Web.Components.Event
         {
             if (Quiz == null) return;
 
-            roundName = $"Round {Quiz.Rounds.Count + 1}";
-            questionCount = 20;
+            var existingNames = Quiz.Rounds.Select(r => r.Name).ToHashSet(StringComparer.OrdinalIgnoreCase);
+            var nextNum = Quiz.Rounds.Count + 1;
+            while (existingNames.Contains($"Round {nextNum}"))
+            {
+                nextNum++;
+            }
+            roundName = $"Round {nextNum}";
 
-            // Explicit ordering: the Rounds collection order is not guaranteed by EF
             var lastRound = Quiz.Rounds
                 .Where(r => r.Assignments.Count > 0)
                 .MaxBy(r => r.CreatedAt);
 
+            questionCount = lastRound?.QuestionCount ?? 20;
+            isFinalRound = false;
+
             if (lastRound != null)
             {
+                var activeTeamIds = Quiz.ParticipatingTeams
+                    .Where(pt => pt.IsActive)
+                    .Select(pt => pt.TeamId)
+                    .ToHashSet();
+
                 assignments = lastRound.Assignments
                     .OrderBy(a => a.Label, StringComparer.OrdinalIgnoreCase)
                     .Select(a => new ScorerAssignmentViewModel
                     {
-                        // Keep the token so open scorer tabs continue; replace legacy IDs like "scorer-a"
-                        // Keep the token so open scorer tabs continue
                         ScorerId = a.ScorerId,
                         Label = a.Label,
-                        TeamIds = a.TeamIds
-                            .Where(tid => Quiz.ParticipatingTeams.Any(pt => pt.TeamId == tid)).ToList()
+                        TeamIds = a.TeamIds.Where(tid => activeTeamIds.Contains(tid)).ToList()
                     }).ToList();
 
                 var assignedTeamIds = assignments.SelectMany(s => s.TeamIds).ToHashSet();
                 var unassigned = Quiz.ParticipatingTeams
-                    .Where(pt => !assignedTeamIds.Contains(pt.TeamId))
+                    .Where(pt => pt.IsActive && !assignedTeamIds.Contains(pt.TeamId))
                     .OrderBy(pt => pt.SheetOrder)
                     .ToList();
 
@@ -152,7 +162,6 @@ namespace PubQuizMaster.Web.Components.Event
             var orphanedTeamIds = assignments[index].TeamIds;
             assignments.RemoveAt(index);
 
-            // Only the teams of the removed scorer move, the rest of the distribution stays as it is
             foreach (var teamId in orphanedTeamIds)
             {
                 assignments.MinBy(a => a.TeamIds.Count)!.TeamIds.Add(teamId);
@@ -166,14 +175,13 @@ namespace PubQuizMaster.Web.Components.Event
             isSubmitting = true;
             try
             {
-                // Validation happens in QuizService, the parent passes its message back as ErrorMessage
                 var request = new RoundRequest(
                     Quiz.Id,
                     roundName,
                     questionCount,
                     [.. assignments.Select(a => a.ToRequest())]);
 
-                await OnStartRound.InvokeAsync(request);
+                await OnStartRound.InvokeAsync((request, isFinalRound));
             }
             finally
             {

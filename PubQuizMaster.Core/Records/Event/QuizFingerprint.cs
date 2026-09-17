@@ -10,6 +10,8 @@ namespace PubQuizMaster.Core.Records.Event
         DateOnly Date,
         string? Description,
         int ParticipantCount,
+        int ActiveParticipantCount,
+        int NonCompetitiveCount,
         int RoundCount,
         int FinalizedRoundCount,
         int AssignedTeamSlots,

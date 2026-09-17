@@ -15,6 +15,8 @@ namespace PubQuizMaster.Web.Components.Player
 
         // Only ever holds the source of the search currently running, the owning handler disposes it
         private CancellationTokenSource? debounceCts;
+
+        private ElementReference inputElement;
         private TeamMatch[] similarCandidates = [];
 
         #endregion Private Fields
@@ -48,6 +50,18 @@ namespace PubQuizMaster.Web.Components.Player
         public void Dispose()
         {
             debounceCts?.Cancel();
+        }
+
+        public async Task FocusAsync()
+        {
+            try
+            {
+                await inputElement.FocusAsync();
+            }
+            catch
+            {
+                // Element detached
+            }
         }
 
         #endregion Public Methods

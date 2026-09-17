@@ -9,12 +9,15 @@ namespace PubQuizMaster.Web.Components.Player
 
         private string newTeamName = string.Empty;
         private bool showAddTeamForm;
+        private TeamSelector? teamSelectorRef;
 
         #endregion Private Fields
 
         #region Public Properties
 
         [Parameter] public EventCallback<string> OnRegisterTeam { get; set; }
+        [Parameter] public EventCallback<Guid> OnRemoveTeam { get; set; }
+        [Parameter] public EventCallback<(Guid TeamId, bool IsActive, bool IsAk)> OnUpdateStatus { get; set; }
 
         [Parameter] public TeamStanding[] Standings { get; set; } = [];
 
@@ -25,8 +28,8 @@ namespace PubQuizMaster.Web.Components.Player
         private async Task HandleExistingTeamSelected(string teamName)
         {
             newTeamName = string.Empty;
-            showAddTeamForm = false;
             await OnRegisterTeam.InvokeAsync(teamName);
+            if (teamSelectorRef != null) await teamSelectorRef.FocusAsync();
         }
 
         private async Task HandleNewTeamCreated()
@@ -34,8 +37,26 @@ namespace PubQuizMaster.Web.Components.Player
             if (string.IsNullOrWhiteSpace(newTeamName)) return;
             var name = newTeamName.Trim();
             newTeamName = string.Empty;
-            showAddTeamForm = false;
             await OnRegisterTeam.InvokeAsync(name);
+            if (teamSelectorRef != null) await teamSelectorRef.FocusAsync();
+        }
+
+        private async Task ToggleActiveAsync(Guid teamId, bool newActive)
+        {
+            var current = Standings.FirstOrDefault(s => s.TeamId == teamId);
+            if (current != null)
+            {
+                await OnUpdateStatus.InvokeAsync((teamId, newActive, current.IsNonCompetitive));
+            }
+        }
+
+        private async Task ToggleAkAsync(Guid teamId, bool isAk)
+        {
+            var current = Standings.FirstOrDefault(s => s.TeamId == teamId);
+            if (current != null)
+            {
+                await OnUpdateStatus.InvokeAsync((teamId, current.IsActive, isAk));
+            }
         }
 
         #endregion Private Methods

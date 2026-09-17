@@ -40,7 +40,6 @@ namespace PubQuizMaster.Services.Event
                 throw new ArgumentException("The document stream must be seekable and writable.", nameof(document));
             }
 
-            // Include gives no ordering guarantee, cumulative scores and isFirstRound rely on it
             var rounds = quizNight.Rounds.OrderBy(r => r.CreatedAt).ToArray();
 
             var round = rounds.FirstOrDefault(r => r.Id == roundId)
@@ -64,6 +63,7 @@ namespace PubQuizMaster.Services.Event
 
             var slides = GetRoundSlides(presoPart, round.Name);
 
+            var participantLookup = quizNight.ParticipatingTeams.ToDictionary(p => p.TeamId);
             var allTeams = quizNight.ParticipatingTeams.Select(pt => pt.Team).ToArray();
             var roundTeamIds = round.GetTeamIds();
 
@@ -72,7 +72,8 @@ namespace PubQuizMaster.Services.Event
                 .Where(t => roundTeamIds.Contains(t.Id))
                 .Select(t => (
                     Team: t,
-                    Score: round.Answers.Where(a => a.TeamId == t.Id).Sum(a => a.Value.GetScore())))
+                    Score: round.Answers.Where(a => a.TeamId == t.Id).Sum(a => a.Value.GetScore()),
+                    IsAK: participantLookup.TryGetValue(t.Id, out var p) && p.IsNonCompetitive))
                 .ToArray();
 
             var roundRanks = CalculateRanks(roundScores);
@@ -89,14 +90,15 @@ namespace PubQuizMaster.Services.Event
                     Score: completedRounds
                         .SelectMany(r => r.Answers)
                         .Where(a => a.TeamId == t.Id)
-                        .Sum(a => a.Value.GetScore())))
+                        .Sum(a => a.Value.GetScore()),
+                    IsAK: participantLookup.TryGetValue(t.Id, out var p) && p.IsNonCompetitive))
                 .ToArray();
 
             var totalRanks = CalculateRanks(totalScores);
 
             var isFirstRound = rounds[0].Id == round.Id;
 
-            // 3. Question slides
+            // 3. Question slides (A1: Basis is roundTeamIds.Length)
             for (var qi = 0; qi < round.QuestionCount; qi++)
             {
                 var slidePart = FindSlide(slides, $"Answer{qi + 1}");
@@ -105,7 +107,7 @@ namespace PubQuizMaster.Services.Event
                 {
                     var questionAnswers = round.Answers.Where(a => a.QuestionIndex == qi).ToArray();
                     var correctCount = questionAnswers.Count(a => a.Value.GetScore() > 0);
-                    var totalCount = questionAnswers.Length;
+                    var totalCount = roundTeamIds.Length;
 
                     var pointsText = FormatQuestionCorrectText(correctCount, totalCount);
 
@@ -115,10 +117,12 @@ namespace PubQuizMaster.Services.Event
             }
 
             // 4. Round standings slides
+            var roundPlacesPart = FindSlide(slides, "RoundPlaces");
+            var roundFirstPart = FindSlide(slides, "RoundFirst");
+
             if (roundRanks.Length > 0 && !(isFirstRound && isFinalRound))
             {
                 var placesEntries = roundRanks.Where(e => e.Rank > 1).ToArray();
-                var roundPlacesPart = FindSlide(slides, "RoundPlaces");
 
                 if (placesEntries.Length > 0 && roundPlacesPart != null)
                 {
@@ -126,24 +130,39 @@ namespace PubQuizMaster.Services.Event
                     FillPlacesSlide(roundPlacesPart, placesEntries, avg);
                     SetSlideVisibility(roundPlacesPart, true);
                 }
+                else if (roundPlacesPart != null)
+                {
+                    SetSlideVisibility(roundPlacesPart, false);
+                }
 
-                var roundFirstPart = FindSlide(slides, "RoundFirst");
                 if (roundFirstPart != null)
                 {
-                    var firstTeams = roundRanks.Where(e => e.Rank == 1).Select(e => e.Team).ToArray();
-                    var firstScore = roundRanks.First(e => e.Rank == 1).Score;
+                    var firstEntries = roundRanks.Where(e => e.Rank == 1).ToArray();
+                    // Regular winners first, AK winners at the end (A3)
+                    var firstTeams = firstEntries
+                        .OrderBy(e => participantLookup.TryGetValue(e.Team.Id, out var p) && p.IsNonCompetitive ? 1 : 0)
+                        .Select(e => e.Team)
+                        .ToArray();
+                    var firstScore = firstEntries.Length > 0 ? firstEntries[0].Score : 0m;
 
                     FillWinnersSlide(roundFirstPart, firstTeams, firstScore);
                     SetSlideVisibility(roundFirstPart, true);
                 }
             }
+            else
+            {
+                if (roundPlacesPart != null) SetSlideVisibility(roundPlacesPart, false);
+                if (roundFirstPart != null) SetSlideVisibility(roundFirstPart, false);
+            }
 
             // 5. Total standings and podium slides
+            var totalPlacesPart = FindSlide(slides, "AllPlacings");
+            var goodByePart = FindSlide(slides, "GoodBye");
+
             if (totalRanks.Length > 0)
             {
                 if (!isFirstRound || isFinalRound)
                 {
-                    var totalPlacesPart = FindSlide(slides, "AllPlacings");
                     var placingEntries = totalRanks.Where(e => !isFinalRound || e.Rank >= 4).ToArray();
 
                     if (placingEntries.Length > 0 && totalPlacesPart != null)
@@ -152,20 +171,42 @@ namespace PubQuizMaster.Services.Event
                         FillPlacesSlide(totalPlacesPart, placingEntries, avg);
                         SetSlideVisibility(totalPlacesPart, true);
                     }
+                    else if (totalPlacesPart != null)
+                    {
+                        SetSlideVisibility(totalPlacesPart, false);
+                    }
+                }
+                else if (totalPlacesPart != null)
+                {
+                    SetSlideVisibility(totalPlacesPart, false);
                 }
 
                 if (isFinalRound)
                 {
-                    FillPodiumSlide(slides, "AllThird", totalRanks, 3);
-                    FillPodiumSlide(slides, "AllSecond", totalRanks, 2);
-                    FillPodiumSlide(slides, "AllFirst", totalRanks, 1);
+                    FillPodiumSlide(slides, "AllThird", totalRanks, participantLookup, 3);
+                    FillPodiumSlide(slides, "AllSecond", totalRanks, participantLookup, 2);
+                    FillPodiumSlide(slides, "AllFirst", totalRanks, participantLookup, 1);
 
-                    var goodByePart = FindSlide(slides, "GoodBye");
                     if (goodByePart != null)
                     {
                         SetSlideVisibility(goodByePart, true);
                     }
                 }
+                else
+                {
+                    HideSlide(slides, "AllThird");
+                    HideSlide(slides, "AllSecond");
+                    HideSlide(slides, "AllFirst");
+                    if (goodByePart != null) SetSlideVisibility(goodByePart, false);
+                }
+            }
+            else
+            {
+                if (totalPlacesPart != null) SetSlideVisibility(totalPlacesPart, false);
+                HideSlide(slides, "AllThird");
+                HideSlide(slides, "AllSecond");
+                HideSlide(slides, "AllFirst");
+                if (goodByePart != null) SetSlideVisibility(goodByePart, false);
             }
 
             presoPart.Presentation!.Save();
@@ -177,10 +218,10 @@ namespace PubQuizMaster.Services.Event
 
         #region Private Methods
 
-        private static RankedTeam[] CalculateRanks((Team Team, decimal Score)[] scores)
+        private static RankedTeam[] CalculateRanks((Team Team, decimal Score, bool IsAK)[] scores)
         {
-            // Pre-sorted by name, so teams with equal scores appear alphabetically
-            return [.. CompetitionRanking.Rank(scores.OrderBy(x => x.Team.Name), x => x.Score)
+            var ordered = scores.OrderBy(x => x.Team.Name).ToArray();
+            return [.. CompetitionRanking.Rank(ordered, x => x.Score, x => x.IsAK)
                 .Select(r => new RankedTeam(r.Item.Team, r.Item.Score, r.Rank))];
         }
 
@@ -201,13 +242,24 @@ namespace PubQuizMaster.Services.Event
             SetShapeText(sp, "Average", avgText);
         }
 
-        private static void FillPodiumSlide(SlidePart[] slides, string slideName, RankedTeam[] ranks, int rank)
+        private static void FillPodiumSlide(SlidePart[] slides, string slideName, RankedTeam[] ranks,
+            Dictionary<Guid, Participant> participantLookup, int rank)
         {
             var slidePart = FindSlide(slides, slideName);
-            if (slidePart == null || !ranks.Any(e => e.Rank == rank)) return;
+            if (slidePart == null) return;
 
-            var teams = ranks.Where(e => e.Rank == rank).Select(e => e.Team).ToArray();
-            var score = ranks.First(e => e.Rank == rank).Score;
+            var rankEntries = ranks.Where(e => e.Rank == rank).ToArray();
+            if (rankEntries.Length == 0)
+            {
+                SetSlideVisibility(slidePart, false);
+                return;
+            }
+
+            var teams = rankEntries
+                .OrderBy(e => participantLookup.TryGetValue(e.Team.Id, out var p) && p.IsNonCompetitive ? 1 : 0)
+                .Select(e => e.Team)
+                .ToArray();
+            var score = rankEntries[0].Score;
 
             FillWinnersSlide(slidePart, teams, score);
             SetSlideVisibility(slidePart, true);
@@ -224,10 +276,6 @@ namespace PubQuizMaster.Services.Event
             SetShapeText(sp, "Points", FormatScore(score));
         }
 
-        /// <summary>
-        /// Finds a slide by its internal name (cSld/@name, only settable via VBA)
-        /// or by a shape named "#&lt;name&gt;" (settable in the selection pane).
-        /// </summary>
         private static SlidePart? FindSlide(SlidePart[] slides, string name)
         {
             var markerName = SlideMarkerPrefix + name;
@@ -247,10 +295,9 @@ namespace PubQuizMaster.Services.Event
         private static string FormatQuestionCorrectText(int correct, int total)
         {
             if (total == 0) return string.Empty;
-            if (correct == total) return "Alle Teams richtig";
-            if (correct == 1) return "1 Team richtig";
-            if (correct == 0) return "Kein Team richtig";
-            return $"{correct} Teams richtig";
+            if (correct == total) return "Alle richtig";
+            if (correct == 0) return "Keiner richtig";
+            return $"{correct}× richtig";
         }
 
         private static string FormatScore(decimal score)
@@ -262,10 +309,6 @@ namespace PubQuizMaster.Services.Event
             return $"{formatted} Punkte";
         }
 
-        /// <summary>
-        /// Returns the slides belonging to the round. Decks with sections must contain a section
-        /// named like the round, decks without sections are treated as a single round.
-        /// </summary>
         private static SlidePart[] GetRoundSlides(PresentationPart presoPart, string roundName)
         {
             var presentation = presoPart.Presentation
@@ -293,9 +336,15 @@ namespace PubQuizMaster.Services.Event
                 .OfType<SlidePart>()];
         }
 
-        /// <summary>
-        /// Keeps presentations and slideshows as they are, templates are converted to presentations.
-        /// </summary>
+        private static void HideSlide(SlidePart[] slides, string name)
+        {
+            var slidePart = FindSlide(slides, name);
+            if (slidePart != null)
+            {
+                SetSlideVisibility(slidePart, false);
+            }
+        }
+
         private static PresentationFormat PrepareDocumentType(PresentationDocument doc)
         {
             switch (doc.DocumentType)

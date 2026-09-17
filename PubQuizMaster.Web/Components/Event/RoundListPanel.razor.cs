@@ -10,7 +10,6 @@ namespace PubQuizMaster.Web.Components.Event
     {
         #region Private Fields
 
-        // Changes after each export, so the file inputs are recreated
         private int inputVersion;
 
         #endregion Private Fields
@@ -21,9 +20,13 @@ namespace PubQuizMaster.Web.Components.Event
 
         [Parameter] public bool IsExporting { get; set; }
 
+        [Parameter] public EventCallback<Round> OnDeleteRound { get; set; }
+
         [Parameter] public EventCallback<RoundExportRequest> OnExportPptx { get; set; }
 
         [Parameter] public EventCallback OnStartRoundClick { get; set; }
+
+        [Parameter] public EventCallback<(Guid RoundId, bool IsFinal)> OnToggleFinal { get; set; }
 
         [Parameter] public List<Round> Rounds { get; set; } = [];
 
@@ -31,16 +34,15 @@ namespace PubQuizMaster.Web.Components.Event
 
         #region Private Methods
 
-        private async Task ExportAsync(Guid roundId, PresentationMode mode, InputFileChangeEventArgs e)
+        private async Task ExportAsync(Round round, InputFileChangeEventArgs e)
         {
             try
             {
-                // The file is read inside the callback, the input must still exist at that point
-                await OnExportPptx.InvokeAsync(new RoundExportRequest(roundId, mode, e.File));
+                var mode = round.IsFinal ? PresentationMode.Final : PresentationMode.Round;
+                await OnExportPptx.InvokeAsync(new RoundExportRequest(round.Id, mode, e.File));
             }
             finally
             {
-                // Browsers raise no change event when the same file is picked again on the same input
                 inputVersion++;
             }
         }

@@ -1,4 +1,4 @@
-﻿namespace PubQuizMaster.Web.Records
+namespace PubQuizMaster.Web.Records
 {
     /// <summary>
     /// Standing of a team within the active quiz night.
@@ -8,5 +8,8 @@
         string TeamName,
         decimal? LatestRoundScore,
         decimal TotalScore,
-        int OverallRank);
+        int OverallRank,
+        bool IsActive = true,
+        bool IsNonCompetitive = false,
+        bool CanDelete = false);
 }

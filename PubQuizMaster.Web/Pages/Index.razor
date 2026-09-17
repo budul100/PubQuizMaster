@@ -28,7 +28,6 @@ else if (activeNight == null)
 }
 else
 {
-    <!-- Top Action Bar -->
     <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
         <div>
             <h3 class="mb-0 fw-bold d-flex align-items-center gap-2">
@@ -49,7 +48,6 @@ else
         </div>
     </div>
 
-    <!-- 1. FULL WIDTH (100%) AKTIV-SICHT: Nur wenn eine Runde erfasst wird -->
     @if (activeRound != null)
     {
         <div class="mb-4">
@@ -59,18 +57,21 @@ else
         </div>
     }
 
-    <!-- 2. GETEILTE ANSICHT (50:50): Links Teams, Rechts Runden -->
     <div class="row g-3 align-items-stretch">
         <div class="col-12 col-lg-6">
             <TeamListPanel Standings="teamStandings"
-                           OnRegisterTeam="AddTeamAsync" />
+                           OnRegisterTeam="AddTeamAsync"
+                           OnRemoveTeam="PromptDeleteTeam"
+                           OnUpdateStatus="UpdateParticipantStatusAsync" />
         </div>
         <div class="col-12 col-lg-6">
             <RoundListPanel Rounds="activeNight.Rounds"
                             ActiveRound="activeRound"
                             IsExporting="isExporting"
                             OnStartRoundClick="OpenStartRoundModal"
-                            OnExportPptx="ExportRoundPresentationAsync" />
+                            OnExportPptx="ExportRoundPresentationAsync"
+                            OnDeleteRound="PromptDeleteRound"
+                            OnToggleFinal="ToggleFinalRoundAsync" />
         </div>
     </div>
 }
@@ -89,3 +90,12 @@ else
               HeaderClass="bg-success"
               OnConfirmed="CompleteQuizAsync"
               OnCanceled="() => showCompleteModal = false" />
+
+<ConfirmModal IsOpen="@showDeleteRoundModal"
+              Title="Delete Round"
+              Message="@($"Are you sure you want to delete round \"{roundToDelete?.Name}\"?")"
+              ConfirmText="Delete"
+              ConfirmButtonClass="btn-danger"
+              HeaderClass="bg-danger"
+              OnConfirmed="HandleDeleteRoundConfirmedAsync"
+              OnCanceled="() => showDeleteRoundModal = false" />
