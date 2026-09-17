@@ -16,16 +16,18 @@ namespace PubQuizMaster.Web.Pages
         private readonly CancellationTokenSource cts = new();
         private Quiz? activeNight;
         private Round? activeRound;
+        private List<Quiz> allQuizzes = [];
         private bool isExporting;
         private bool isLoading = true;
         private bool isProcessing;
         private bool isReloading;
         private QuizFingerprint? lastFingerprint;
         private PeriodicTimer? pollTimer;
-        private Round? roundToDelete;
         private bool showCompleteModal;
         private bool showDeleteRoundModal;
+        private bool showEditModal;
         private bool showSetupModal;
+        private Round? roundToDelete;
         private string? startRoundError;
         private TeamStanding[] teamStandings = [];
         private int ticksSinceFullReload;
@@ -209,12 +211,21 @@ namespace PubQuizMaster.Web.Pages
             isProcessing = true;
             try
             {
+                var wasFinal = activeRound.IsFinal;
+                var roundName = activeRound.Name;
+
                 await LiveQuizService.FinalizeRoundAsync(activeRound.Id);
                 SessionService.NotifyRoundChanged();
 
-                ToastService.ShowSuccess($"{activeRound.Name} finalized.");
+                ToastService.ShowSuccess($"{roundName} finalized.");
 
                 await LoadDashboardStateAsync();
+
+                // Z4: Direkt Quiz-Abschluss anbieten, wenn Final-Runde abgeschlossen wurde
+                if (wasFinal)
+                {
+                    showCompleteModal = true;
+                }
             }
             catch (Exception ex)
             {
@@ -224,6 +235,21 @@ namespace PubQuizMaster.Web.Pages
             {
                 isProcessing = false;
                 StateHasChanged();
+            }
+        }
+
+        private async Task HandleActiveQuizDetailsSavedAsync(QuizDetailsUpdate update)
+        {
+            try
+            {
+                await LiveQuizService.UpdateQuizAsync(update);
+                ToastService.ShowSuccess("Quiz details updated.");
+                showEditModal = false;
+                await LoadDashboardStateAsync();
+            }
+            catch (Exception ex)
+            {
+                ToastService.ShowError($"Failed to update quiz: {ex.Message}");
             }
         }
 
@@ -257,6 +283,11 @@ namespace PubQuizMaster.Web.Pages
             });
         }
 
+        private Task HandleSelectQuiz(Guid quizId)
+        {
+            return LoadDashboardStateAsync();
+        }
+
         private void HandleStatusChanged()
         {
             _ = InvokeAsync(StateHasChanged);
@@ -270,10 +301,17 @@ namespace PubQuizMaster.Web.Pages
             lastFingerprint = fingerprint;
             ticksSinceFullReload = 0;
 
-            activeRound = activeNight?.Rounds.LastOrDefault(r => !r.IsFinalized);
-            isLoading = false;
+            if (activeNight == null)
+            {
+                allQuizzes = await LiveQuizService.GetAllQuizzesAsync();
+            }
+            else
+            {
+                activeRound = activeNight.Rounds.LastOrDefault(r => !r.IsFinalized);
+                ComputeTeamStandings();
+            }
 
-            ComputeTeamStandings();
+            isLoading = false;
         }
 
         private void OpenStartRoundModal()
@@ -321,13 +359,6 @@ namespace PubQuizMaster.Web.Pages
             }
         }
 
-        private Task PromptDeleteRound(Round round)
-        {
-            roundToDelete = round;
-            showDeleteRoundModal = true;
-            return Task.CompletedTask;
-        }
-
         private async Task PromptDeleteTeam(Guid teamId)
         {
             if (activeNight == null) return;
@@ -342,6 +373,13 @@ namespace PubQuizMaster.Web.Pages
             {
                 ToastService.ShowError(ex.Message);
             }
+        }
+
+        private Task PromptDeleteRound(Round round)
+        {
+            roundToDelete = round;
+            showDeleteRoundModal = true;
+            return Task.CompletedTask;
         }
 
         private Task ReloadAsync() => InvokeAsync(async () =>

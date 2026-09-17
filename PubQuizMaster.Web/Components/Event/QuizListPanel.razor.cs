@@ -3,24 +3,20 @@ using Microsoft.AspNetCore.Components.Forms;
 using PubQuizMaster.Core.Models.Event;
 using PubQuizMaster.Core.Records.Event;
 using PubQuizMaster.Services.Common;
-using PubQuizMaster.Services.Event;
 using PubQuizMaster.Web.Services;
 
-namespace PubQuizMaster.Web.Pages.Event
+namespace PubQuizMaster.Web.Components.Event
 {
-    public partial class Events
+    public partial class QuizListPanel
     {
         #region Private Fields
 
         private Guid? exportingQuizId;
         private int exportVersion;
-        private bool hasActiveQuiz;
-        private bool isLoading = true;
         private bool isSubmitting;
         private DateTime newDate = DateTime.Today;
         private string? newDescription;
         private string newTitle = $"Pub Quiz ({DateTime.Today:dd.MM.yyyy})";
-        private List<Quiz> quizNights = [];
         private Quiz? quizToDelete;
         private Quiz? quizToEdit;
         private Quiz? quizToReopen;
@@ -30,22 +26,19 @@ namespace PubQuizMaster.Web.Pages.Event
 
         #endregion Private Fields
 
-        #region Private Properties
+        #region Public Properties
 
-        [Inject] private PresentationDownloadService PresentationDownloadService { get; set; } = null!;
+        [Parameter] public bool HasActiveQuiz { get; set; }
 
-        [Inject] private ScorerService SessionService { get; set; } = null!;
+        [Parameter] public bool IsLoading { get; set; }
 
-        #endregion Private Properties
+        [Parameter] public EventCallback OnDataChanged { get; set; }
 
-        #region Protected Methods
+        [Parameter] public EventCallback<Guid> OnSelectQuiz { get; set; }
 
-        protected override async Task OnInitializedAsync()
-        {
-            await LoadDataAsync();
-        }
+        [Parameter] public List<Quiz> QuizNights { get; set; } = [];
 
-        #endregion Protected Methods
+        #endregion Public Properties
 
         #region Private Methods
 
@@ -66,7 +59,9 @@ namespace PubQuizMaster.Web.Pages.Event
                     newDescription);
 
                 ToastService.ShowSuccess($"Quiz '{created.Title}' created!");
-                Nav.NavigateTo("/");
+                newTitle = $"Pub Quiz ({DateTime.Today:dd.MM.yyyy})";
+                newDescription = null;
+                await OnDataChanged.InvokeAsync();
             }
             catch (Exception ex)
             {
@@ -90,8 +85,6 @@ namespace PubQuizMaster.Web.Pages.Event
             finally
             {
                 exportingQuizId = null;
-
-                // Recreate the file input, otherwise picking the same file again raises no change event
                 exportVersion++;
             }
         }
@@ -106,7 +99,7 @@ namespace PubQuizMaster.Web.Pages.Event
                 ToastService.ShowSuccess($"Quiz '{quizToDelete.Title}' deleted.");
                 showDeleteModal = false;
                 quizToDelete = null;
-                await LoadDataAsync();
+                await OnDataChanged.InvokeAsync();
             }
             catch (Exception ex)
             {
@@ -119,11 +112,10 @@ namespace PubQuizMaster.Web.Pages.Event
             try
             {
                 await LiveQuizService.UpdateQuizAsync(update);
-
                 ToastService.ShowSuccess("Quiz details updated.");
                 showEditModal = false;
                 quizToEdit = null;
-                await LoadDataAsync();
+                await OnDataChanged.InvokeAsync();
             }
             catch (Exception ex)
             {
@@ -141,31 +133,14 @@ namespace PubQuizMaster.Web.Pages.Event
             try
             {
                 await LiveQuizService.ReopenQuizAsync(quizToReopen.Id);
-
-                // Lets open dashboards pick up the reopened quiz night immediately
                 SessionService.NotifyRoundChanged();
-
                 ToastService.ShowSuccess($"Quiz night '{title}' reopened.");
                 quizToReopen = null;
-                await LoadDataAsync();
+                await OnDataChanged.InvokeAsync();
             }
             catch (Exception ex)
             {
                 ToastService.ShowError($"Failed to reopen quiz: {ex.Message}");
-            }
-        }
-
-        private async Task LoadDataAsync()
-        {
-            isLoading = true;
-            try
-            {
-                quizNights = await LiveQuizService.GetAllQuizzesAsync();
-                hasActiveQuiz = quizNights.Any(q => !q.IsCompleted && !q.IsLegacyImport);
-            }
-            finally
-            {
-                isLoading = false;
             }
         }
 

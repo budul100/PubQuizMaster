@@ -2,37 +2,46 @@
 @namespace PubQuizMaster.Web.Pages
 @using PubQuizMaster.Web.Components.Player
 @using PubQuizMaster.Web.Components.Event
+@using PubQuizMaster.Web.Components.Common
 @inject QuizService LiveQuizService
 @inject ScorerService SessionService
 @inject ToastService ToastService
 @implements IDisposable
 
-<PageTitle>PubQuizMaster – Live Dashboard</PageTitle>
+<PageTitle>PubQuizMaster</PageTitle>
 
 @if (isLoading)
 {
     <div class="d-flex align-items-center gap-2 text-muted py-5 justify-content-center">
         <div class="spinner-border spinner-border-sm" role="status"></div>
-        <span>Loading live quiz session…</span>
+        <span>Loading…</span>
     </div>
 }
 else if (activeNight == null)
 {
-    <div class="card p-5 text-center shadow-sm border-0 my-4">
-        <h4 class="text-muted mb-3">No Active Quiz Night</h4>
-        <p class="text-secondary mb-4">There is currently no live quiz night in progress.</p>
-        <div>
-            <a class="btn btn-primary" href="/events">+ Go to Quiz Nights</a>
-        </div>
-    </div>
+    <!-- Keine aktive Runde: Quiz-Nights-Verwaltung direkt auf der Startseite (A14) -->
+    <QuizListPanel QuizNights="@allQuizzes"
+                   HasActiveQuiz="@false"
+                   IsLoading="@false"
+                   OnDataChanged="LoadDashboardStateAsync"
+                   OnSelectQuiz="HandleSelectQuiz" />
 }
 else
 {
+    <!-- Live Dashboard -->
     <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
         <div>
-            <h3 class="mb-0 fw-bold d-flex align-items-center gap-2">
-                <span class="mif-target text-danger" aria-hidden="true"></span> @activeNight.Title
-            </h3>
+            <div class="d-flex align-items-center gap-2">
+                <h3 class="mb-0 fw-bold d-flex align-items-center gap-2">
+                    <span class="mif-target text-danger" aria-hidden="true"></span> @activeNight.Title
+                </h3>
+                <button class="btn btn-outline-secondary btn-sm py-0 px-2"
+                        title="Edit Quiz Details"
+                        aria-label="Edit Quiz Details"
+                        @onclick="() => showEditModal = true">
+                    <span class="mif-pencil" aria-hidden="true"></span>
+                </button>
+            </div>
             <span class="text-muted small">@activeNight.Date.ToString("dd.MM.yyyy") • @teamStandings.Length teams active</span>
         </div>
         <div class="d-flex gap-2">
@@ -42,9 +51,6 @@ else
                     @onclick="() => showCompleteModal = true">
                 <span class="mif-flag" aria-hidden="true"></span> Complete Quiz Night
             </button>
-            <a class="btn btn-outline-secondary btn-sm d-flex align-items-center gap-1" href="/events">
-                <span class="mif-calendar" aria-hidden="true"></span> All Events
-            </a>
         </div>
     </div>
 
@@ -81,6 +87,11 @@ else
                  ErrorMessage="@startRoundError"
                  OnStartRound="StartRoundConfirmedAsync"
                  OnCanceled="CloseStartRoundModal" />
+
+<QuizEditModal IsOpen="@showEditModal"
+               Quiz="@activeNight"
+               OnSaved="HandleActiveQuizDetailsSavedAsync"
+               OnCanceled="() => showEditModal = false" />
 
 <ConfirmModal IsOpen="@showCompleteModal"
               Title="Complete Quiz Night"
