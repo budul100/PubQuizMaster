@@ -1,5 +1,4 @@
 using PubQuizMaster.Core.Models.Event;
-using PubQuizMaster.Core.Models.Player;
 
 namespace PubQuizMaster.Core.Records.Event
 {
@@ -9,6 +8,6 @@ namespace PubQuizMaster.Core.Records.Event
     /// </summary>
     public record MatrixData(
         Round Round,
-        Team[] Teams,
+        MatrixTeam[] Teams,
         Dictionary<Guid, decimal> PriorScores);
 }

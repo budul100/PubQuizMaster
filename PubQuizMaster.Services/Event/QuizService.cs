@@ -19,7 +19,7 @@ namespace PubQuizMaster.Services.Event
         #region Public Methods
 
         public async Task<TeamRegistration> AddTeamAsync(Guid quizNightId, string teamName,
-            CancellationToken ct = default)
+                     CancellationToken ct = default)
         {
             await using var db = await dbFactory.CreateDbContextAsync(ct);
 
@@ -34,56 +34,39 @@ namespace PubQuizMaster.Services.Event
             var team = await teamService.GetOrCreateTeamAsync(teamName, ct);
 
             var existingParticipant = quiz.ParticipatingTeams.FirstOrDefault(pt => pt.TeamId == team.Id);
+
+            if (existingParticipant is { IsActive: true })
+            {
+                throw new InvalidOperationException(
+                    $"Team '{team.Name}' is already registered and active for this night.");
+            }
+
             if (existingParticipant != null)
             {
-                if (existingParticipant.IsActive)
-                {
-                    throw new InvalidOperationException(
-                        $"Team '{team.Name}' is already registered and active for this night.");
-                }
-
                 existingParticipant.IsActive = true;
-                await db.SaveChangesAsync(ct);
-                return new TeamRegistration(team.Name, false, null);
             }
-
-            var nextSheetOrder = quiz.ParticipatingTeams.Count > 0
-                ? quiz.ParticipatingTeams.Max(pt => pt.SheetOrder) + 1
-                : 1;
-
-            var participant = new Participant
+            else
             {
-                QuizId = quizNightId,
-                TeamId = team.Id,
-                SheetOrder = nextSheetOrder,
-                IsActive = true,
-                IsNonCompetitive = false
-            };
-            db.Participants.Add(participant);
+                var nextSheetOrder = quiz.ParticipatingTeams.Count > 0
+                    ? quiz.ParticipatingTeams.Max(pt => pt.SheetOrder) + 1
+                    : 1;
 
-            var openRound = quiz.Rounds
-                .OrderBy(r => r.CreatedAt)
-                .LastOrDefault(r => !r.IsFinalized);
-
-            string? scorerLabel = null;
-
-            if (openRound != null)
-            {
-                var scorer = openRound.Assignments
-                    .OrderBy(a => a.TeamIds.Count)
-                    .ThenBy(a => a.Label)
-                    .FirstOrDefault();
-
-                if (scorer != null)
+                db.Participants.Add(new Participant
                 {
-                    scorer.TeamIds = [.. scorer.TeamIds, team.Id];
-                    scorerLabel = string.IsNullOrWhiteSpace(scorer.Label) ? scorer.ScorerId : scorer.Label;
-                }
+                    QuizId = quizNightId,
+                    TeamId = team.Id,
+                    SheetOrder = nextSheetOrder,
+                    IsActive = true,
+                    IsNonCompetitive = false
+                });
             }
+
+            // Reactivated and newly registered teams join a running round the same way
+            var (hasOpenRound, scorerLabel) = AssignToOpenRound(quiz, team.Id);
 
             await db.SaveChangesAsync(ct);
 
-            return new TeamRegistration(team.Name, openRound != null, scorerLabel);
+            return new TeamRegistration(team.Name, hasOpenRound, scorerLabel);
         }
 
         public async Task CompleteQuizAsync(Guid quizId, CancellationToken ct = default)
@@ -119,7 +102,7 @@ namespace PubQuizMaster.Services.Event
         }
 
         public async Task<Quiz> CreateQuizAsync(string title, DateOnly date, string? description,
-            CancellationToken ct = default)
+                     CancellationToken ct = default)
         {
             await using var db = await dbFactory.CreateDbContextAsync(ct);
 
@@ -223,8 +206,8 @@ namespace PubQuizMaster.Services.Event
                     q.ParticipatingTeams.Count(p => p.IsNonCompetitive),
                     q.Rounds.Count,
                     q.Rounds.Count(r => r.IsFinalized),
-                    q.Rounds.SelectMany(r => r.Assignments).Sum(s => s.TeamIds.Count),
-                    q.Rounds.SelectMany(r => r.Answers).Count(),
+                    q.Rounds.Where(r => r.IsFinal).OrderBy(r => r.CreatedAt).Select(r => (Guid?)r.Id).FirstOrDefault(),
+                    q.Rounds.SelectMany(r => r.Assignments).Sum(s => s.TeamIds.Count), q.Rounds.SelectMany(r => r.Answers).Count(),
                     q.Rounds.SelectMany(r => r.Answers).Max(a => (DateTime?)a.RecordedAt)))
                 .FirstOrDefaultAsync(ct);
         }
@@ -253,11 +236,18 @@ namespace PubQuizMaster.Services.Event
 
             if (round == null) return null;
 
+            // A team deactivated mid-round keeps its cells editable as long as it has answers here
+            var answeringTeamIds = round.Answers
+                .Select(a => a.TeamId)
+                .Distinct()
+                .ToArray();
+
             var teams = await db.Participants
                 .AsNoTracking()
-                .Where(p => p.QuizId == round.QuizId && p.IsActive)
+                .Where(p => p.QuizId == round.QuizId
+                    && (p.IsActive || answeringTeamIds.Contains(p.TeamId)))
                 .OrderBy(p => p.SheetOrder)
-                .Select(p => p.Team)
+                .Select(p => new MatrixTeam(p.TeamId, p.Team.Name, p.IsNonCompetitive))
                 .ToArrayAsync(ct);
 
             var previousAnswers = await db.Rounds
@@ -333,7 +323,7 @@ namespace PubQuizMaster.Services.Event
         }
 
         public async Task RecordAnswerAsync(Guid roundId, Guid teamId, int questionIndex, bool isCorrect,
-            string scorerId, CancellationToken ct = default)
+                     string scorerId, CancellationToken ct = default)
         {
             await RetryOnAnswerCellConflictAsync(
                 () => RecordAnswerCoreAsync(roundId, teamId, questionIndex, isCorrect, scorerId, ct));
@@ -454,7 +444,7 @@ namespace PubQuizMaster.Services.Event
         }
 
         public async Task SetParticipantStatusAsync(Guid quizId, Guid teamId, bool isActive, bool isNonCompetitive,
-            CancellationToken ct = default)
+                     CancellationToken ct = default)
         {
             await using var db = await dbFactory.CreateDbContextAsync(ct);
 
@@ -485,7 +475,7 @@ namespace PubQuizMaster.Services.Event
             await db.SaveChangesAsync(ct);
         }
 
-        public async Task<Round> StartRoundAsync(RoundRequest request, bool isFinal = false, CancellationToken ct = default)
+        public async Task<Round> StartRoundAsync(RoundRequest request, CancellationToken ct = default)
         {
             await using var db = await dbFactory.CreateDbContextAsync(ct);
 
@@ -498,7 +488,7 @@ namespace PubQuizMaster.Services.Event
 
             ValidateRoundRequest(request, quiz);
 
-            if (isFinal)
+            if (request.IsFinal)
             {
                 var existingFinals = await db.Rounds
                     .Where(r => r.QuizId == request.QuizNightId && r.IsFinal)
@@ -518,7 +508,7 @@ namespace PubQuizMaster.Services.Event
                 QuizId = request.QuizNightId,
                 Name = request.RoundName.Trim(),
                 QuestionCount = request.QuestionCount,
-                IsFinal = isFinal,
+                IsFinal = request.IsFinal,
                 IsFinalized = false,
                 CreatedAt = DateTime.UtcNow
             };
@@ -542,7 +532,7 @@ namespace PubQuizMaster.Services.Event
         }
 
         public async Task UpdateAnswersAsync(Guid roundId,
-            Dictionary<(Guid TeamId, int QuestionIndex), bool> cellUpdates, CancellationToken ct = default)
+                     Dictionary<(Guid TeamId, int QuestionIndex), bool> cellUpdates, CancellationToken ct = default)
         {
             if (cellUpdates.Count == 0) return;
 
@@ -579,6 +569,36 @@ namespace PubQuizMaster.Services.Event
                 .Where(q => !q.IsCompleted && !q.IsLegacyImport)
                 .OrderByDescending(q => q.Date)
                 .ThenByDescending(q => q.Id);
+        }
+
+        /// <summary>
+        /// Adds the team to the scorer with the fewest sheets of the open round, if there is one.
+        /// A team that is already assigned keeps its station. Requires a tracked quiz graph
+        /// with Rounds and Assignments loaded.
+        /// </summary>
+        private static (bool HasOpenRound, string? ScorerLabel) AssignToOpenRound(Quiz quiz, Guid teamId)
+        {
+            var openRound = quiz.Rounds
+                .OrderBy(r => r.CreatedAt)
+                .LastOrDefault(r => !r.IsFinalized);
+
+            if (openRound == null) return (false, null);
+
+            var scorer = openRound.Assignments.FirstOrDefault(a => a.TeamIds.Contains(teamId));
+
+            if (scorer == null)
+            {
+                scorer = openRound.Assignments
+                    .OrderBy(a => a.TeamIds.Count)
+                    .ThenBy(a => a.Label)
+                    .FirstOrDefault();
+
+                if (scorer == null) return (true, null);
+
+                scorer.TeamIds = [.. scorer.TeamIds, teamId];
+            }
+
+            return (true, string.IsNullOrWhiteSpace(scorer.Label) ? scorer.ScorerId : scorer.Label);
         }
 
         private static async Task RetryOnAnswerCellConflictAsync(Func<Task> action)

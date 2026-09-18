@@ -68,6 +68,10 @@ else
                     <tr>
                         <td class="text-start ps-3 fw-semibold text-truncate" style="max-width: 220px;">
                             @row.TeamName
+                            @if (row.IsNonCompetitive)
+                            {
+                                <span class="badge bg-secondary ms-1" title="Out of Competition">AK</span>
+                            }
                         </td>
                         <td class="text-muted small">@row.RoundRank</td>
                         <td class="fw-bold text-success">@row.RoundScore</td>

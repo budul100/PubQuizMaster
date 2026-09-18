@@ -18,6 +18,7 @@ namespace PubQuizMaster.Services.Event
         #region Private Fields
 
         private const string PresentationContentType = "application/vnd.openxmlformats-officedocument.presentationml.presentation";
+        private const string QuestionShapeName = "Question";
         private const string SlideMarkerPrefix = "#";
         private const string SlideshowContentType = "application/vnd.openxmlformats-officedocument.presentationml.slideshow";
 
@@ -98,10 +99,14 @@ namespace PubQuizMaster.Services.Event
 
             var isFirstRound = rounds[0].Id == round.Id;
 
-            // 3. Question slides (A1: Basis is roundTeamIds.Length)
+            // 3. Question slides: "x correct" counts against the round teams, not the recorded rows.
+            //    Explicit slide names win, otherwise the questions map to the Question slides in deck order.
+            var questionSlides = GetQuestionSlides(slides);
+
             for (var qi = 0; qi < round.QuestionCount; qi++)
             {
-                var slidePart = FindSlide(slides, $"Answer{qi + 1}");
+                var slidePart = FindSlide(slides, $"Answer{qi + 1}")
+                    ?? (qi < questionSlides.Length ? questionSlides[qi] : null);
 
                 if (slidePart != null)
                 {
@@ -120,7 +125,7 @@ namespace PubQuizMaster.Services.Event
             var roundPlacesPart = FindSlide(slides, "RoundPlaces");
             var roundFirstPart = FindSlide(slides, "RoundFirst");
 
-            if (roundRanks.Length > 0 && !(isFirstRound && isFinalRound))
+            if (roundRanks.Length > 0)
             {
                 var placesEntries = roundRanks.Where(e => e.Rank > 1).ToArray();
 
@@ -138,7 +143,7 @@ namespace PubQuizMaster.Services.Event
                 if (roundFirstPart != null)
                 {
                     var firstEntries = roundRanks.Where(e => e.Rank == 1).ToArray();
-                    // Regular winners first, AK winners at the end (A3)
+                    // Regular winners first, non-competitive winners at the end
                     var firstTeams = firstEntries
                         .OrderBy(e => participantLookup.TryGetValue(e.Team.Id, out var p) && p.IsNonCompetitive ? 1 : 0)
                         .Select(e => e.Team)
@@ -225,6 +230,37 @@ namespace PubQuizMaster.Services.Event
                 .Select(r => new RankedTeam(r.Item.Team, r.Item.Score, r.Rank))];
         }
 
+        /// <summary>
+        /// Run formatting of the paragraph's first run, or of its endParaRPr when the paragraph is empty.
+        /// Both elements share the CT_TextCharacterProperties shape, so attributes and children carry over.
+        /// Placeholders that were never typed into only ever carry endParaRPr.
+        /// </summary>
+        private static Drawing.RunProperties? CloneRunProperties(Drawing.Paragraph? paragraph)
+        {
+            if (paragraph?.Elements<Drawing.Run>().FirstOrDefault()?.RunProperties?.CloneNode(true)
+                is Drawing.RunProperties fromRun)
+            {
+                return fromRun;
+            }
+
+            var endProperties = paragraph?.Elements<Drawing.EndParagraphRunProperties>().FirstOrDefault();
+            if (endProperties == null) return null;
+
+            var fromEnd = new Drawing.RunProperties();
+
+            foreach (var attribute in endProperties.GetAttributes())
+            {
+                fromEnd.SetAttribute(attribute);
+            }
+
+            foreach (var child in endProperties.ChildElements)
+            {
+                fromEnd.AppendChild(child.CloneNode(true));
+            }
+
+            return fromEnd;
+        }
+
         private static void FillPlacesSlide(SlidePart sp, RankedTeam[] entries, decimal average)
         {
             if (entries.Length == 0) return;
@@ -309,6 +345,15 @@ namespace PubQuizMaster.Services.Event
             return $"{formatted} Punkte";
         }
 
+        /// <summary>
+        /// Question slides in deck order, recognized by their Question shape.
+        /// Standings and podium slides never carry one, so the two sets cannot overlap.
+        /// </summary>
+        private static SlidePart[] GetQuestionSlides(SlidePart[] slides)
+        {
+            return [.. slides.Where(sp => HasShape(sp, QuestionShapeName))];
+        }
+
         private static SlidePart[] GetRoundSlides(PresentationPart presoPart, string roundName)
         {
             var presentation = presoPart.Presentation
@@ -334,6 +379,12 @@ namespace PubQuizMaster.Services.Event
                 .Where(s => s.RelationshipId?.Value != null)
                 .Select(s => presoPart.GetPartById(s.RelationshipId!.Value!))
                 .OfType<SlidePart>()];
+        }
+
+        private static bool HasShape(SlidePart sp, string shapeName)
+        {
+            return sp.Slide?.Descendants<Shape>()
+                .Any(s => s.NonVisualShapeProperties?.NonVisualDrawingProperties?.Name?.Value == shapeName) == true;
         }
 
         private static void HideSlide(SlidePart[] slides, string name)
@@ -373,7 +424,7 @@ namespace PubQuizMaster.Services.Event
 
             var txBody = shape.TextBody;
             var firstPara = txBody.Elements<Drawing.Paragraph>().FirstOrDefault();
-            var firstRun = firstPara?.Elements<Drawing.Run>().FirstOrDefault();
+            var runProperties = CloneRunProperties(firstPara);
 
             txBody.RemoveAllChildren<Drawing.Paragraph>();
 
@@ -386,7 +437,7 @@ namespace PubQuizMaster.Services.Event
                 }
 
                 var run = new Drawing.Run();
-                if (firstRun?.RunProperties?.CloneNode(true) is Drawing.RunProperties rPr)
+                if (runProperties?.CloneNode(true) is Drawing.RunProperties rPr)
                 {
                     run.Append(rPr);
                 }

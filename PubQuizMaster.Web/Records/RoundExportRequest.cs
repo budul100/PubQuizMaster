@@ -1,13 +1,11 @@
 using Microsoft.AspNetCore.Components.Forms;
-using PubQuizMaster.Core.Enums;
 
 namespace PubQuizMaster.Web.Records
 {
     /// <summary>
-    /// Export request raised by the round list.
+    /// Export request raised by the round list. The presentation mode follows from the round itself.
     /// </summary>
     public record RoundExportRequest(
         Guid RoundId,
-        PresentationMode Mode,
         IBrowserFile SourceFile);
 }

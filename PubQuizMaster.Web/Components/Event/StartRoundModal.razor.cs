@@ -26,7 +26,7 @@ namespace PubQuizMaster.Web.Components.Event
 
         [Parameter] public EventCallback OnCanceled { get; set; }
 
-        [Parameter] public EventCallback<(RoundRequest Request, bool IsFinal)> OnStartRound { get; set; }
+        [Parameter] public EventCallback<RoundRequest> OnStartRound { get; set; }
 
         [Parameter] public Quiz? Quiz { get; set; }
 
@@ -179,9 +179,10 @@ namespace PubQuizMaster.Web.Components.Event
                     Quiz.Id,
                     roundName,
                     questionCount,
+                    isFinalRound,
                     [.. assignments.Select(a => a.ToRequest())]);
 
-                await OnStartRound.InvokeAsync((request, isFinalRound));
+                await OnStartRound.InvokeAsync(request);
             }
             finally
             {

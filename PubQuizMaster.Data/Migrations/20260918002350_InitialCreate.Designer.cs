@@ -13,8 +13,8 @@ using PubQuizMaster.Data;
 namespace PubQuizMaster.Data.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20260917231047_AddRoundFinalAndParticipantStatus")]
-    partial class AddRoundFinalAndParticipantStatus
+    [Migration("20260918002350_InitialCreate")]
+    partial class InitialCreate
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)

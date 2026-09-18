@@ -14,6 +14,7 @@ namespace PubQuizMaster.Core.Records.Event
         int NonCompetitiveCount,
         int RoundCount,
         int FinalizedRoundCount,
+        Guid? FinalRoundId,
         int AssignedTeamSlots,
         int AnswerCount,
         DateTime? LastAnswerAt);

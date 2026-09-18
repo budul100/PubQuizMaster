@@ -31,56 +31,19 @@ namespace PubQuizMaster.Web.Services
 
         #region Public Methods
 
-        public async Task DownloadAsync(Quiz quiz, Guid roundId, PresentationMode mode,
-            IBrowserFile sourceFile, CancellationToken ct = default)
+        public async Task DownloadAsync(Quiz quiz, Guid roundId, IBrowserFile sourceFile,
+            CancellationToken ct = default)
         {
-            var maxFileSize = GetMaxFileSize();
-            if (sourceFile.Size > maxFileSize)
+            var round = quiz.Rounds.FirstOrDefault(r => r.Id == roundId);
+
+            if (round == null)
             {
-                toastService.ShowError($"'{sourceFile.Name}' exceeds the limit of {maxFileSize / 1024 / 1024} MB.");
+                toastService.ShowError("Round not found.");
                 return;
             }
 
-            try
-            {
-                var round = quiz.Rounds.FirstOrDefault(r => r.Id == roundId)
-                    ?? throw new InvalidOperationException("Round not found.");
-
-                using var document = new MemoryStream();
-                await using (var upload = sourceFile.OpenReadStream(maxFileSize, ct))
-                {
-                    await upload.CopyToAsync(document, ct);
-                }
-
-                var format = ExportService.FillPresentation(quiz, roundId, mode, document);
-                var fileName = CreateFileName(sourceFile.Name, format.Extension);
-
-                using var streamReference = new DotNetStreamReference(new MemoryStream(document.ToArray()));
-                await js.InvokeVoidAsync("downloadFileFromStream", ct, fileName, format.ContentType, streamReference);
-
-                toastService.ShowSuccess($"Presentation '{fileName}' downloaded.");
-            }
-            catch (OperationCanceledException)
-            {
-            }
-            catch (JSDisconnectedException)
-            {
-            }
-            catch (JSException ex)
-            {
-                logger.LogError(ex, "Browser download failed for round {RoundId}.", roundId);
-                toastService.ShowError("Download failed in the browser. Please reload the page (Ctrl+F5).");
-            }
-            catch (Exception ex) when (ex is FileFormatException or InvalidDataException or OpenXmlPackageException)
-            {
-                logger.LogWarning(ex, "'{FileName}' is not a valid presentation.", sourceFile.Name);
-                toastService.ShowError($"'{sourceFile.Name}' is not a valid PowerPoint file.");
-            }
-            catch (Exception ex)
-            {
-                logger.LogError(ex, "Presentation export failed for round {RoundId}.", roundId);
-                toastService.ShowError($"Export failed: {ex.Message}");
-            }
+            var mode = round.IsFinal ? PresentationMode.Final : PresentationMode.Round;
+            await DownloadCoreAsync(quiz, round, mode, sourceFile, ct);
         }
 
         public async Task DownloadFinalAsync(Guid quizId, IBrowserFile sourceFile, CancellationToken ct = default)
@@ -124,7 +87,8 @@ namespace PubQuizMaster.Web.Services
                 return;
             }
 
-            await DownloadAsync(quiz, finalRound.Id, PresentationMode.Final, sourceFile, ct);
+            // The fallback round is not marked final, the closing slides are still wanted here
+            await DownloadCoreAsync(quiz, finalRound, PresentationMode.Final, sourceFile, ct);
         }
 
         #endregion Public Methods
@@ -151,6 +115,55 @@ namespace PubQuizMaster.Web.Services
 
             var result = new string(chars);
             return string.IsNullOrEmpty(result) ? "Presentation" : result;
+        }
+
+        private async Task DownloadCoreAsync(Quiz quiz, Round round, PresentationMode mode,
+                    IBrowserFile sourceFile, CancellationToken ct)
+        {
+            var maxFileSize = GetMaxFileSize();
+            if (sourceFile.Size > maxFileSize)
+            {
+                toastService.ShowError($"'{sourceFile.Name}' exceeds the limit of {maxFileSize / 1024 / 1024} MB.");
+                return;
+            }
+
+            try
+            {
+                using var document = new MemoryStream();
+                await using (var upload = sourceFile.OpenReadStream(maxFileSize, ct))
+                {
+                    await upload.CopyToAsync(document, ct);
+                }
+
+                var format = ExportService.FillPresentation(quiz, round.Id, mode, document);
+                var fileName = CreateFileName(sourceFile.Name, format.Extension);
+
+                using var streamReference = new DotNetStreamReference(new MemoryStream(document.ToArray()));
+                await js.InvokeVoidAsync("downloadFileFromStream", ct, fileName, format.ContentType, streamReference);
+
+                toastService.ShowSuccess($"Presentation '{fileName}' downloaded.");
+            }
+            catch (OperationCanceledException)
+            {
+            }
+            catch (JSDisconnectedException)
+            {
+            }
+            catch (JSException ex)
+            {
+                logger.LogError(ex, "Browser download failed for round {RoundId}.", round.Id);
+                toastService.ShowError("Download failed in the browser. Please reload the page (Ctrl+F5).");
+            }
+            catch (Exception ex) when (ex is FileFormatException or InvalidDataException or OpenXmlPackageException)
+            {
+                logger.LogWarning(ex, "'{FileName}' is not a valid presentation.", sourceFile.Name);
+                toastService.ShowError($"'{sourceFile.Name}' is not a valid PowerPoint file.");
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Presentation export failed for round {RoundId}.", round.Id);
+                toastService.ShowError($"Export failed: {ex.Message}");
+            }
         }
 
         private long GetMaxFileSize()

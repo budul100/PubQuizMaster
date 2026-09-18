@@ -7,5 +7,6 @@ namespace PubQuizMaster.Core.Records.Event
         Guid QuizNightId,
         string RoundName,
         int QuestionCount,
+        bool IsFinal,
         List<AssignmentRequest> Assignments);
 }

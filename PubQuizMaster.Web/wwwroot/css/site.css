@@ -20,7 +20,7 @@
     }
 
 /* ==========================================================================
-   Responsive Layout & Sidebar (A12)
+   Responsive Layout & Sidebar
    ========================================================================== */
 .page {
     position: relative;
@@ -90,7 +90,9 @@ main {
         background-color: #0d6efd;
     }
 
-/* Matrix Styles (zentralisiert aus Matrix.razor) */
+/* Matrix styles, moved here from the component-level <style> block in Matrix.razor.
+   Scoped CSS is not an option: PubQuizMaster.Web.styles.css is not linked in _Host.cshtml. */
+
 .matrix-table th,
 .matrix-table td {
     vertical-align: middle;

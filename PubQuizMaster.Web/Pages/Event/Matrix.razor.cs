@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Components;
 using PubQuizMaster.Core.Models.Event;
 using PubQuizMaster.Core.Models.Player;
+using PubQuizMaster.Core.Records.Event;
 using PubQuizMaster.Core.Scoring;
 using PubQuizMaster.Web.Records;
 
@@ -18,7 +19,7 @@ namespace PubQuizMaster.Web.Pages.Event
         private Dictionary<Guid, decimal> priorScores = [];
         private Round? round;
         private MatrixRow[] rows = [];
-        private Team[] teams = [];
+        private MatrixTeam[] teams = [];
 
         #endregion Private Fields
 
@@ -34,6 +35,8 @@ namespace PubQuizMaster.Web.Pages.Event
         {
             SessionService.OnAnswersChanged -= HandleAnswersChanged;
             saveLock.Dispose();
+
+            GC.SuppressFinalize(this);
         }
 
         #endregion Public Methods
@@ -43,7 +46,7 @@ namespace PubQuizMaster.Web.Pages.Event
         protected override async Task OnInitializedAsync()
         {
             SessionService.OnAnswersChanged += HandleAnswersChanged;
-            await LoadMatrixDataAsync();
+            await LoadMatrixDataAsync(showSpinner: true);
         }
 
         #endregion Protected Methods
@@ -52,10 +55,10 @@ namespace PubQuizMaster.Web.Pages.Event
 
         private static MatrixRow[] AssignRanks(MatrixRow[] source)
         {
-            var roundRanks = CompetitionRanking.Rank(source, r => r.RoundScore)
+            var roundRanks = CompetitionRanking.Rank(source, r => r.RoundScore, r => r.IsNonCompetitive)
                 .ToDictionary(x => x.Item.TeamId, x => x.Rank);
 
-            var overallRanks = CompetitionRanking.Rank(source, r => r.OverallScore)
+            var overallRanks = CompetitionRanking.Rank(source, r => r.OverallScore, r => r.IsNonCompetitive)
                 .ToDictionary(x => x.Item.TeamId, x => x.Rank);
 
             return source
@@ -70,16 +73,22 @@ namespace PubQuizMaster.Web.Pages.Event
 
         private void HandleAnswersChanged()
         {
+            // Our own save already updated the local state, reloading would only cause flicker
+            if (saveLock.CurrentCount == 0) return;
+
             _ = InvokeAsync(async () =>
             {
-                await LoadMatrixDataAsync();
+                await LoadMatrixDataAsync(showSpinner: false);
                 StateHasChanged();
             });
         }
 
-        private async Task LoadMatrixDataAsync()
+        private async Task LoadMatrixDataAsync(bool showSpinner)
         {
-            isLoading = true;
+            if (showSpinner)
+            {
+                isLoading = true;
+            }
 
             try
             {
@@ -125,7 +134,7 @@ namespace PubQuizMaster.Web.Pages.Event
 
                 for (var q = 0; q < round.QuestionCount; q++)
                 {
-                    var isCorrect = answersLookup.GetValueOrDefault((team.Id, q), false);
+                    var isCorrect = answersLookup.GetValueOrDefault((team.TeamId, q), false);
                     teamAnswers[q] = isCorrect;
 
                     if (isCorrect)
@@ -135,9 +144,10 @@ namespace PubQuizMaster.Web.Pages.Event
                 }
 
                 var roundScore = teamAnswers.Count(a => a);
-                var overallScore = priorScores.GetValueOrDefault(team.Id) + roundScore;
+                var overallScore = priorScores.GetValueOrDefault(team.TeamId) + roundScore;
 
-                unranked[teamIndex] = new MatrixRow(team.Id, team.Name, teamAnswers, roundScore, overallScore);
+                unranked[teamIndex] = new MatrixRow(
+                    team.TeamId, team.Name, team.IsNonCompetitive, teamAnswers, roundScore, overallScore);
             }
 
             rows = AssignRanks(unranked);

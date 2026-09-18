@@ -23,13 +23,15 @@ namespace PubQuizMaster.Web.Pages
         private bool isReloading;
         private QuizFingerprint? lastFingerprint;
         private PeriodicTimer? pollTimer;
+        private Round? roundToDelete;
         private bool showCompleteModal;
         private bool showDeleteRoundModal;
+        private bool showDeleteTeamModal;
         private bool showEditModal;
         private bool showSetupModal;
-        private Round? roundToDelete;
         private string? startRoundError;
         private TeamStanding[] teamStandings = [];
+        private TeamStanding? teamToDelete;
         private int ticksSinceFullReload;
 
         #endregion Private Fields
@@ -196,7 +198,7 @@ namespace PubQuizMaster.Web.Pages
 
             try
             {
-                await PresentationDownloadService.DownloadAsync(quiz, request.RoundId, request.Mode, request.SourceFile, cts.Token);
+                await PresentationDownloadService.DownloadAsync(quiz, request.RoundId, request.SourceFile, cts.Token);
             }
             finally
             {
@@ -221,7 +223,7 @@ namespace PubQuizMaster.Web.Pages
 
                 await LoadDashboardStateAsync();
 
-                // Z4: Direkt Quiz-Abschluss anbieten, wenn Final-Runde abgeschlossen wurde
+                // A finalized final round usually ends the night, so offer to complete it right awayss
                 if (wasFinal)
                 {
                     showCompleteModal = true;
@@ -281,6 +283,29 @@ namespace PubQuizMaster.Web.Pages
                     ToastService.ShowError(ex.Message);
                 }
             });
+        }
+
+        private async Task HandleDeleteTeamConfirmedAsync()
+        {
+            if (activeNight == null || teamToDelete == null) return;
+
+            var teamId = teamToDelete.TeamId;
+            var teamName = teamToDelete.TeamName;
+
+            showDeleteTeamModal = false;
+            teamToDelete = null;
+
+            try
+            {
+                await LiveQuizService.RemoveTeamAsync(activeNight.Id, teamId);
+                SessionService.NotifyRoundChanged();
+                ToastService.ShowSuccess($"Team '{teamName}' removed from quiz night.");
+                await LoadDashboardStateAsync();
+            }
+            catch (Exception ex)
+            {
+                ToastService.ShowError(ex.Message);
+            }
         }
 
         private Task HandleSelectQuiz(Guid quizId)
@@ -359,27 +384,17 @@ namespace PubQuizMaster.Web.Pages
             }
         }
 
-        private async Task PromptDeleteTeam(Guid teamId)
-        {
-            if (activeNight == null) return;
-            try
-            {
-                await LiveQuizService.RemoveTeamAsync(activeNight.Id, teamId);
-                SessionService.NotifyRoundChanged();
-                ToastService.ShowSuccess("Team removed from quiz night.");
-                await LoadDashboardStateAsync();
-            }
-            catch (Exception ex)
-            {
-                ToastService.ShowError(ex.Message);
-            }
-        }
-
         private Task PromptDeleteRound(Round round)
         {
             roundToDelete = round;
             showDeleteRoundModal = true;
             return Task.CompletedTask;
+        }
+
+        private void PromptDeleteTeam(Guid teamId)
+        {
+            teamToDelete = teamStandings.FirstOrDefault(s => s.TeamId == teamId);
+            showDeleteTeamModal = teamToDelete != null;
         }
 
         private Task ReloadAsync() => InvokeAsync(async () =>
@@ -402,12 +417,12 @@ namespace PubQuizMaster.Web.Pages
             }
         });
 
-        private async Task StartRoundConfirmedAsync((RoundRequest Request, bool IsFinal) payload)
+        private async Task StartRoundConfirmedAsync(RoundRequest request)
         {
             isProcessing = true;
             try
             {
-                var newRound = await LiveQuizService.StartRoundAsync(payload.Request, payload.IsFinal);
+                var newRound = await LiveQuizService.StartRoundAsync(request);
                 SessionService.NotifyRoundChanged();
 
                 ToastService.ShowSuccess($"{newRound.Name} started.");

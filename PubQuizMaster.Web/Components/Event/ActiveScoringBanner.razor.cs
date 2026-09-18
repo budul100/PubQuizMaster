@@ -19,7 +19,8 @@ namespace PubQuizMaster.Web.Components.Event
 
         #region Private Properties
 
-        private int TeamCount => Round.Assignments.Sum(a => a.TeamIds.Count);
+        /// <summary>Teams of the round, including late registrations without a scorer assignment.</summary>
+        private int TeamCount => Round.GetTeamIds().Length;
 
         #endregion Private Properties
 

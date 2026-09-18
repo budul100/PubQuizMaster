@@ -6,6 +6,7 @@ namespace PubQuizMaster.Web.Records
     public record MatrixRow(
         Guid TeamId,
         string TeamName,
+        bool IsNonCompetitive,
         bool[] Answers,
         int RoundScore,
         decimal OverallScore,

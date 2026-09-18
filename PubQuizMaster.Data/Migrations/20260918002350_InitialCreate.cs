@@ -48,6 +48,7 @@ namespace PubQuizMaster.Data.Migrations
                 {
                     Id = table.Column<Guid>(type: "uuid", nullable: false),
                     CreatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
+                    IsFinal = table.Column<bool>(type: "boolean", nullable: false),
                     IsFinalized = table.Column<bool>(type: "boolean", nullable: false),
                     Name = table.Column<string>(type: "text", nullable: false),
                     QuestionCount = table.Column<int>(type: "integer", nullable: false),
@@ -70,6 +71,8 @@ namespace PubQuizMaster.Data.Migrations
                 {
                     QuizId = table.Column<Guid>(type: "uuid", nullable: false),
                     TeamId = table.Column<Guid>(type: "uuid", nullable: false),
+                    IsActive = table.Column<bool>(type: "boolean", nullable: false),
+                    IsNonCompetitive = table.Column<bool>(type: "boolean", nullable: false),
                     SheetOrder = table.Column<int>(type: "integer", nullable: false)
                 },
                 constraints: table =>

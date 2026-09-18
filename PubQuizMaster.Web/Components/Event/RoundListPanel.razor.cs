@@ -1,6 +1,5 @@
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Forms;
-using PubQuizMaster.Core.Enums;
 using PubQuizMaster.Core.Models.Event;
 using PubQuizMaster.Web.Records;
 
@@ -38,8 +37,7 @@ namespace PubQuizMaster.Web.Components.Event
         {
             try
             {
-                var mode = round.IsFinal ? PresentationMode.Final : PresentationMode.Round;
-                await OnExportPptx.InvokeAsync(new RoundExportRequest(round.Id, mode, e.File));
+                await OnExportPptx.InvokeAsync(new RoundExportRequest(round.Id, e.File));
             }
             finally
             {

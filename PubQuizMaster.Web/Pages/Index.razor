@@ -19,7 +19,7 @@
 }
 else if (activeNight == null)
 {
-    <!-- Keine aktive Runde: Quiz-Nights-Verwaltung direkt auf der Startseite (A14) -->
+    <!-- No active night: the quiz list takes over the start page -->
     <QuizListPanel QuizNights="@allQuizzes"
                    HasActiveQuiz="@false"
                    IsLoading="@false"
@@ -95,8 +95,7 @@ else
 
 <ConfirmModal IsOpen="@showCompleteModal"
               Title="Complete Quiz Night"
-              Message="@($"Complete \"{activeNight?.Title}\"? Results will be added to the all-time standings and no further rounds can be started. The final presentation can still be exported from the Quiz Nights page.")"
-              ConfirmText="Complete"
+              Message="@($"Complete \"{activeNight?.Title}\"? Results will be added to the all-time standings and no further rounds can be started. The final presentation can still be exported from the quiz night list.")" ConfirmText="Complete"
               ConfirmButtonClass="btn-success"
               HeaderClass="bg-success"
               OnConfirmed="CompleteQuizAsync"
@@ -110,3 +109,12 @@ else
               HeaderClass="bg-danger"
               OnConfirmed="HandleDeleteRoundConfirmedAsync"
               OnCanceled="() => showDeleteRoundModal = false" />
+
+<ConfirmModal IsOpen="@showDeleteTeamModal"
+              Title="Delete Team"
+              Message="@($"Remove \"{teamToDelete?.TeamName}\" from this quiz night? The team has no recorded answers, so nothing is lost.")"
+              ConfirmText="Delete"
+              ConfirmButtonClass="btn-danger"
+              HeaderClass="bg-danger"
+              OnConfirmed="HandleDeleteTeamConfirmedAsync"
+              OnCanceled="() => showDeleteTeamModal = false" />
