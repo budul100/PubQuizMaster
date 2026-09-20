@@ -1,5 +1,5 @@
-using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.EntityFrameworkCore;
 using PubQuizMaster.Data;
 using PubQuizMaster.Services;
@@ -9,6 +9,7 @@ using PubQuizMaster.Services.Import;
 using PubQuizMaster.Services.Player;
 using PubQuizMaster.Web.Security;
 using PubQuizMaster.Web.Services;
+using System.Threading.RateLimiting;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -18,6 +19,17 @@ var connectionString = builder.Configuration.GetConnectionString("Default")
 
 builder.Services.AddDbContextFactory<AppDbContext>(options =>
     options.UseNpgsql(connectionString));
+
+// ── Data Protection ──────────────────────────────────────────────
+// Without a persisted key ring the auth cookie is invalidated on every container restart
+var keyPath = builder.Configuration["DataProtection:KeyPath"];
+if (!string.IsNullOrWhiteSpace(keyPath))
+{
+    builder.Services
+        .AddDataProtection()
+        .SetApplicationName("PubQuizMaster")
+        .PersistKeysToFileSystem(new DirectoryInfo(keyPath));
+}
 
 // ── Authentication (single admin, cookie based) ──────────────────
 // Fail closed: the app does not start without an admin password
@@ -88,6 +100,14 @@ builder.Services.AddServerSideBlazor(options =>
 });
 
 var app = builder.Build();
+
+if (builder.Configuration.GetValue<bool>("Database:MigrateOnStartup"))
+{
+    using var scope = app.Services.CreateScope();
+    var factory = scope.ServiceProvider.GetRequiredService<IDbContextFactory<AppDbContext>>();
+    await using var db = await factory.CreateDbContextAsync();
+    await db.Database.MigrateAsync();
+}
 
 // Must run first, everything after it relies on the real client address and scheme
 if (reverseProxyEnabled)

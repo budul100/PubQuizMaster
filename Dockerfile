@@ -26,6 +26,8 @@ WORKDIR /app
 
 COPY --from=build /app/publish .
 
+RUN mkdir -p /data/keys && chown -R $APP_UID:$APP_UID /data/keys
+
 # Non-root user shipped with the aspnet image
 USER $APP_UID
 
