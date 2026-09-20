@@ -23,7 +23,7 @@
             @if (currentPhase == ScorerPagePhase.Scoring)
             {
                 <button class="btn btn-outline-light btn-sm d-flex align-items-center gap-1" @onclick="() => SetPhase(ScorerPagePhase.Overview)">
-                    <span class="mif-list" aria-hidden="true"></span> Overview
+                    <span class="mif-list-bulleted" aria-hidden="true"></span> Overview
                 </button>
             }
             else if (currentPhase == ScorerPagePhase.Overview)
