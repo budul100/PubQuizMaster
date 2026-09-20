@@ -4,9 +4,8 @@ using PubQuizMaster.Core.Models.Standings;
 using PubQuizMaster.Core.Records.Standings;
 using PubQuizMaster.Data;
 using PubQuizMaster.Data.Extensions;
-using PubQuizMaster.Services.Event;
 
-namespace PubQuizMaster.Services.Player
+namespace PubQuizMaster.Services.Standings
 {
     /// <summary>
     /// Team registry: create, rename and merge teams. Names are unique by their normalized form.
@@ -138,7 +137,7 @@ namespace PubQuizMaster.Services.Player
             await db.SaveChangesAsync(ct);
 
             // Totals of completed live nights follow the merged answers
-            await LiveResultBuilder.RebuildAsync(db, sourceQuizIds, ct);
+            await ResultService.RebuildAsync(db, sourceQuizIds, ct);
 
             // Deleted after the moves are saved. Removing the tracked team before would let EF
             // cascade to dependents whose changed TeamId has not been detected yet.
@@ -235,8 +234,8 @@ namespace PubQuizMaster.Services.Player
             return (moved, dropped);
         }
 
-        private static async Task MergeParticipantsAsync(AppDbContext db, Guid sourceTeamId, Guid targetTeamId,
-            CancellationToken ct)
+        private static async Task MergeParticipantsAsync(AppDbContext db, Guid sourceTeamId,
+            Guid targetTeamId, CancellationToken ct)
         {
             var participations = await db.Participants
                 .Where(p => p.TeamId == sourceTeamId)
@@ -264,8 +263,8 @@ namespace PubQuizMaster.Services.Player
             }
         }
 
-        private static async Task<int> MergeResultsAsync(AppDbContext db, Guid sourceTeamId, Guid targetTeamId,
-            CancellationToken ct)
+        private static async Task<int> MergeResultsAsync(AppDbContext db, Guid sourceTeamId,
+            Guid targetTeamId, CancellationToken ct)
         {
             // Only legacy results, live results are rebuilt from the merged answers
             var sourceResults = await db.Scores
@@ -295,8 +294,8 @@ namespace PubQuizMaster.Services.Player
             return dropped;
         }
 
-        private static async Task MergeScorersAsync(AppDbContext db, Guid sourceTeamId, Guid targetTeamId,
-            CancellationToken ct)
+        private static async Task MergeScorersAsync(AppDbContext db, Guid sourceTeamId,
+            Guid targetTeamId, CancellationToken ct)
         {
             var scorers = await db.Scorers
                 .Where(s => s.TeamIds.Contains(sourceTeamId))

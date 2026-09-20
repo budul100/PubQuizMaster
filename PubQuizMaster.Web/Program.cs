@@ -6,7 +6,7 @@ using PubQuizMaster.Services;
 using PubQuizMaster.Services.Common;
 using PubQuizMaster.Services.Event;
 using PubQuizMaster.Services.Import;
-using PubQuizMaster.Services.Player;
+using PubQuizMaster.Services.Standings;
 using PubQuizMaster.Web.Security;
 using PubQuizMaster.Web.Services;
 using System.Threading.RateLimiting;

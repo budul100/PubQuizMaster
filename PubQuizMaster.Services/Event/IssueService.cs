@@ -1,12 +1,12 @@
 using PubQuizMaster.Core.Records.Event;
 
-namespace PubQuizMaster.Services.Event
+namespace PubQuizMaster.Core.Models.Event
 {
     /// <summary>
     /// Collects template problems while ExportService fills a presentation.
     /// Keeps the order of discovery (deck order) and ignores duplicates.
     /// </summary>
-    internal sealed class PresentationIssues
+    public sealed class IssueService
     {
         #region Private Fields
 
@@ -20,17 +20,23 @@ namespace PubQuizMaster.Services.Event
 
         public void AddMissingShape(string slideName, string shapeName)
         {
-            AddUnique(missingShapes, $"{slideName}/{shapeName}");
+            AddUnique(
+                target: missingShapes,
+                value: $"{slideName}/{shapeName}");
         }
 
         public void AddMissingSlide(string slideName)
         {
-            AddUnique(missingSlides, slideName);
+            AddUnique(
+                target: missingSlides,
+                value: slideName);
         }
 
         public void AddWarning(string message)
         {
-            AddUnique(warnings, message);
+            AddUnique(
+                target: warnings,
+                value: message);
         }
 
         public PresentationResult ToResult(PresentationFormat format)

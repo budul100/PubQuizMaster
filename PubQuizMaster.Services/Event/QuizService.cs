@@ -1,11 +1,12 @@
 using Microsoft.EntityFrameworkCore;
+using PubQuizMaster.Core.Extensions;
 using PubQuizMaster.Core.Models.Content;
 using PubQuizMaster.Core.Models.Event;
 using PubQuizMaster.Core.Models.Standings;
 using PubQuizMaster.Core.Records.Event;
 using PubQuizMaster.Data;
 using PubQuizMaster.Data.Extensions;
-using PubQuizMaster.Services.Player;
+using PubQuizMaster.Services.Standings;
 
 namespace PubQuizMaster.Services.Event
 {
@@ -20,7 +21,7 @@ namespace PubQuizMaster.Services.Event
         #region Public Methods
 
         public async Task<TeamRegistration> AddTeamAsync(Guid quizNightId, string teamName,
-                     CancellationToken ct = default)
+                         CancellationToken ct = default)
         {
             await using var db = await dbFactory.CreateDbContextAsync(ct);
 
@@ -98,12 +99,12 @@ namespace PubQuizMaster.Services.Event
             quiz.IsCompleted = true;
             await db.SaveChangesAsync(ct);
 
-            await LiveResultBuilder.RebuildAsync(db, [quizId], ct);
+            await ResultService.RebuildAsync(db, [quizId], ct);
             await transaction.CommitAsync(ct);
         }
 
         public async Task<Quiz> CreateQuizAsync(string title, DateOnly date, string? description,
-                     CancellationToken ct = default)
+                                CancellationToken ct = default)
         {
             await using var db = await dbFactory.CreateDbContextAsync(ct);
 
@@ -345,7 +346,7 @@ namespace PubQuizMaster.Services.Event
         }
 
         public async Task RecordAnswerAsync(Guid roundId, Guid teamId, int questionIndex, bool isCorrect,
-                     string scorerId, CancellationToken ct = default)
+                              string scorerId, CancellationToken ct = default)
         {
             await RetryOnAnswerCellConflictAsync(
                 () => RecordAnswerCoreAsync(roundId, teamId, questionIndex, isCorrect, scorerId, ct));
@@ -475,7 +476,7 @@ namespace PubQuizMaster.Services.Event
                     "Another quiz night is active. Complete it before reopening this one.", ex);
             }
 
-            await LiveResultBuilder.RebuildAsync(db, [quizId], ct);
+            await ResultService.RebuildAsync(db, [quizId], ct);
             await transaction.CommitAsync(ct);
         }
 
@@ -496,7 +497,7 @@ namespace PubQuizMaster.Services.Event
         }
 
         public async Task SetParticipantStatusAsync(Guid quizId, Guid teamId, bool isActive, bool isNonCompetitive,
-                     CancellationToken ct = default)
+                              CancellationToken ct = default)
         {
             await using var db = await dbFactory.CreateDbContextAsync(ct);
 
@@ -577,7 +578,7 @@ namespace PubQuizMaster.Services.Event
         }
 
         public async Task UpdateAnswersAsync(Guid roundId,
-                     Dictionary<(Guid TeamId, int QuestionIndex), bool> cellUpdates, CancellationToken ct = default)
+                              Dictionary<(Guid TeamId, int QuestionIndex), bool> cellUpdates, CancellationToken ct = default)
         {
             if (cellUpdates.Count == 0) return;
 
@@ -662,6 +663,7 @@ namespace PubQuizMaster.Services.Event
                 other.IsFinal = false;
             }
         }
+
 
         private static async Task RetryOnAnswerCellConflictAsync(Func<Task> action)
         {
@@ -881,7 +883,7 @@ namespace PubQuizMaster.Services.Event
 
             if (transaction != null)
             {
-                await LiveResultBuilder.RebuildAsync(db, [quiz.Id], ct);
+                await ResultService.RebuildAsync(db, [quiz.Id], ct);
                 await transaction.CommitAsync(ct);
             }
         }

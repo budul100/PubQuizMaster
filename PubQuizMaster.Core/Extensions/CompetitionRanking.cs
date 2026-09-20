@@ -1,4 +1,4 @@
-namespace PubQuizMaster.Core.Scoring
+namespace PubQuizMaster.Core.Extensions
 {
     /// <summary>
     /// Competition ranking: equal scores share a rank, the next rank skips accordingly (1, 1, 3).

@@ -1,15 +1,15 @@
 using Microsoft.EntityFrameworkCore;
+using PubQuizMaster.Core.Extensions;
 using PubQuizMaster.Core.Models.Standings;
-using PubQuizMaster.Core.Scoring;
 using PubQuizMaster.Data;
 
-namespace PubQuizMaster.Services.Event
+namespace PubQuizMaster.Services.Standings
 {
     /// <summary>
     /// Materializes the totals of completed live quiz nights as Result rows,
     /// so the all-time standings can be summed in SQL.
     /// </summary>
-    public static class LiveResultBuilder
+    public static class ResultService
     {
         #region Public Methods
 
@@ -56,10 +56,10 @@ namespace PubQuizMaster.Services.Event
                 .ToDictionary(g => g.Key, g => g.Sum(a => a.Value.GetScore()));
 
             var participants = await db.Participants
-                               .AsNoTracking()
-                               .Where(p => completedIds.Contains(p.QuizId))
-                               .Select(p => new { p.QuizId, p.TeamId, p.IsNonCompetitive })
-                               .ToArrayAsync(ct);
+                .AsNoTracking()
+                .Where(p => completedIds.Contains(p.QuizId))
+                .Select(p => new { p.QuizId, p.TeamId, p.IsNonCompetitive })
+                .ToArrayAsync(ct);
 
             var akLookup = participants.ToDictionary(p => (p.QuizId, p.TeamId), p => p.IsNonCompetitive);
 

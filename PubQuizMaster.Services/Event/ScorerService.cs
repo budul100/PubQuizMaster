@@ -66,11 +66,18 @@ namespace PubQuizMaster.Services.Event
         /// <summary>
         /// Stores the full live position of a scorer. Also acts as heartbeat.
         /// </summary>
-        public void ReportProgress(string scorerId, ScoringType phase, Guid? roundId, int questionIndex, int teamIndex)
+        public void ReportProgress(string scorerId, ScoringType phase, Guid? roundId,
+            int questionIndex, int teamIndex)
         {
             if (string.IsNullOrWhiteSpace(scorerId)) return;
 
-            statuses[scorerId.Trim()] = new ScorerStatus(DateTime.UtcNow, phase, roundId, questionIndex, teamIndex);
+            statuses[scorerId.Trim()] = new ScorerStatus(
+                LastSeenUtc: DateTime.UtcNow,
+                Phase: phase,
+                RoundId: roundId,
+                QuestionIndex: questionIndex,
+                TeamIndex: teamIndex);
+
             OnStatusChanged?.Invoke();
         }
 

@@ -11,7 +11,7 @@
 @implements IDisposable
 
 <PageTitle>PubQuizMaster</PageTitle>
-<SectionContent SectionName="@Constants.PageTitle">@(isLoading ? "Quiz" : activeNight != null ? "Live Quiz" : "Quiz Nights")</SectionContent>
+<SectionContent SectionName="@Constants.PageTitle">@(isLoading ? "Quiz" : activeNight != null ? "Live" : "Quizzes")</SectionContent>
 
 @if (isLoading)
 {
@@ -34,7 +34,7 @@ else
         <div>
             <div class="d-flex align-items-center gap-2">
                 <h3 class="mb-0 fw-bold d-flex align-items-center gap-2">
-                    <span class="mif-target text-danger" aria-hidden="true"></span> @activeNight.Title
+                    @activeNight.Title
                 </h3>
                 <button class="btn btn-outline-secondary btn-sm py-0 px-2"
                         title="Edit Quiz Details"
@@ -48,8 +48,8 @@ else
         <div class="d-flex gap-2">
             <button class="btn btn-outline-success btn-sm"
                     disabled="@(activeRound != null || isProcessing)"
-                    title="@(activeRound != null ? "Finalize the active round first" : "Complete quiz night")"
-                    aria-label="Complete quiz night"
+                    title="@(activeRound != null ? "Finalize the active round first" : "Complete quiz")"
+                    aria-label="Complete quiz"
                     @onclick="() => showCompleteModal = true">
                 <span class="mif-flag" aria-hidden="true"></span>
             </button>

@@ -1,11 +1,11 @@
 using System.Security.Cryptography;
 
-namespace PubQuizMaster.Services.Event
+namespace PubQuizMaster.Web.Helpers
 {
     /// <summary>
     /// Creates non-guessable scorer station identifiers used in scorer URLs.
     /// </summary>
-    public static class ScorerTokens
+    internal static class ScorerTokens
     {
         #region Private Fields
 
@@ -18,7 +18,9 @@ namespace PubQuizMaster.Services.Event
 
         #region Public Methods
 
-        public static string Create() => RandomNumberGenerator.GetString(Alphabet, TokenLength);
+        public static string Create() => RandomNumberGenerator.GetString(
+            choices: Alphabet,
+            length: TokenLength);
 
         #endregion Public Methods
     }

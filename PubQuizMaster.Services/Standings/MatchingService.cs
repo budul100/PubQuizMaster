@@ -13,8 +13,14 @@ namespace PubQuizMaster.Services
         public static string Normalize(string name)
         {
             if (string.IsNullOrWhiteSpace(name)) return string.Empty;
-            var clean = PunctuationRegex().Replace(name.Trim().ToLowerInvariant(), "");
-            return WhitespaceRegex().Replace(clean, " ").Trim();
+
+            var clean = PunctuationRegex().Replace(
+                input: name.Trim().ToLowerInvariant(),
+                replacement: "");
+
+            return WhitespaceRegex().Replace(
+                input: clean,
+                replacement: " ").Trim();
         }
 
         public async Task<List<TeamMatch>> FindSimilarTeamsAsync(string candidateName,
@@ -41,9 +47,16 @@ namespace PubQuizMaster.Services
                 var similarity = CalculateSimilarity(normalizedCandidate, target);
                 if (similarity >= minThreshold)
                 {
+                    var current = new Team
+                    {
+                        Id = team.Id,
+                        Name = team.Name,
+                        Normalized = target
+                    };
+
                     matches.Add(new TeamMatch(
-                        new Team { Id = team.Id, Name = team.Name, Normalized = target },
-                        similarity));
+                        Team: current,
+                        Similarity: similarity));
                 }
             }
 

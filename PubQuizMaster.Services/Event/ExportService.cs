@@ -3,11 +3,11 @@ using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Presentation;
 using PubQuizMaster.Core.Enums;
+using PubQuizMaster.Core.Extensions;
 using PubQuizMaster.Core.Models.Event;
 using PubQuizMaster.Core.Models.Standings;
 using PubQuizMaster.Core.Records.Event;
 using PubQuizMaster.Core.Records.Standings;
-using PubQuizMaster.Core.Scoring;
 using Drawing = DocumentFormat.OpenXml.Drawing;
 using P14 = DocumentFormat.OpenXml.Office2010.PowerPoint;
 
@@ -17,11 +17,26 @@ namespace PubQuizMaster.Services.Event
     {
         #region Private Fields
 
-        private const string PresentationContentType = "application/vnd.openxmlformats-officedocument.presentationml.presentation";
-        private const string QuestionShapeName = "Question";
-        private const string SlideMarkerPrefix = "#";
-        private const string SlideshowContentType = "application/vnd.openxmlformats-officedocument.presentationml.slideshow";
-        private const string TeamShapePrefix = "Team";
+        private const string ContentTypePresentation = "application/vnd.openxmlformats-officedocument.presentationml.presentation";
+        private const string ContentTypeSlideshow = "application/vnd.openxmlformats-officedocument.presentationml.slideshow";
+
+        private const string ShapeNameAverage = "Average";
+        private const string ShapeNamePoints = "Points";
+        private const string ShapeNamePositions = "Positions";
+        private const string ShapeNameQuestion = "Question";
+        private const string ShapeNameTeams = "Teams";
+        private const string ShapePrefixTeam = "Team";
+
+        private const string SlideNameAllFirst = "AllFirst";
+        private const string SlideNameAllPlacings = "AllPlacings";
+        private const string SlideNameAllSecond = "AllSecond";
+        private const string SlideNameAllThird = "AllThird";
+        private const string SlideNameGoodBye = "GoodBye";
+        private const string SlideNameRoundFirst = "RoundFirst";
+        private const string SlideNameRoundPlaces = "RoundPlaces";
+
+        private const string SlidePrefixAnswer = "Answer";
+        private const string SlidePrefixMarker = "#";
 
         // Slide texts are German, numbers must match regardless of the server culture
         private static readonly CultureInfo slideCulture = CultureInfo.GetCultureInfo("de-DE");
@@ -40,7 +55,9 @@ namespace PubQuizMaster.Services.Event
         {
             if (!document.CanSeek || !document.CanWrite)
             {
-                throw new ArgumentException("The document stream must be seekable and writable.", nameof(document));
+                throw new ArgumentException(
+                    message: "The document stream must be seekable and writable.",
+                    paramName: nameof(document));
             }
 
             var rounds = quizNight.Rounds.OrderBy(r => r.CreatedAt).ToArray();
@@ -64,8 +81,11 @@ namespace PubQuizMaster.Services.Event
             var presoPart = doc.PresentationPart
                 ?? throw new InvalidOperationException("Presentation has no presentation part.");
 
-            var slides = GetRoundSlides(presoPart, round.Name);
-            var issues = new PresentationIssues();
+            var slides = GetRoundSlides(
+                presoPart: presoPart,
+                name: round.Name);
+
+            var issues = new IssueService();
 
             var participantLookup = quizNight.ParticipatingTeams.ToDictionary(p => p.TeamId);
             var allTeams = quizNight.ParticipatingTeams.Select(pt => pt.Team).ToArray();
@@ -77,16 +97,14 @@ namespace PubQuizMaster.Services.Event
                 .Select(t => (
                     Team: t,
                     Score: round.Answers.Where(a => a.TeamId == t.Id).Sum(a => a.Value.GetScore()),
-                    IsNonCompetitive: participantLookup.TryGetValue(t.Id, out var p) && p.IsNonCompetitive))
-                .ToArray();
+                    IsNonCompetitive: participantLookup.TryGetValue(t.Id, out var p) && p.IsNonCompetitive)).ToArray();
 
             var roundRanks = CalculateRanks(roundScores);
 
             // 2. Calculate cumulative overall scores up to this round
             var completedRounds = rounds
                 .TakeWhile(r => r.Id != roundId)
-                .Append(round)
-                .ToArray();
+                .Append(round).ToArray();
 
             var totalScores = allTeams
                 .Select(t => (
@@ -95,8 +113,7 @@ namespace PubQuizMaster.Services.Event
                         .SelectMany(r => r.Answers)
                         .Where(a => a.TeamId == t.Id)
                         .Sum(a => a.Value.GetScore()),
-                    IsNonCompetitive: participantLookup.TryGetValue(t.Id, out var p) && p.IsNonCompetitive))
-                .ToArray();
+                    IsNonCompetitive: participantLookup.TryGetValue(t.Id, out var p) && p.IsNonCompetitive)).ToArray();
 
             var totalRanks = CalculateRanks(totalScores);
 
@@ -108,7 +125,7 @@ namespace PubQuizMaster.Services.Event
 
             for (var qi = 0; qi < round.Length; qi++)
             {
-                var slideName = $"Answer{qi + 1}";
+                var slideName = $"{SlidePrefixAnswer}{qi + 1}";
                 var slidePart = FindSlide(slides, slideName)
                     ?? (qi < questionSlides.Length ? questionSlides[qi] : null);
 
@@ -122,15 +139,33 @@ namespace PubQuizMaster.Services.Event
                 var correctCount = questionAnswers.Count(a => a.Value.GetScore() > 0);
                 var totalCount = roundTeamIds.Length;
 
-                var pointsText = FormatQuestionCorrectText(correctCount, totalCount);
+                var pointsText = FormatQuestionCorrectText(
+                    correct: correctCount,
+                    total: totalCount);
 
-                SetShapeVisibility(slidePart, "Points", visible: true);
-                SetShapeText(slidePart, slideName, "Points", pointsText, issues);
+                SetShapeVisibility(
+                    sp: slidePart,
+                    prefix: ShapeNamePoints,
+                    visible: true);
+
+                SetShapeText(
+                    sp: slidePart,
+                    slideName: slideName,
+                    shapeName: ShapeNamePoints,
+                    text: pointsText,
+                    issues: issues);
             }
 
             // 4. Round standings slides
-            var roundPlacesPart = FindRequiredSlide(slides, "RoundPlaces", issues);
-            var roundFirstPart = FindRequiredSlide(slides, "RoundFirst", issues);
+            var roundPlacesPart = FindRequiredSlide(
+                slides: slides,
+                name: SlideNameRoundPlaces,
+                issues: issues);
+
+            var roundFirstPart = FindRequiredSlide(
+                slides: slides,
+                name: SlideNameRoundFirst,
+                issues: issues);
 
             if (roundRanks.Length > 0)
             {
@@ -140,83 +175,174 @@ namespace PubQuizMaster.Services.Event
 
                     if (placesEntries.Length > 0)
                     {
-                        var avg = roundScores.Length > 0 ? roundScores.Average(x => x.Score) : 0m;
-                        FillPlacesSlide(roundPlacesPart, "RoundPlaces", placesEntries, avg, issues);
-                        SetSlideVisibility(roundPlacesPart, true);
+                        var avg = roundScores.Length > 0
+                            ? roundScores.Average(x => x.Score)
+                            : 0m;
+
+                        FillPlacesSlide(
+                            sp: roundPlacesPart,
+                            slideName: SlideNameRoundPlaces,
+                            entries: placesEntries,
+                            average: avg,
+                            issues: issues);
+
+                        SetSlideVisibility(
+                            sp: roundPlacesPart,
+                            visible: true);
                     }
                     else
                     {
-                        SetSlideVisibility(roundPlacesPart, false);
+                        SetSlideVisibility(
+                            sp: roundPlacesPart,
+                            visible: false);
                     }
                 }
 
                 if (roundFirstPart != null)
                 {
                     // CalculateRanks orders regular winners before non-competitive ones
-                    FillWinnersSlide(roundFirstPart, "RoundFirst", [.. roundRanks.Where(e => e.Rank == 1)], issues);
-                    SetSlideVisibility(roundFirstPart, true);
+                    FillWinnersSlide(sp: roundFirstPart,
+                        slideName: SlideNameRoundFirst,
+                        entries: [.. roundRanks.Where(e => e.Rank == 1)],
+                        issues: issues);
+
+                    SetSlideVisibility(
+                        sp: roundFirstPart,
+                        visible: true);
                 }
             }
             else
             {
-                if (roundPlacesPart != null) SetSlideVisibility(roundPlacesPart, false);
-                if (roundFirstPart != null) SetSlideVisibility(roundFirstPart, false);
+                if (roundPlacesPart != null) SetSlideVisibility(
+                    sp: roundPlacesPart,
+                    visible: false);
+
+                if (roundFirstPart != null) SetSlideVisibility(
+                    sp: roundFirstPart,
+                    visible: false);
             }
 
             // 5. Total standings and podium slides. Slides are only required where this export uses them.
             var showTotalPlacings = !isFirstRound || isFinalRound;
 
             var totalPlacesPart = showTotalPlacings
-                ? FindRequiredSlide(slides, "AllPlacings", issues)
-                : FindSlide(slides, "AllPlacings");
+                ? FindRequiredSlide(
+                    slides: slides,
+                    name: SlideNameAllPlacings,
+                    issues: issues)
+                : FindSlide(
+                    slides: slides,
+                    name: SlideNameAllPlacings);
 
             var goodByePart = isFinalRound
-                ? FindRequiredSlide(slides, "GoodBye", issues)
-                : FindSlide(slides, "GoodBye");
+                ? FindRequiredSlide(
+                    slides: slides,
+                    name: SlideNameGoodBye,
+                    issues: issues)
+                : FindSlide(
+                    slides: slides,
+                    name: SlideNameGoodBye);
 
             if (totalRanks.Length > 0)
             {
                 if (totalPlacesPart != null)
                 {
-                    RankedTeam[] placingEntries = showTotalPlacings
+                    var placingEntries = showTotalPlacings
                         ? totalRanks.Where(e => !isFinalRound || e.Rank >= 4).ToArray()
                         : [];
 
                     if (placingEntries.Length > 0)
                     {
-                        var avg = totalScores.Length > 0 ? totalScores.Average(x => x.Score) : 0m;
-                        FillPlacesSlide(totalPlacesPart, "AllPlacings", placingEntries, avg, issues);
-                        SetSlideVisibility(totalPlacesPart, true);
+                        var avg = totalScores.Length > 0
+                            ? totalScores.Average(x => x.Score)
+                            : 0m;
+
+                        FillPlacesSlide(
+                            sp: totalPlacesPart,
+                            slideName: SlideNameAllPlacings,
+                            entries: placingEntries,
+                            average: avg,
+                            issues: issues);
+
+                        SetSlideVisibility(
+                            sp: totalPlacesPart,
+                            visible: true);
                     }
                     else
                     {
-                        SetSlideVisibility(totalPlacesPart, false);
+                        SetSlideVisibility(
+                            sp: totalPlacesPart,
+                            visible: false);
                     }
                 }
 
                 if (isFinalRound)
                 {
-                    FillPodiumSlide(slides, "AllThird", totalRanks, 3, issues);
-                    FillPodiumSlide(slides, "AllSecond", totalRanks, 2, issues);
-                    FillPodiumSlide(slides, "AllFirst", totalRanks, 1, issues);
+                    FillPodiumSlide(
+                        slides: slides,
+                        slideName: SlideNameAllThird,
+                        ranks: totalRanks,
+                        rank: 3,
+                        issues: issues);
 
-                    if (goodByePart != null) SetSlideVisibility(goodByePart, true);
+                    FillPodiumSlide(
+                        slides: slides,
+                        slideName: SlideNameAllSecond,
+                        ranks: totalRanks,
+                        rank: 2,
+                        issues: issues);
+
+                    FillPodiumSlide(
+                        slides: slides,
+                        slideName: SlideNameAllFirst,
+                        ranks: totalRanks,
+                        rank: 1,
+                        issues: issues);
+
+                    if (goodByePart != null) SetSlideVisibility(
+                        sp: goodByePart,
+                        visible: true);
                 }
                 else
                 {
-                    HideSlide(slides, "AllThird");
-                    HideSlide(slides, "AllSecond");
-                    HideSlide(slides, "AllFirst");
-                    if (goodByePart != null) SetSlideVisibility(goodByePart, false);
+                    HideSlide(
+                        slides: slides,
+                        name: SlideNameAllThird);
+
+                    HideSlide(
+                        slides: slides,
+                        name: SlideNameAllSecond);
+
+                    HideSlide(
+                        slides: slides,
+                        name: SlideNameAllFirst);
+
+                    if (goodByePart != null) SetSlideVisibility(
+                        sp: goodByePart,
+                        visible: false);
                 }
             }
             else
             {
-                if (totalPlacesPart != null) SetSlideVisibility(totalPlacesPart, false);
-                HideSlide(slides, "AllThird");
-                HideSlide(slides, "AllSecond");
-                HideSlide(slides, "AllFirst");
-                if (goodByePart != null) SetSlideVisibility(goodByePart, false);
+                if (totalPlacesPart != null) SetSlideVisibility(
+                    sp: totalPlacesPart,
+                    visible: false);
+
+                HideSlide(
+                    slides: slides,
+                    name: SlideNameAllThird);
+
+                HideSlide(
+                    slides: slides,
+                    name: SlideNameAllSecond);
+
+                HideSlide(
+                    slides: slides,
+                    name: SlideNameAllFirst);
+
+                if (goodByePart != null) SetSlideVisibility(
+                    sp: goodByePart,
+                    visible: false);
             }
 
             presoPart.Presentation!.Save();
@@ -284,25 +410,45 @@ namespace PubQuizMaster.Services.Event
         }
 
         private static void FillPlacesSlide(SlidePart sp, string slideName, RankedTeam[] entries, decimal average,
-            PresentationIssues issues)
+            IssueService issues)
         {
             if (entries.Length == 0) return;
 
             var positions = string.Join("\n", entries.Select(e => $"{e.Rank}."));
-            SetShapeText(sp, slideName, "Positions", positions, issues);
+            SetShapeText(
+                sp: sp,
+                slideName: slideName,
+                shapeName: ShapeNamePositions,
+                text: positions,
+                issues: issues);
 
             var teams = string.Join("\n", entries.Select(e => e.Team.Name));
-            SetShapeText(sp, slideName, "Teams", teams, issues);
+            SetShapeText(
+                sp: sp,
+                slideName: slideName,
+                shapeName: ShapeNameTeams,
+                text: teams,
+                issues: issues);
 
             var points = string.Join("\n", entries.Select(e => FormatScore(e.Score)));
-            SetShapeText(sp, slideName, "Points", points, issues);
+            SetShapeText(
+                sp: sp,
+                slideName: slideName,
+                shapeName: ShapeNamePoints,
+                text: points,
+                issues: issues);
 
             var avgText = FormatAverage(average);
-            SetShapeText(sp, slideName, "Average", avgText, issues);
+            SetShapeText(
+                sp: sp,
+                slideName: slideName,
+                shapeName: ShapeNameAverage,
+                text: avgText,
+                issues: issues);
         }
 
         private static void FillPodiumSlide(SlidePart[] slides, string slideName, RankedTeam[] ranks, int rank,
-            PresentationIssues issues)
+            IssueService issues)
         {
             var slidePart = FindRequiredSlide(slides, slideName, issues);
             if (slidePart == null) return;
@@ -324,18 +470,24 @@ namespace PubQuizMaster.Services.Event
         /// a non-competitive team sharing the rank with a different score gets its own score behind the name.
         /// </summary>
         private static void FillWinnersSlide(SlidePart sp, string slideName, RankedTeam[] entries,
-            PresentationIssues issues)
+            IssueService issues)
         {
-            var capacity = CountNumberedShapes(sp, TeamShapePrefix);
-            var slideScore = entries.Length > 0 ? entries[0].Score : 0m;
+            var capacity = CountNumberedShapes(sp, ShapePrefixTeam);
+
+            var slideScore = entries.Length > 0
+                ? entries[0].Score
+                : 0m;
 
             if (capacity == 0)
             {
-                issues.AddMissingShape(slideName, $"{TeamShapePrefix}1");
+                issues.AddMissingShape(
+                    slideName: slideName,
+                    shapeName: $"{ShapePrefixTeam}1");
             }
             else if (entries.Length > capacity)
             {
                 var dropped = string.Join(", ", entries.Skip(capacity).Select(e => e.Team.Name));
+
                 issues.AddWarning(
                     $"{slideName}: {entries.Length} teams share this place, the slide has room for {capacity}. " +
                     $"Not shown: {dropped}.");
@@ -343,17 +495,32 @@ namespace PubQuizMaster.Services.Event
 
             for (var index = 1; index <= capacity; index++)
             {
-                var text = index <= entries.Length ? FormatWinnerName(entries[index - 1], slideScore) : string.Empty;
-                SetShapeText(sp, slideName, $"{TeamShapePrefix}{index}", text, issues);
+                var text = index <= entries.Length
+                    ? FormatWinnerName(entries[index - 1], slideScore)
+                    : string.Empty;
+
+                SetShapeText(
+                    sp: sp,
+                    slideName: slideName,
+                    shapeName: $"{ShapePrefixTeam}{index}",
+                    text: text,
+                    issues: issues);
             }
 
-            SetShapeText(sp, slideName, "Points", FormatScore(slideScore), issues);
+            SetShapeText(
+                sp: sp,
+                slideName: slideName,
+                shapeName: ShapeNamePoints,
+                text: FormatScore(slideScore),
+                issues: issues);
         }
 
         /// <summary>Like FindSlide, but records the slide as missing when the template lacks it.</summary>
-        private static SlidePart? FindRequiredSlide(SlidePart[] slides, string name, PresentationIssues issues)
+        private static SlidePart? FindRequiredSlide(SlidePart[] slides, string name, IssueService issues)
         {
-            var slidePart = FindSlide(slides, name);
+            var slidePart = FindSlide(
+                slides: slides,
+                name: name);
 
             if (slidePart == null)
             {
@@ -365,7 +532,7 @@ namespace PubQuizMaster.Services.Event
 
         private static SlidePart? FindSlide(SlidePart[] slides, string name)
         {
-            var markerName = SlideMarkerPrefix + name;
+            var markerName = SlidePrefixMarker + name;
 
             return slides.FirstOrDefault(sp => sp.Slide?.CommonSlideData?.Name?.Value == name)
                 ?? slides.FirstOrDefault(sp => sp.Slide?.Descendants<NonVisualDrawingProperties>()
@@ -409,10 +576,12 @@ namespace PubQuizMaster.Services.Event
         /// </summary>
         private static SlidePart[] GetQuestionSlides(SlidePart[] slides)
         {
-            return [.. slides.Where(sp => HasShape(sp, QuestionShapeName))];
+            return [.. slides.Where(sp => HasShape(
+                sp: sp,
+                name: ShapeNameQuestion))];
         }
 
-        private static SlidePart[] GetRoundSlides(PresentationPart presoPart, string roundName)
+        private static SlidePart[] GetRoundSlides(PresentationPart presoPart, string name)
         {
             var presentation = presoPart.Presentation
                 ?? throw new InvalidOperationException("Presentation part is empty.");
@@ -423,8 +592,8 @@ namespace PubQuizMaster.Services.Event
             if (sections.Length > 0)
             {
                 var section = sections.FirstOrDefault(s => string.Equals(
-                        s.Name?.Value?.Trim(), roundName.Trim(), StringComparison.OrdinalIgnoreCase))
-                    ?? throw new InvalidOperationException($"No section named '{roundName}' found in the presentation.");
+                        s.Name?.Value?.Trim(), name.Trim(), StringComparison.OrdinalIgnoreCase))
+                    ?? throw new InvalidOperationException($"No section named '{name}' found in the presentation.");
 
                 var sectionIds = section.Descendants<P14.SectionSlideIdListEntry>()
                     .Select(e => e.Id?.Value)
@@ -439,15 +608,18 @@ namespace PubQuizMaster.Services.Event
                 .OfType<SlidePart>()];
         }
 
-        private static bool HasShape(SlidePart sp, string shapeName)
+        private static bool HasShape(SlidePart sp, string name)
         {
             return sp.Slide?.Descendants<Shape>()
-                .Any(s => s.NonVisualShapeProperties?.NonVisualDrawingProperties?.Name?.Value == shapeName) == true;
+                .Any(s => s.NonVisualShapeProperties?.NonVisualDrawingProperties?.Name?.Value == name) == true;
         }
 
         private static void HideSlide(SlidePart[] slides, string name)
         {
-            var slidePart = FindSlide(slides, name);
+            var slidePart = FindSlide(
+                slides: slides,
+                name: name);
+
             if (slidePart != null)
             {
                 SetSlideVisibility(slidePart, false);
@@ -459,14 +631,20 @@ namespace PubQuizMaster.Services.Event
             switch (doc.DocumentType)
             {
                 case PresentationDocumentType.Presentation:
-                    return new PresentationFormat(".pptx", PresentationContentType);
+                    return new PresentationFormat(
+                        Extension: ".pptx",
+                        ContentType: ContentTypePresentation);
 
                 case PresentationDocumentType.Slideshow:
-                    return new PresentationFormat(".ppsx", SlideshowContentType);
+                    return new PresentationFormat(
+                        Extension: ".ppsx",
+                        ContentType: ContentTypeSlideshow);
 
                 case PresentationDocumentType.Template:
                     doc.ChangeDocumentType(PresentationDocumentType.Presentation);
-                    return new PresentationFormat(".pptx", PresentationContentType);
+                    return new PresentationFormat(
+                        Extension: ".pptx",
+                        ContentType: ContentTypePresentation);
 
                 default:
                     throw new NotSupportedException($"Document type '{doc.DocumentType}' is not supported.");
@@ -474,14 +652,17 @@ namespace PubQuizMaster.Services.Event
         }
 
         private static void SetShapeText(SlidePart sp, string slideName, string shapeName, string text,
-            PresentationIssues issues)
+            IssueService issues)
         {
             var shape = sp.Slide?.Descendants<Shape>()
                 .FirstOrDefault(s => s.NonVisualShapeProperties?.NonVisualDrawingProperties?.Name?.Value == shapeName);
 
             if (shape?.TextBody == null)
             {
-                issues.AddMissingShape(slideName, shapeName);
+                issues.AddMissingShape(
+                    slideName: slideName,
+                    shapeName: shapeName);
+
                 return;
             }
 
@@ -528,7 +709,9 @@ namespace PubQuizMaster.Services.Event
                 if (shape.NonVisualShapeProperties?.NonVisualDrawingProperties != null)
                 {
                     // Removing the attribute is the default state "visible", only hiding writes it
-                    shape.NonVisualShapeProperties.NonVisualDrawingProperties.Hidden = visible ? null : true;
+                    shape.NonVisualShapeProperties.NonVisualDrawingProperties.Hidden = visible
+                        ? null
+                        : true;
                 }
             }
         }

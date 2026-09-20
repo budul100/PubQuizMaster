@@ -1,9 +1,9 @@
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
+using PubQuizMaster.Core.Extensions;
 using PubQuizMaster.Core.Models.Event;
 using PubQuizMaster.Core.Models.Standings;
 using PubQuizMaster.Core.Records.Event;
-using PubQuizMaster.Core.Scoring;
 using PubQuizMaster.Web.Records;
 
 namespace PubQuizMaster.Web.Pages.Event

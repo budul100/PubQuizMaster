@@ -1,9 +1,9 @@
 using Microsoft.EntityFrameworkCore;
+using PubQuizMaster.Core.Extensions;
 using PubQuizMaster.Core.Records.Standings;
-using PubQuizMaster.Core.Scoring;
 using PubQuizMaster.Data;
 
-namespace PubQuizMaster.Services.Player
+namespace PubQuizMaster.Services.Standings
 {
     public class LeaderboardService(IDbContextFactory<AppDbContext> dbFactory)
     {
@@ -50,10 +50,19 @@ namespace PubQuizMaster.Services.Player
             var minQuizzes = Math.Max(1, (int)Math.Ceiling(quizCount * AverageMinShare));
 
             // Ranked over all teams, so a filtered view still shows the real position
-            LeaderboardTeam[] teams = [.. totals.Rank(x => x.Score)
-                .Select(r => new LeaderboardTeam(r.Item.TeamId, r.Item.Name, r.Item.Score, r.Item.Count, r.Rank))];
+            LeaderboardTeam[] teams = [.. totals
+                .Rank(x => x.Score)
+                .Select(r => new LeaderboardTeam(
+                    TeamId: r.Item.TeamId,
+                    TeamName: r.Item.Name,
+                    TotalScore: r.Item.Score,
+                    QuizzesPlayed: r.Item.Count,
+                    Rank: r.Rank))];
 
-            return new LeaderboardData(teams, quizCount, minQuizzes);
+            return new LeaderboardData(
+                Teams: teams,
+                QuizCount: quizCount,
+                MinQuizzesForAverage: minQuizzes);
         }
 
         #endregion Public Methods

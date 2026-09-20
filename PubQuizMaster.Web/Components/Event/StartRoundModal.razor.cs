@@ -1,7 +1,7 @@
 using Microsoft.AspNetCore.Components;
 using PubQuizMaster.Core.Models.Event;
 using PubQuizMaster.Core.Records.Event;
-using PubQuizMaster.Services.Event;
+using PubQuizMaster.Web.Helpers;
 using PubQuizMaster.Web.ViewModels;
 
 namespace PubQuizMaster.Web.Components.Event

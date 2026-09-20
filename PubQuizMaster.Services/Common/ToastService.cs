@@ -1,4 +1,4 @@
-﻿namespace PubQuizMaster.Services.Common
+namespace PubQuizMaster.Services.Common
 {
     public class ToastService
     {

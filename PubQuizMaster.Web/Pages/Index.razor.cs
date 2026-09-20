@@ -1,7 +1,7 @@
 using Microsoft.AspNetCore.Components;
+using PubQuizMaster.Core.Extensions;
 using PubQuizMaster.Core.Models.Event;
 using PubQuizMaster.Core.Records.Event;
-using PubQuizMaster.Core.Scoring;
 using PubQuizMaster.Web.Records;
 using PubQuizMaster.Web.Services;
 
