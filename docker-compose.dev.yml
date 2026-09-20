@@ -1,0 +1,15 @@
+services:
+  db:
+    image: postgres:16-alpine
+    # 5434 to avoid clashing with the PubQuizCreator dev database on 5433
+    ports:
+      - "5434:5432"
+    environment:
+      POSTGRES_PASSWORD: dev
+      POSTGRES_DB: pubquizmaster
+      POSTGRES_USER: pubquizmaster
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+volumes:
+  pgdata:

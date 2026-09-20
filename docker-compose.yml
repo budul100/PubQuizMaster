@@ -1,0 +1,42 @@
+services:
+  pubquizmaster-db:
+    image: postgres:16-alpine
+    container_name: pubquizmaster-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: pubquizmaster
+      POSTGRES_USER: pubquizmaster
+    volumes:
+      - pubquizmaster-pgdata:/var/lib/postgresql/data
+    networks:
+      - pubquizmaster-internal
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pubquizmaster -d pubquizmaster"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  pubquizmaster-web:
+    image: ghcr.io/budul100/pubquizmaster:latest
+    container_name: pubquizmaster-web
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ConnectionStrings__Default: "Host=pubquizmaster-db;Port=5432;Database=pubquizmaster;Username=pubquizmaster;Password=${DB_PASSWORD}"
+    depends_on:
+      pubquizmaster-db:
+        condition: service_healthy
+    networks:
+      - proxynet
+      - pubquizmaster-internal
+
+volumes:
+  pubquizmaster-pgdata:
+
+networks:
+  proxynet:
+    external: true
+  pubquizmaster-internal:
+    internal: true
