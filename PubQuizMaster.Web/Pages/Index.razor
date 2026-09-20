@@ -10,6 +10,8 @@
 
 <PageTitle>PubQuizMaster</PageTitle>
 
+<SectionContent SectionName="@LayoutSections.PageTitle">@(isLoading ? "Quiz" : activeNight != null ? "Live Quiz" : "Quiz Nights")</SectionContent>
+
 @if (isLoading)
 {
     <div class="d-flex align-items-center gap-2 text-muted py-5 justify-content-center">

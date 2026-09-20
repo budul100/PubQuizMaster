@@ -1,0 +1,17 @@
+@if (info != null)
+{
+    <span class="badge header-badge header-badge-info" title="Running round">
+        <span class="mif-play" aria-hidden="true"></span> @info.RoundName
+    </span>
+
+    @if (info.ScorerIds.Length > 0)
+    {
+        var online = OnlineCount;
+        var total = info.ScorerIds.Length;
+
+        <span class="badge header-badge @(online == total ? "header-badge-ok" : "header-badge-warn")"
+              title="Scorer stations online">
+            <span class="mif-wifi" aria-hidden="true"></span> @online / @total online
+        </span>
+    }
+}

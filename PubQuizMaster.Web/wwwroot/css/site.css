@@ -16,6 +16,13 @@
     --pqm-sidebar-active: rgba(255, 255, 255, 0.16);
     /* Accent line on the left of the active navigation item */
     --pqm-accent: #9db4ff;
+    /* Status badges in the top row: light background, dark text of the same hue */
+    --pqm-badge-info-bg: #e8ebff;
+    --pqm-badge-info-fg: #2b3380;
+    --pqm-badge-ok-bg: #e2f5e9;
+    --pqm-badge-ok-fg: #1d6b3b;
+    --pqm-badge-warn-bg: #fff2d4;
+    --pqm-badge-warn-fg: #7d5200;
 }
 
 /* ==========================================================================
@@ -151,6 +158,34 @@ main {
     font-size: 0.75rem;
     text-align: center;
     color: var(--pqm-sidebar-muted);
+}
+
+/* ==========================================================================
+   Top row status badges (Shared/HeaderStatus.razor)
+   Used together with Bootstrap's .badge, which supplies radius and line height.
+   ========================================================================== */
+.header-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.4em 0.7em;
+    font-size: 0.8rem;
+    font-weight: 600;
+}
+
+.header-badge-info {
+    color: var(--pqm-badge-info-fg);
+    background-color: var(--pqm-badge-info-bg);
+}
+
+.header-badge-ok {
+    color: var(--pqm-badge-ok-fg);
+    background-color: var(--pqm-badge-ok-bg);
+}
+
+.header-badge-warn {
+    color: var(--pqm-badge-warn-fg);
+    background-color: var(--pqm-badge-warn-bg);
 }
 
 /* Matrix styles, moved here from the component-level <style> block in Matrix.razor.

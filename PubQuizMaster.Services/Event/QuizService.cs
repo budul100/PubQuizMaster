@@ -212,6 +212,27 @@ namespace PubQuizMaster.Services.Event
                 .FirstOrDefaultAsync(ct);
         }
 
+        /// <summary>
+        /// Name and scorer stations of the open round of the active quiz night, for the header badges.
+        /// Null when no quiz night is active or no round is open.
+        /// </summary>
+        public async Task<ActiveRoundInfo?> GetActiveRoundInfoAsync(CancellationToken ct = default)
+        {
+            await using var db = await dbFactory.CreateDbContextAsync(ct);
+
+            var round = await ActiveQuizzes(db)
+                .AsNoTracking()
+                .SelectMany(q => q.Rounds)
+                .Where(r => !r.IsFinalized)
+                .OrderByDescending(r => r.CreatedAt)
+                .Select(r => new { r.Name, ScorerIds = r.Assignments.Select(a => a.ScorerId).ToList() })
+                .FirstOrDefaultAsync(ct);
+
+            return round == null
+                ? null
+                : new ActiveRoundInfo(round.Name, [.. round.ScorerIds.Distinct(StringComparer.OrdinalIgnoreCase)]);
+        }
+
         public async Task<List<Quiz>> GetAllQuizzesAsync(CancellationToken ct = default)
         {
             await using var db = await dbFactory.CreateDbContextAsync(ct);

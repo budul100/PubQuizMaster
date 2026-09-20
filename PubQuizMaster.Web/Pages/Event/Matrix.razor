@@ -9,6 +9,8 @@
 
 <PageTitle>Matrix – @(round?.Name ?? "Round")</PageTitle>
 
+<SectionContent SectionName="@LayoutSections.PageTitle">@(round == null ? "Matrix" : $"Matrix · {round.Name}")</SectionContent>
+
 @if (isLoading)
 {
     <div class="d-flex align-items-center gap-2 text-muted">
