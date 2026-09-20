@@ -1,5 +1,7 @@
 using PubQuizMaster.Core.Records.Player;
-using PubQuizMaster.Services.Player;
+using PubQuizMaster.Core.Scoring;
+using PubQuizMaster.Web.Enums;
+using PubQuizMaster.Web.Records;
 
 namespace PubQuizMaster.Web.Pages.Player
 {
@@ -7,17 +9,20 @@ namespace PubQuizMaster.Web.Pages.Player
     {
         #region Private Fields
 
-        private LeaderboardTeam[] entries = [];
+        private LeaderboardData? data;
         private bool isLoading = true;
+        private LeaderboardRow[] rankedRows = [];
         private string searchTerm = string.Empty;
+        private StandingsSort sort = StandingsSort.Total;
 
         #endregion Private Fields
 
         #region Private Properties
 
-        private LeaderboardTeam[] FilteredEntries => string.IsNullOrWhiteSpace(searchTerm)
-            ? entries
-            : [.. entries.Where(e => e.TeamName.Contains(searchTerm, StringComparison.OrdinalIgnoreCase))];
+        /// <summary>Search filters after ranking, so a filtered view still shows the real position.</summary>
+        private LeaderboardRow[] FilteredRows => string.IsNullOrWhiteSpace(searchTerm)
+            ? rankedRows
+            : [.. rankedRows.Where(r => r.Team.TeamName.Contains(searchTerm, StringComparison.OrdinalIgnoreCase))];
 
         #endregion Private Properties
 
@@ -26,10 +31,57 @@ namespace PubQuizMaster.Web.Pages.Player
         protected override async Task OnInitializedAsync()
         {
             isLoading = true;
-            entries = await LeaderboardService.GetLeaderboardAsync();
+            data = await LeaderboardService.GetLeaderboardAsync();
+            ApplySort();
             isLoading = false;
         }
 
         #endregion Protected Methods
+
+        #region Private Methods
+
+        private static LeaderboardRow[] RankBy(IEnumerable<LeaderboardTeam> teams, Func<LeaderboardTeam, decimal> metric)
+        {
+            return [.. CompetitionRanking.Rank(teams, metric).Select(r => new LeaderboardRow(r.Item, r.Rank))];
+        }
+
+        private void ApplySort()
+        {
+            if (data == null)
+            {
+                rankedRows = [];
+                return;
+            }
+
+            // Tie order within a rank: team name, same comparer as the other lists
+            var teams = data.Teams
+                .OrderBy(t => t.TeamName, StringComparer.CurrentCultureIgnoreCase)
+                .ToArray();
+
+            rankedRows = sort switch
+            {
+                // Ranked on the value as displayed (one decimal), so equal-looking averages share a rank
+                StandingsSort.Average => RankBy(
+                    teams.Where(t => t.QuizzesPlayed >= data.MinQuizzesForAverage),
+                    t => Math.Round(t.AverageScore, 1)),
+                StandingsSort.Quizzes => RankBy(teams, t => t.QuizzesPlayed),
+                _ => RankBy(teams, t => t.TotalScore)
+            };
+        }
+
+        /// <summary>Highlights the cells of the column the ranking is based on.</summary>
+        private string CellClass(StandingsSort column) => sort == column ? "fw-bold text-primary" : "text-muted";
+
+        private string HeaderClass(StandingsSort column) => sort == column ? "text-body fw-bold" : string.Empty;
+
+        private void SetSort(StandingsSort newSort)
+        {
+            if (sort == newSort) return;
+
+            sort = newSort;
+            ApplySort();
+        }
+
+        #endregion Private Methods
     }
 }

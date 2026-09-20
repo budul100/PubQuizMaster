@@ -1,24 +1,55 @@
 @page "/standings"
 @using PubQuizMaster.Services
 @using PubQuizMaster.Services.Player
+@using PubQuizMaster.Web.Enums
 @inject LeaderboardService LeaderboardService
 
 <PageTitle>All-Time Standings – PubQuizMaster</PageTitle>
 <SectionContent SectionName="@LayoutSections.PageTitle">All-Time Standings</SectionContent>
 
 <div class="card shadow-sm border-0">
-    <div class="card-header pqm-card-header">
+    <div class="card-header pqm-card-header flex-wrap">
         <span class="pqm-card-title">
             <span class="mif-trophy" aria-hidden="true"></span> Ranking
         </span>
-        <input type="search"
-               class="form-control form-control-sm"
-               style="width: 220px;"
-               placeholder="Search team…"
-               aria-label="Search team"
-               @bind="searchTerm"
-               @bind:event="oninput" />
+        <div class="d-flex align-items-center gap-2 flex-wrap">
+            @* Choice between labels, not an action: text instead of icons *@
+            <div class="btn-group btn-group-sm" role="group" aria-label="Rank by">
+                <button type="button"
+                        class="btn @(sort == StandingsSort.Total ? "btn-primary" : "btn-outline-secondary")"
+                        aria-pressed="@(sort == StandingsSort.Total ? "true" : "false")"
+                        @onclick="() => SetSort(StandingsSort.Total)">
+                    Total
+                </button>
+                <button type="button"
+                        class="btn @(sort == StandingsSort.Average ? "btn-primary" : "btn-outline-secondary")"
+                        aria-pressed="@(sort == StandingsSort.Average ? "true" : "false")"
+                        @onclick="() => SetSort(StandingsSort.Average)">
+                    Average
+                </button>
+                <button type="button"
+                        class="btn @(sort == StandingsSort.Quizzes ? "btn-primary" : "btn-outline-secondary")"
+                        aria-pressed="@(sort == StandingsSort.Quizzes ? "true" : "false")"
+                        @onclick="() => SetSort(StandingsSort.Quizzes)">
+                    Quizzes
+                </button>
+            </div>
+            <input type="search"
+                   class="form-control form-control-sm"
+                   style="width: 200px;"
+                   placeholder="Search team…"
+                   aria-label="Search team"
+                   @bind="searchTerm"
+                   @bind:event="oninput" />
+        </div>
     </div>
+
+    @if (sort == StandingsSort.Average && data != null)
+    {
+        <div class="small text-muted px-3 py-2 border-bottom">
+            Only teams that played at least @data.MinQuizzesForAverage of @data.QuizCount quiz nights (10 %) are ranked by average.
+        </div>
+    }
 
     @if (isLoading)
     {
@@ -27,7 +58,7 @@
             <span>Calculating standings…</span>
         </div>
     }
-    else if (FilteredEntries.Length == 0)
+    else if (FilteredRows.Length == 0)
     {
         <div class="text-center text-muted p-4">
             No teams or rankings found.
@@ -41,16 +72,16 @@
                     <tr>
                         <th style="width: 70px;" class="text-center">Rank</th>
                         <th>Team</th>
-                        <th style="width: 110px;" class="text-end">Quizzes</th>
-                        <th style="width: 110px;" class="text-end">Total</th>
-                        <th style="width: 110px;" class="text-end pe-3">Avg / Quiz</th>
+                        <th style="width: 110px;" class="text-end @HeaderClass(StandingsSort.Quizzes)">Quizzes</th>
+                        <th style="width: 110px;" class="text-end @HeaderClass(StandingsSort.Total)">Total</th>
+                        <th style="width: 110px;" class="text-end pe-3 @HeaderClass(StandingsSort.Average)">Avg / Quiz</th>
                     </tr>
                 </thead>
                 <tbody>
-                    @foreach (var entry in FilteredEntries)
+                    @foreach (var row in FilteredRows)
                     {
-                        var currentRank = entry.Rank;
-                        var avg = entry.QuizzesPlayed > 0 ? entry.TotalScore / entry.QuizzesPlayed : 0m;
+                        var entry = row.Team;
+                        var currentRank = row.Rank;
 
                         <tr>
                             <td class="text-center fw-bold text-muted">
@@ -82,13 +113,9 @@
                                     @entry.TeamName
                                 </a>
                             </td>
-                            <td class="text-end">@entry.QuizzesPlayed</td>
-                            <td class="text-end fw-bold text-primary">
-                                @entry.TotalScore.ToString("0.#")
-                            </td>
-                            <td class="text-end pe-3 text-muted small">
-                                @avg.ToString("0.#")
-                            </td>
+                            <td class="text-end @CellClass(StandingsSort.Quizzes)">@entry.QuizzesPlayed</td>
+                            <td class="text-end @CellClass(StandingsSort.Total)">@entry.TotalScore.ToString("0.#")</td>
+                            <td class="text-end pe-3 @CellClass(StandingsSort.Average)">@entry.AverageScore.ToString("0.#")</td>
                         </tr>
                     }
                 </tbody>
@@ -96,3 +123,4 @@
         </div>
     }
 </div>
+

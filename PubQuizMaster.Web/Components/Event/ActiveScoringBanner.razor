@@ -16,8 +16,13 @@
             <a class="btn btn-light btn-sm" href="/matrix/@Round.Id" title="Open Matrix" aria-label="Open Matrix">
                 <span class="mif-pencil" aria-hidden="true"></span>
             </a>
-            <button class="btn btn-success btn-sm fw-semibold d-flex align-items-center gap-1" @onclick="OnFinalizeRound" disabled="@IsProcessing">
-                <span class="mif-flag" aria-hidden="true"></span> Finalize Round
+            <button 
+                class="btn btn-success btn-sm fw-semibold d-flex align-items-center gap-1" 
+                @onclick="OnFinalizeRound" 
+                title="Finalize Round" 
+                aria-label="Finalize Round" 
+                disabled="@IsProcessing">
+                <span class="mif-flag" aria-hidden="true"></span>
             </button>
         </div>
     </div>
