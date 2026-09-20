@@ -30,6 +30,7 @@ namespace PubQuizMaster.Web.Pages
         private bool showEditModal;
         private bool showSetupModal;
         private string? startRoundError;
+        private bool suppressOwnNotification;
         private TeamStanding[] teamStandings = [];
         private TeamStanding? teamToDelete;
         private int ticksSinceFullReload;
@@ -88,7 +89,7 @@ namespace PubQuizMaster.Web.Pages
 
                 if (registration.AddedToOpenRound)
                 {
-                    SessionService.NotifyRoundChanged();
+                    NotifyRoundChanged();
                 }
 
                 if (!registration.AddedToOpenRound)
@@ -133,7 +134,7 @@ namespace PubQuizMaster.Web.Pages
                 var title = activeNight.Title;
 
                 await LiveQuizService.CompleteQuizAsync(activeNight.Id);
-                SessionService.NotifyRoundChanged();
+                NotifyRoundChanged();
 
                 ToastService.ShowSuccess($"Quiz night '{title}' completed.");
 
@@ -217,13 +218,13 @@ namespace PubQuizMaster.Web.Pages
                 var roundName = activeRound.Name;
 
                 await LiveQuizService.FinalizeRoundAsync(activeRound.Id);
-                SessionService.NotifyRoundChanged();
+                NotifyRoundChanged();
 
                 ToastService.ShowSuccess($"{roundName} finalized.");
 
                 await LoadDashboardStateAsync();
 
-                // A finalized final round usually ends the night, so offer to complete it right awayss
+                // A finalized final round usually ends the night, so offer to complete it right away
                 if (wasFinal)
                 {
                     showCompleteModal = true;
@@ -257,32 +258,32 @@ namespace PubQuizMaster.Web.Pages
 
         private void HandleDataChanged()
         {
+            // Own notifications are followed by an explicit reload, see NotifyRoundChanged
+            if (suppressOwnNotification) return;
+
             _ = ReloadAsync();
         }
 
-        private void HandleDeleteRoundConfirmedAsync()
+        private async Task HandleDeleteRoundConfirmedAsync()
         {
             if (roundToDelete == null) return;
 
-            var rId = roundToDelete.Id;
-            var rName = roundToDelete.Name;
+            var roundId = roundToDelete.Id;
+            var roundName = roundToDelete.Name;
             showDeleteRoundModal = false;
             roundToDelete = null;
 
-            _ = InvokeAsync(async () =>
+            try
             {
-                try
-                {
-                    await LiveQuizService.DeleteRoundAsync(rId);
-                    SessionService.NotifyRoundChanged();
-                    ToastService.ShowSuccess($"Round '{rName}' deleted.");
-                    await LoadDashboardStateAsync();
-                }
-                catch (Exception ex)
-                {
-                    ToastService.ShowError(ex.Message);
-                }
-            });
+                await LiveQuizService.DeleteRoundAsync(roundId);
+                NotifyRoundChanged();
+                ToastService.ShowSuccess($"Round '{roundName}' deleted.");
+                await LoadDashboardStateAsync();
+            }
+            catch (Exception ex)
+            {
+                ToastService.ShowError(ex.Message);
+            }
         }
 
         private async Task HandleDeleteTeamConfirmedAsync()
@@ -298,7 +299,7 @@ namespace PubQuizMaster.Web.Pages
             try
             {
                 await LiveQuizService.RemoveTeamAsync(activeNight.Id, teamId);
-                SessionService.NotifyRoundChanged();
+                NotifyRoundChanged();
                 ToastService.ShowSuccess($"Team '{teamName}' removed from quiz night.");
                 await LoadDashboardStateAsync();
             }
@@ -337,6 +338,25 @@ namespace PubQuizMaster.Web.Pages
             }
 
             isLoading = false;
+        }
+
+        /// <summary>
+        /// Notifies other circuits (scorers, second admin browser) about a round change.
+        /// The event is raised synchronously, so this component's own handler runs inside the call
+        /// and is skipped: every caller reloads explicitly afterwards, which keeps the error path intact.
+        /// </summary>
+        private void NotifyRoundChanged()
+        {
+            suppressOwnNotification = true;
+
+            try
+            {
+                SessionService.NotifyRoundChanged();
+            }
+            finally
+            {
+                suppressOwnNotification = false;
+            }
         }
 
         private void OpenStartRoundModal()
@@ -423,7 +443,7 @@ namespace PubQuizMaster.Web.Pages
             try
             {
                 var newRound = await LiveQuizService.StartRoundAsync(request);
-                SessionService.NotifyRoundChanged();
+                NotifyRoundChanged();
 
                 ToastService.ShowSuccess($"{newRound.Name} started.");
                 CloseStartRoundModal();
@@ -445,7 +465,7 @@ namespace PubQuizMaster.Web.Pages
             try
             {
                 await LiveQuizService.SetFinalRoundAsync(payload.RoundId, payload.IsFinal);
-                SessionService.NotifyRoundChanged();
+                NotifyRoundChanged();
                 await LoadDashboardStateAsync();
             }
             catch (Exception ex)
@@ -460,7 +480,7 @@ namespace PubQuizMaster.Web.Pages
             try
             {
                 await LiveQuizService.SetParticipantStatusAsync(activeNight.Id, status.TeamId, status.IsActive, status.IsAk);
-                SessionService.NotifyRoundChanged();
+                NotifyRoundChanged();
                 await LoadDashboardStateAsync();
             }
             catch (Exception ex)

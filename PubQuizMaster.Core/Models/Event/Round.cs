@@ -12,13 +12,13 @@ namespace PubQuizMaster.Core.Models.Event
         #region Public Properties
 
         /// <summary>All recorded answers for this round.</summary>
-        public List<Answer> Answers { get; set; } = new();
+        public List<Answer> Answers { get; set; } = [];
 
         /// <summary>
         /// Exclusive scorer assignments. Validated by QuizService.StartRoundAsync:
         /// every team appears in exactly one assignment.
         /// </summary>
-        public List<Scorer> Assignments { get; set; } = new();
+        public List<Scorer> Assignments { get; set; } = [];
 
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 

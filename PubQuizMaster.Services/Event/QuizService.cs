@@ -429,14 +429,7 @@ namespace PubQuizMaster.Services.Event
 
             if (isFinal)
             {
-                var otherRounds = await db.Rounds
-                    .Where(r => r.QuizId == round.QuizId && r.Id != roundId && r.IsFinal)
-                    .ToArrayAsync(ct);
-
-                foreach (var other in otherRounds)
-                {
-                    other.IsFinal = false;
-                }
+                await ClearOtherFinalRoundsAsync(db, round.QuizId, roundId, ct);
             }
 
             round.IsFinal = isFinal;
@@ -490,14 +483,7 @@ namespace PubQuizMaster.Services.Event
 
             if (request.IsFinal)
             {
-                var existingFinals = await db.Rounds
-                    .Where(r => r.QuizId == request.QuizNightId && r.IsFinal)
-                    .ToArrayAsync(ct);
-
-                foreach (var ef in existingFinals)
-                {
-                    ef.IsFinal = false;
-                }
+                await ClearOtherFinalRoundsAsync(db, request.QuizNightId, null, ct);
             }
 
             var roundId = Guid.NewGuid();
@@ -599,6 +585,23 @@ namespace PubQuizMaster.Services.Event
             }
 
             return (true, string.IsNullOrWhiteSpace(scorer.Label) ? scorer.ScorerId : scorer.Label);
+        }
+
+        /// <summary>
+        /// Resets IsFinal on all rounds of the quiz except the given one. Only one final round per quiz.
+        /// Changes are tracked; the caller saves them together with its own changes.
+        /// </summary>
+        private static async Task ClearOtherFinalRoundsAsync(AppDbContext db, Guid quizId, Guid? exceptRoundId,
+            CancellationToken ct)
+        {
+            var others = await db.Rounds
+                .Where(r => r.QuizId == quizId && r.IsFinal && r.Id != exceptRoundId)
+                .ToArrayAsync(ct);
+
+            foreach (var other in others)
+            {
+                other.IsFinal = false;
+            }
         }
 
         private static async Task RetryOnAnswerCellConflictAsync(Func<Task> action)

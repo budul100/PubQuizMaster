@@ -8,68 +8,38 @@ namespace PubQuizMaster.Core.Scoring
         #region Public Methods
 
         /// <summary>
-        /// Orders by score descending and assigns the ranks. The sort is stable, so items with equal
+        /// Ranks all items as regular competitors. The sort is stable, so items with equal
         /// scores keep their input order. Pre-sort the input to define the tie order (e.g. by name).
         /// </summary>
         public static (T Item, int Rank)[] Rank<T>(IEnumerable<T> items, Func<T, decimal> score)
-        {
-            var ordered = items.OrderByDescending(score).ToArray();
-            var ranked = new (T Item, int Rank)[ordered.Length];
-            var rank = 1;
-
-            for (var i = 0; i < ordered.Length; i++)
-            {
-                if (i > 0 && score(ordered[i]) != score(ordered[i - 1]))
-                {
-                    rank = i + 1;
-                }
-
-                ranked[i] = (ordered[i], rank);
-            }
-
-            return ranked;
-        }
+            => Rank(items, score, _ => false);
 
         /// <summary>
-        /// Competition ranking with non-competitive (AK) support:
-        /// 1. Regular ranks are computed solely among regular teams (1, 1, 3).
-        /// 2. Non-competitive teams receive the rank: 1 + count of regular teams with higher score.
-        /// 3. Ordering: Rank ascending, regular teams before non-competitive teams, preserving pre-sort.
+        /// Competition ranking with non-competitive support. One formula for every item:
+        /// rank = 1 + number of regular items with a higher score.
+        /// 1. Regular items are ranked solely among regular items (1, 1, 3).
+        /// 2. Non-competitive items get the rank a regular item with the same score would have.
+        /// 3. Ordering: rank ascending, regular before non-competitive, then input order.
         /// </summary>
         public static (T Item, int Rank)[] Rank<T>(
             IEnumerable<T> items,
             Func<T, decimal> score,
             Func<T, bool> isNonCompetitive)
         {
-            var inputArray = items.ToArray();
-            if (inputArray.Length == 0) return [];
+            var entries = items
+                .Select(item => (Item: item, Score: score(item), IsNonCompetitive: isNonCompetitive(item)))
+                .ToArray();
 
-            var regularTeams = inputArray.Where(x => !isNonCompetitive(x)).ToArray();
-            var regularRanked = Rank(regularTeams, score);
+            var regularScores = entries
+                .Where(e => !e.IsNonCompetitive)
+                .Select(e => e.Score)
+                .ToArray();
 
-            var rankedResult = new (T Item, int Rank)[inputArray.Length];
-            var index = 0;
-
-            foreach (var item in inputArray)
-            {
-                if (!isNonCompetitive(item))
-                {
-                    var match = regularRanked.First(r => EqualityComparer<T>.Default.Equals(r.Item, item));
-                    rankedResult[index++] = (item, match.Rank);
-                }
-                else
-                {
-                    var itemScore = score(item);
-                    var higherRegularCount = regularTeams.Count(r => score(r) > itemScore);
-                    var akRank = 1 + higherRegularCount;
-                    rankedResult[index++] = (item, akRank);
-                }
-            }
-
-            // Ordering: Rank asc, regular teams first, stable relative order preserved
-            return [.. rankedResult
-                .OrderBy(r => r.Rank)
-                .ThenBy(r => isNonCompetitive(r.Item) ? 1 : 0)];
+            return [.. entries
+                .Select(e => (e.Item, Rank: 1 + regularScores.Count(s => s > e.Score), e.IsNonCompetitive))
+                .OrderBy(e => e.Rank)
+                .ThenBy(e => e.IsNonCompetitive)
+                .Select(e => (e.Item, e.Rank))];
         }
 
         #endregion Public Methods

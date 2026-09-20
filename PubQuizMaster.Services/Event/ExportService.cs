@@ -142,13 +142,13 @@ namespace PubQuizMaster.Services.Event
 
                 if (roundFirstPart != null)
                 {
-                    var firstEntries = roundRanks.Where(e => e.Rank == 1).ToArray();
-                    // Regular winners first, non-competitive winners at the end
+                    var firstEntries = roundRanks
+                        .Where(e => e.Rank == 1).ToArray();
                     var firstTeams = firstEntries
-                        .OrderBy(e => participantLookup.TryGetValue(e.Team.Id, out var p) && p.IsNonCompetitive ? 1 : 0)
-                        .Select(e => e.Team)
-                        .ToArray();
-                    var firstScore = firstEntries.Length > 0 ? firstEntries[0].Score : 0m;
+                        .Select(e => e.Team).ToArray();
+                    var firstScore = firstEntries.Length > 0
+                        ? firstEntries[0].Score
+                        : 0m;
 
                     FillWinnersSlide(roundFirstPart, firstTeams, firstScore);
                     SetSlideVisibility(roundFirstPart, true);
@@ -188,9 +188,9 @@ namespace PubQuizMaster.Services.Event
 
                 if (isFinalRound)
                 {
-                    FillPodiumSlide(slides, "AllThird", totalRanks, participantLookup, 3);
-                    FillPodiumSlide(slides, "AllSecond", totalRanks, participantLookup, 2);
-                    FillPodiumSlide(slides, "AllFirst", totalRanks, participantLookup, 1);
+                    FillPodiumSlide(slides, "AllThird", totalRanks, 3);
+                    FillPodiumSlide(slides, "AllSecond", totalRanks, 2);
+                    FillPodiumSlide(slides, "AllFirst", totalRanks, 1);
 
                     if (goodByePart != null)
                     {
@@ -278,8 +278,7 @@ namespace PubQuizMaster.Services.Event
             SetShapeText(sp, "Average", avgText);
         }
 
-        private static void FillPodiumSlide(SlidePart[] slides, string slideName, RankedTeam[] ranks,
-            Dictionary<Guid, Participant> participantLookup, int rank)
+        private static void FillPodiumSlide(SlidePart[] slides, string slideName, RankedTeam[] ranks, int rank)
         {
             var slidePart = FindSlide(slides, slideName);
             if (slidePart == null) return;
@@ -292,9 +291,7 @@ namespace PubQuizMaster.Services.Event
             }
 
             var teams = rankEntries
-                .OrderBy(e => participantLookup.TryGetValue(e.Team.Id, out var p) && p.IsNonCompetitive ? 1 : 0)
-                .Select(e => e.Team)
-                .ToArray();
+                .Select(e => e.Team).ToArray();
             var score = rankEntries[0].Score;
 
             FillWinnersSlide(slidePart, teams, score);
