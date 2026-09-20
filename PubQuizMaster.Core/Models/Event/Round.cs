@@ -11,27 +11,21 @@ namespace PubQuizMaster.Core.Models.Event
     {
         #region Public Properties
 
-        /// <summary>All recorded answers for this round.</summary>
         public List<Answer> Answers { get; set; } = [];
 
-        /// <summary>
-        /// Exclusive scorer assignments. Validated by QuizService.StartRoundAsync:
-        /// every team appears in exactly one assignment.
-        /// </summary>
         public List<Scorer> Assignments { get; set; } = [];
 
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
         public Guid Id { get; set; } = Guid.NewGuid();
 
-        /// <summary>Whether this round is the final round of the evening.</summary>
         public bool IsFinal { get; set; } = false;
 
         public bool IsFinalized { get; set; } = false;
 
-        public string Name { get; set; } = string.Empty;
+        public int Length { get; set; }
 
-        public int QuestionCount { get; set; }
+        public string Name { get; set; } = string.Empty;
 
         public Guid QuizId { get; set; }
 

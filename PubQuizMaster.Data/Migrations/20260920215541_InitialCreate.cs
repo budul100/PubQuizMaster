@@ -35,7 +35,7 @@ namespace PubQuizMaster.Data.Migrations
                     Id = table.Column<Guid>(type: "uuid", nullable: false),
                     CreatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
                     Name = table.Column<string>(type: "text", nullable: false),
-                    NormalizedName = table.Column<string>(type: "text", nullable: false)
+                    Normalized = table.Column<string>(type: "text", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -50,8 +50,8 @@ namespace PubQuizMaster.Data.Migrations
                     CreatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
                     IsFinal = table.Column<bool>(type: "boolean", nullable: false),
                     IsFinalized = table.Column<bool>(type: "boolean", nullable: false),
+                    Length = table.Column<int>(type: "integer", nullable: false),
                     Name = table.Column<string>(type: "text", nullable: false),
-                    QuestionCount = table.Column<int>(type: "integer", nullable: false),
                     QuizId = table.Column<Guid>(type: "uuid", nullable: false)
                 },
                 constraints: table =>
@@ -126,8 +126,8 @@ namespace PubQuizMaster.Data.Migrations
                     Id = table.Column<Guid>(type: "uuid", nullable: false),
                     QuestionIndex = table.Column<int>(type: "integer", nullable: false),
                     RecordedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
-                    RecordedByScorerId = table.Column<string>(type: "text", nullable: false),
                     RoundId = table.Column<Guid>(type: "uuid", nullable: false),
+                    ScorerId = table.Column<string>(type: "text", nullable: false),
                     TeamId = table.Column<Guid>(type: "uuid", nullable: false),
                     Value = table.Column<string>(type: "jsonb", nullable: false)
                 },
@@ -205,7 +205,7 @@ namespace PubQuizMaster.Data.Migrations
             migrationBuilder.CreateIndex(
                 name: "IX_Teams_NormalizedName",
                 table: "Teams",
-                column: "NormalizedName",
+                column: "Normalized",
                 unique: true);
         }
 

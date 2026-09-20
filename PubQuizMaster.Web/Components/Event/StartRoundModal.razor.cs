@@ -114,7 +114,7 @@ namespace PubQuizMaster.Web.Components.Event
                 .Where(r => r.Assignments.Count > 0)
                 .MaxBy(r => r.CreatedAt);
 
-            questionCount = lastRound?.QuestionCount ?? 20;
+            questionCount = lastRound?.Length ?? 20;
             isFinalRound = false;
 
             if (lastRound != null)

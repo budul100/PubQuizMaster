@@ -1,4 +1,4 @@
-﻿using PubQuizMaster.Core.Enums;
+using PubQuizMaster.Core.Enums;
 
 namespace PubQuizMaster.Core.Records.Event
 {
@@ -7,7 +7,7 @@ namespace PubQuizMaster.Core.Records.Event
     /// </summary>
     public record ScorerStatus(
         DateTime LastSeenUtc,
-        ScorerPhase Phase,
+        ScoringType Phase,
         Guid? RoundId,
         int QuestionIndex,
         int TeamIndex);

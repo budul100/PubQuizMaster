@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Components;
-using PubQuizMaster.Core.Models.Player;
-using PubQuizMaster.Core.Records.Player;
+using PubQuizMaster.Core.Models.Standings;
+using PubQuizMaster.Core.Records.Standings;
 
 namespace PubQuizMaster.Web.Pages.Player
 {
@@ -53,7 +53,7 @@ namespace PubQuizMaster.Web.Pages.Player
 
         #region Private Methods
 
-        private static string FormatMergeResult(TeamMergeResult result)
+        private static string FormatMergeResult(TeamMerge result)
         {
             var message = $"Merged '{result.SourceName}' into '{result.TargetName}'.";
 

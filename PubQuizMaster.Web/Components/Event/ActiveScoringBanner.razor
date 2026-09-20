@@ -1,4 +1,5 @@
 @namespace PubQuizMaster.Web.Components.Event
+@using PubQuizMaster.Core.Models.Standings
 @using PubQuizMaster.Services.Common
 @using PubQuizMaster.Services.Event
 @inject ScorerService SessionService
@@ -10,7 +11,7 @@
         <div>
             <span class="badge bg-white text-primary me-2 fw-bold">ACTIVE ROUND</span>
             <strong class="fs-5">@Round.Name</strong>
-            <span class="ms-2 opacity-75 small">(@Round.QuestionCount Questions • @TeamCount Teams)</span>
+            <span class="ms-2 opacity-75 small">(@Round.Length Questions • @TeamCount Teams)</span>
         </div>
         <div class="d-flex gap-2">
             <a class="btn btn-light btn-sm" href="/matrix/@Round.Id" title="Open Matrix" aria-label="Open Matrix">
@@ -28,7 +29,7 @@
     </div>
     <div class="card-body py-3">
         @{
-            var totalExpected = TeamCount * Round.QuestionCount;
+            var totalExpected = TeamCount * Round.Length;
             var totalRecorded = Round.Answers.Count;
             var pct = totalExpected > 0 ? (int)(100.0 * totalRecorded / totalExpected) : 0;
         }
@@ -49,7 +50,7 @@
                 var isConnected = SessionService.IsConnected(assignment.ScorerId);
                 var status = SessionService.GetStatus(assignment.ScorerId);
                 var positionText = GetPositionText(status, assignment);
-                var assignedCount = assignment.TeamIds.Count * Round.QuestionCount;
+                var assignedCount = assignment.TeamIds.Count * Round.Length;
                 var answeredCount = Round.Answers.Count(a => assignment.TeamIds.Contains(a.TeamId));
                 var scorerPct = assignedCount > 0 ? (int)(100.0 * answeredCount / assignedCount) : 0;
                 var scorerUrl = GetScorerStationUrl(assignment.ScorerId);

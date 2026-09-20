@@ -1,6 +1,7 @@
 @namespace PubQuizMaster.Web.Components.Event
-@using PubQuizMaster.Web.Records
 @using Microsoft.AspNetCore.Components.Forms
+@using PubQuizMaster.Core.Models.Standings
+@using PubQuizMaster.Web.Records
 
 <div class="card shadow-sm border-0 h-100">
     <div class="card-header pqm-card-header">
@@ -23,8 +24,8 @@
             <thead class="small text-secondary">
                 <tr>
                     <th class="ps-3">Round</th>
-                    <th class="text-end" style="width: 50px;" title="Number of questions">Q</th>
-                    <th class="text-end pe-3" style="width: 130px;">Actions</th>
+                    <th class="text-end" style="width: 50px;" title="Number of questions">Questions</th>
+                    <th class="text-end pe-3" style="width: 130px;"></th>
                 </tr>
             </thead>
             <tbody>
@@ -49,11 +50,9 @@
                                     <span class="badge bg-success-subtle text-success-emphasis ms-1">Final</span>
                                 }
                             </td>
-                            <td class="text-end small text-muted">@round.QuestionCount</td>
-                            <td class="text-end pe-3">
-                                @* Fixed slot order: Matrix, Export, Delete.
-                                   Unavailable actions keep an invisible placeholder so the icons line up across rows. *@
-                                <div class="d-inline-flex gap-1 align-items-center">
+                            <td class="text-end small text-muted">@round.Length</td>
+                            <td class="pqm-actions-cell pe-3">
+                                <div class="pqm-row-actions">
                                     <a class="btn btn-sm btn-outline-secondary py-0 px-2"
                                        href="/matrix/@round.Id"
                                        title="Open matrix"
@@ -66,7 +65,7 @@
                                         var exportTitle = round.IsFinal ? "Export final results and podium" : "Export round results";
 
                                         @* A label, not a button: the export needs an uploaded template, clicking the label opens the file dialog.
-                                           The changing @key recreates the input, otherwise the same file cannot be picked twice. *@
+                                        The changing @key recreates the input, otherwise the same file cannot be picked twice. *@
                                         <label class="btn btn-sm btn-outline-primary py-0 px-2 mb-0 @(IsExporting ? "disabled" : null)"
                                                title="@exportTitle"
                                                aria-label="@exportTitle">
@@ -78,12 +77,6 @@
                                                        OnChange="e => ExportAsync(round, e)" />
                                         </label>
                                     }
-                                    else
-                                    {
-                                        <span class="btn btn-sm btn-outline-primary py-0 px-2 invisible" aria-hidden="true">
-                                            <span class="mif-download"></span>
-                                        </span>
-                                    }
 
                                     @if (round.Answers.Count == 0)
                                     {
@@ -93,12 +86,6 @@
                                                 @onclick="() => OnDeleteRound.InvokeAsync(round)">
                                             <span class="mif-bin" aria-hidden="true"></span>
                                         </button>
-                                    }
-                                    else
-                                    {
-                                        <span class="btn btn-sm btn-outline-danger py-0 px-2 invisible" aria-hidden="true">
-                                            <span class="mif-bin"></span>
-                                        </span>
                                     }
                                 </div>
                             </td>

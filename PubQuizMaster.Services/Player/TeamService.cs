@@ -1,8 +1,9 @@
 using Microsoft.EntityFrameworkCore;
 using PubQuizMaster.Core.Models.Event;
-using PubQuizMaster.Core.Models.Player;
-using PubQuizMaster.Core.Records.Player;
+using PubQuizMaster.Core.Models.Standings;
+using PubQuizMaster.Core.Records.Standings;
 using PubQuizMaster.Data;
+using PubQuizMaster.Data.Extensions;
 using PubQuizMaster.Services.Event;
 
 namespace PubQuizMaster.Services.Player
@@ -29,7 +30,7 @@ namespace PubQuizMaster.Services.Player
             var team = new Team
             {
                 Name = trimmed,
-                NormalizedName = normalized,
+                Normalized = normalized,
                 CreatedAt = DateTime.UtcNow
             };
 
@@ -39,7 +40,7 @@ namespace PubQuizMaster.Services.Player
             {
                 await db.SaveChangesAsync(ct);
             }
-            catch (DbUpdateException ex) when (ex.IsUniqueViolation(DbConstraintNames.TeamName))
+            catch (DbUpdateException ex) when (ex.IsUniqueViolation(Constants.TeamName))
             {
                 throw new InvalidOperationException($"Team '{trimmed}' already exists.", ex);
             }
@@ -55,14 +56,14 @@ namespace PubQuizMaster.Services.Player
 
             var existing = await db.Teams
                 .AsNoTracking()
-                .FirstOrDefaultAsync(t => t.NormalizedName == normalized, ct);
+                .FirstOrDefaultAsync(t => t.Normalized == normalized, ct);
 
             if (existing != null) return existing;
 
             var team = new Team
             {
                 Name = trimmed,
-                NormalizedName = normalized,
+                Normalized = normalized,
                 CreatedAt = DateTime.UtcNow
             };
 
@@ -73,12 +74,12 @@ namespace PubQuizMaster.Services.Player
                 await db.SaveChangesAsync(ct);
                 return team;
             }
-            catch (DbUpdateException ex) when (ex.IsUniqueViolation(DbConstraintNames.TeamName))
+            catch (DbUpdateException ex) when (ex.IsUniqueViolation(Constants.TeamName))
             {
                 // Created concurrently by another request, use that one
                 return await db.Teams
                     .AsNoTracking()
-                    .FirstAsync(t => t.NormalizedName == normalized, ct);
+                    .FirstAsync(t => t.Normalized == normalized, ct);
             }
         }
 
@@ -96,7 +97,7 @@ namespace PubQuizMaster.Services.Player
         /// Moves everything of the source team to the target team and deletes the source team.
         /// On conflicts (same answer cell, same legacy result) the target team's entry wins.
         /// </summary>
-        public async Task<TeamMergeResult> MergeTeamsAsync(Guid sourceTeamId, Guid targetTeamId,
+        public async Task<TeamMerge> MergeTeamsAsync(Guid sourceTeamId, Guid targetTeamId,
             CancellationToken ct = default)
         {
             if (sourceTeamId == targetTeamId)
@@ -147,7 +148,7 @@ namespace PubQuizMaster.Services.Player
 
             await transaction.CommitAsync(ct);
 
-            return new TeamMergeResult(source.Name, target.Name, movedAnswers, droppedAnswers, droppedResults);
+            return new TeamMerge(source.Name, target.Name, movedAnswers, droppedAnswers, droppedResults);
         }
 
         public async Task<Team> RenameTeamAsync(Guid teamId, string newName, CancellationToken ct = default)
@@ -167,13 +168,13 @@ namespace PubQuizMaster.Services.Player
             }
 
             team.Name = trimmed;
-            team.NormalizedName = normalized;
+            team.Normalized = normalized;
 
             try
             {
                 await db.SaveChangesAsync(ct);
             }
-            catch (DbUpdateException ex) when (ex.IsUniqueViolation(DbConstraintNames.TeamName))
+            catch (DbUpdateException ex) when (ex.IsUniqueViolation(Constants.TeamName))
             {
                 throw new InvalidOperationException($"Team '{trimmed}' already exists.", ex);
             }
@@ -190,7 +191,7 @@ namespace PubQuizMaster.Services.Player
         {
             return await db.Teams
                 .AsNoTracking()
-                .Where(t => t.NormalizedName == normalized && t.Id != excludedTeamId)
+                .Where(t => t.Normalized == normalized && t.Id != excludedTeamId)
                 .Select(t => t.Name)
                 .FirstOrDefaultAsync(ct);
         }

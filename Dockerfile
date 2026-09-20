@@ -26,6 +26,8 @@ WORKDIR /app
 
 COPY --from=build /app/publish .
 
+# Data protection key ring. An empty named volume mounted here inherits these
+# permissions from the image, so the non-root user can write the key files.
 RUN mkdir -p /data/keys && chown -R $APP_UID:$APP_UID /data/keys
 
 # Non-root user shipped with the aspnet image

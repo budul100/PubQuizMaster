@@ -1,4 +1,4 @@
-namespace PubQuizMaster.Core.Records.Player
+namespace PubQuizMaster.Core.Records.Standings
 {
     /// <summary>
     /// All-time standings. Rank in the teams is by total score.

@@ -41,10 +41,10 @@ namespace PubQuizMaster.Web.Components.Event
 
             return status.Phase switch
             {
-                ScorerPhase.SortingSheets => "Sorting sheets",
-                ScorerPhase.Scoring =>
-                    $"Q {status.QuestionIndex + 1}/{Round.QuestionCount} \u00B7 Sheet {status.TeamIndex + 1}/{assignment.TeamIds.Count}",
-                ScorerPhase.Reviewing => "Reviewing overview",
+                ScoringType.Sorting => "Sorting sheets",
+                ScoringType.Scoring =>
+                    $"Q {status.QuestionIndex + 1}/{Round.Length} \u00B7 Sheet {status.TeamIndex + 1}/{assignment.TeamIds.Count}",
+                ScoringType.Reviewing => "Reviewing overview",
                 _ => "Idle"
             };
         }

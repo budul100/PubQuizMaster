@@ -4,7 +4,7 @@ using PubQuizMaster.Core.Models.Event;
 namespace PubQuizMaster.Web.Components.Event
 {
     /// <summary>
-    /// Start page while no quiz night is active: list of completed nights and legacy imports.
+    /// Start page while no quiz is active: list of completed quizzes and imports.
     /// Title, date and description are edited only in the live dashboard (QuizEditModal).
     /// </summary>
     public partial class QuizListPanel

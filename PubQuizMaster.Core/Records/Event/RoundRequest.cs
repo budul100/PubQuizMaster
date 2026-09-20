@@ -4,9 +4,9 @@ namespace PubQuizMaster.Core.Records.Event
     /// Start of a new round. All participants of the quiz night take part.
     /// </summary>
     public record RoundRequest(
-        Guid QuizNightId,
+        Guid QuizId,
         string RoundName,
-        int QuestionCount,
+        int Length,
         bool IsFinal,
-        List<AssignmentRequest> Assignments);
+        List<ScorerRequest> Assignments);
 }

@@ -1,11 +1,13 @@
 @page "/standings"
+@using PubQuizMaster.Core
+@using PubQuizMaster.Core.Models.Standings
 @using PubQuizMaster.Services
 @using PubQuizMaster.Services.Player
 @using PubQuizMaster.Web.Enums
 @inject LeaderboardService LeaderboardService
 
-<PageTitle>All-Time Standings – PubQuizMaster</PageTitle>
-<SectionContent SectionName="@LayoutSections.PageTitle">All-Time Standings</SectionContent>
+<PageTitle>Standings – PubQuizMaster</PageTitle>
+<SectionContent SectionName="@Constants.PageTitle">Standings</SectionContent>
 
 <div class="card shadow-sm border-0">
     <div class="card-header pqm-card-header flex-wrap">

@@ -2,7 +2,7 @@ using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 using PubQuizMaster.Core.Enums;
 using PubQuizMaster.Core.Models.Event;
-using PubQuizMaster.Core.Models.Player;
+using PubQuizMaster.Core.Models.Standings;
 using PubQuizMaster.Services.Common;
 using PubQuizMaster.Services.Event;
 using PubQuizMaster.Web.Enums;
@@ -136,12 +136,12 @@ namespace PubQuizMaster.Web.Pages.Event
             null => "btn-outline-secondary"
         };
 
-        private static ScorerPhase MapPhase(ScorerPagePhase phase) => phase switch
+        private static ScoringType MapPhase(ScorerPagePhase phase) => phase switch
         {
-            ScorerPagePhase.SortSheets => ScorerPhase.SortingSheets,
-            ScorerPagePhase.Scoring => ScorerPhase.Scoring,
-            ScorerPagePhase.Overview => ScorerPhase.Reviewing,
-            _ => ScorerPhase.Idle
+            ScorerPagePhase.SortSheets => ScoringType.Sorting,
+            ScorerPagePhase.Scoring => ScoringType.Scoring,
+            ScorerPagePhase.Overview => ScoringType.Reviewing,
+            _ => ScoringType.Idle
         };
 
         private void ChangeScorerId()
@@ -305,7 +305,7 @@ namespace PubQuizMaster.Web.Pages.Event
             round = state.Round;
             assignment = state.Assignment;
             assignedTeams = state.AssignedTeams;
-            questionCount = round.QuestionCount;
+            questionCount = round.Length;
 
             recordedAnswers.Clear();
             foreach (var answer in state.ExistingAnswers)

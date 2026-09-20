@@ -42,7 +42,7 @@ namespace PubQuizMaster.Web.Services
                 return;
             }
 
-            var mode = round.IsFinal ? PresentationMode.Final : PresentationMode.Round;
+            var mode = round.IsFinal ? PresentationType.Final : PresentationType.Round;
             await DownloadCoreAsync(quiz, round, mode, sourceFile, ct);
         }
 
@@ -91,7 +91,7 @@ namespace PubQuizMaster.Web.Services
             return string.IsNullOrEmpty(result) ? "Presentation" : result;
         }
 
-        private async Task DownloadCoreAsync(Quiz quiz, Round round, PresentationMode mode,
+        private async Task DownloadCoreAsync(Quiz quiz, Round round, PresentationType mode,
             IBrowserFile sourceFile, CancellationToken ct)
         {
             var maxFileSize = GetMaxFileSize();

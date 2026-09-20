@@ -2,7 +2,7 @@ using System.Globalization;
 using ClosedXML.Excel;
 using Microsoft.EntityFrameworkCore;
 using PubQuizMaster.Core.Models.Event;
-using PubQuizMaster.Core.Models.Player;
+using PubQuizMaster.Core.Models.Standings;
 using PubQuizMaster.Core.Records.Import;
 using PubQuizMaster.Data;
 
@@ -116,7 +116,7 @@ namespace PubQuizMaster.Services.Import
                     team = new Team
                     {
                         Name = rawTeamName,
-                        NormalizedName = teamKey,
+                        Normalized = teamKey,
                         CreatedAt = DateTime.UtcNow
                     };
 
@@ -233,9 +233,9 @@ namespace PubQuizMaster.Services.Import
 
             foreach (var team in teams)
             {
-                var key = string.IsNullOrEmpty(team.NormalizedName)
+                var key = string.IsNullOrEmpty(team.Normalized)
                     ? MatchingService.Normalize(team.Name)
-                    : team.NormalizedName;
+                    : team.Normalized;
 
                 // Legacy rows without NormalizedName can collide with regular ones. The first one wins.
                 if (!string.IsNullOrEmpty(key))

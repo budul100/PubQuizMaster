@@ -13,7 +13,7 @@ using PubQuizMaster.Data;
 namespace PubQuizMaster.Data.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20260918002350_InitialCreate")]
+    [Migration("20260920215541_InitialCreate")]
     partial class InitialCreate
     {
         /// <inheritdoc />
@@ -37,12 +37,12 @@ namespace PubQuizMaster.Data.Migrations
                     b.Property<DateTime>("RecordedAt")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<string>("RecordedByScorerId")
-                        .IsRequired()
-                        .HasColumnType("text");
-
                     b.Property<Guid>("RoundId")
                         .HasColumnType("uuid");
+
+                    b.Property<string>("ScorerId")
+                        .IsRequired()
+                        .HasColumnType("text");
 
                     b.Property<Guid>("TeamId")
                         .HasColumnType("uuid");
@@ -129,12 +129,12 @@ namespace PubQuizMaster.Data.Migrations
                     b.Property<bool>("IsFinalized")
                         .HasColumnType("boolean");
 
+                    b.Property<int>("Length")
+                        .HasColumnType("integer");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasColumnType("text");
-
-                    b.Property<int>("QuestionCount")
-                        .HasColumnType("integer");
 
                     b.Property<Guid>("QuizId")
                         .HasColumnType("uuid");
@@ -173,7 +173,7 @@ namespace PubQuizMaster.Data.Migrations
                     b.ToTable("Scorers");
                 });
 
-            modelBuilder.Entity("PubQuizMaster.Core.Models.Player.Result", b =>
+            modelBuilder.Entity("PubQuizMaster.Core.Models.Standings.Result", b =>
                 {
                     b.Property<Guid>("Id")
                         .HasColumnType("uuid");
@@ -201,7 +201,7 @@ namespace PubQuizMaster.Data.Migrations
                     b.ToTable("Scores");
                 });
 
-            modelBuilder.Entity("PubQuizMaster.Core.Models.Player.Team", b =>
+            modelBuilder.Entity("PubQuizMaster.Core.Models.Standings.Team", b =>
                 {
                     b.Property<Guid>("Id")
                         .HasColumnType("uuid");
@@ -213,13 +213,13 @@ namespace PubQuizMaster.Data.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
-                    b.Property<string>("NormalizedName")
+                    b.Property<string>("Normalized")
                         .IsRequired()
                         .HasColumnType("text");
 
                     b.HasKey("Id");
 
-                    b.HasIndex("NormalizedName")
+                    b.HasIndex("Normalized")
                         .IsUnique()
                         .HasDatabaseName("IX_Teams_NormalizedName");
 
@@ -243,7 +243,7 @@ namespace PubQuizMaster.Data.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("PubQuizMaster.Core.Models.Player.Team", "Team")
+                    b.HasOne("PubQuizMaster.Core.Models.Standings.Team", "Team")
                         .WithMany()
                         .HasForeignKey("TeamId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -272,7 +272,7 @@ namespace PubQuizMaster.Data.Migrations
                         .IsRequired();
                 });
 
-            modelBuilder.Entity("PubQuizMaster.Core.Models.Player.Result", b =>
+            modelBuilder.Entity("PubQuizMaster.Core.Models.Standings.Result", b =>
                 {
                     b.HasOne("PubQuizMaster.Core.Models.Event.Quiz", "Quiz")
                         .WithMany("Results")
@@ -280,7 +280,7 @@ namespace PubQuizMaster.Data.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("PubQuizMaster.Core.Models.Player.Team", "Team")
+                    b.HasOne("PubQuizMaster.Core.Models.Standings.Team", "Team")
                         .WithMany("Results")
                         .HasForeignKey("TeamId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -307,7 +307,7 @@ namespace PubQuizMaster.Data.Migrations
                     b.Navigation("Assignments");
                 });
 
-            modelBuilder.Entity("PubQuizMaster.Core.Models.Player.Team", b =>
+            modelBuilder.Entity("PubQuizMaster.Core.Models.Standings.Team", b =>
                 {
                     b.Navigation("Results");
                 });

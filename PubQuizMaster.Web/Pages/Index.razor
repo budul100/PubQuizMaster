@@ -1,15 +1,17 @@
 @page "/"
 @namespace PubQuizMaster.Web.Pages
-@using PubQuizMaster.Web.Components.Player
-@using PubQuizMaster.Web.Components.Event
+@using PubQuizMaster.Core
+@using PubQuizMaster.Core.Models.Standings
 @using PubQuizMaster.Web.Components.Common
+@using PubQuizMaster.Web.Components.Event
+@using PubQuizMaster.Web.Components.Player
 @inject QuizService LiveQuizService
 @inject ScorerService SessionService
 @inject ToastService ToastService
 @implements IDisposable
 
 <PageTitle>PubQuizMaster</PageTitle>
-<SectionContent SectionName="@LayoutSections.PageTitle">@(isLoading ? "Quiz" : activeNight != null ? "Live Quiz" : "Quiz Nights")</SectionContent>
+<SectionContent SectionName="@Constants.PageTitle">@(isLoading ? "Quiz" : activeNight != null ? "Live Quiz" : "Quiz Nights")</SectionContent>
 
 @if (isLoading)
 {
@@ -94,7 +96,7 @@ else
 
 <ConfirmModal IsOpen="@showCompleteModal"
               Title="Complete Quiz Night"
-              Message="@($"Complete \"{activeNight?.Title}\"? Results will be added to the all-time standings and no further rounds can be started. To export the final presentation later, reopen the quiz night.")"
+              Message="@($"Complete \"{activeNight?.Title}\"? Results will be added to the standings and no further rounds can be started. To export the final presentation later, reopen the quiz night.")"
               ConfirmText="Complete"
               ConfirmButtonClass="btn-success"
               HeaderClass="bg-success"

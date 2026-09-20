@@ -11,8 +11,10 @@ namespace PubQuizMaster.Core.Scoring
         /// Ranks all items as regular competitors. The sort is stable, so items with equal
         /// scores keep their input order. Pre-sort the input to define the tie order (e.g. by name).
         /// </summary>
-        public static (T Item, int Rank)[] Rank<T>(IEnumerable<T> items, Func<T, decimal> score)
-            => Rank(items, score, _ => false);
+        public static (T Item, int Rank)[] Rank<T>(this IEnumerable<T> items, Func<T, decimal> score)
+            => items.Rank(
+                score: score,
+                isNonCompetitive: _ => false);
 
         /// <summary>
         /// Competition ranking with non-competitive support. One formula for every item:
@@ -21,9 +23,7 @@ namespace PubQuizMaster.Core.Scoring
         /// 2. Non-competitive items get the rank a regular item with the same score would have.
         /// 3. Ordering: rank ascending, regular before non-competitive, then input order.
         /// </summary>
-        public static (T Item, int Rank)[] Rank<T>(
-            IEnumerable<T> items,
-            Func<T, decimal> score,
+        public static (T Item, int Rank)[] Rank<T>(this IEnumerable<T> items, Func<T, decimal> score,
             Func<T, bool> isNonCompetitive)
         {
             var entries = items

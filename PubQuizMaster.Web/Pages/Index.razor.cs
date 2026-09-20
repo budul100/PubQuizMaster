@@ -180,7 +180,7 @@ namespace PubQuizMaster.Web.Pages
                 .ToArray();
 
             // Ranks come from the ranking, the list itself is alphabetical so teams are easy to find
-            teamStandings = [.. CompetitionRanking.Rank(entries, x => x.TotalScore, x => x.IsNonCompetitive)
+            teamStandings = [.. entries.Rank(x => x.TotalScore, x => x.IsNonCompetitive)
                 .Select(r => new TeamStanding(
                     r.Item.TeamId,
                     r.Item.Name,
@@ -244,7 +244,7 @@ namespace PubQuizMaster.Web.Pages
             }
         }
 
-        private async Task HandleActiveQuizDetailsSavedAsync(QuizDetailsUpdate update)
+        private async Task HandleActiveQuizDetailsSavedAsync(QuizDetails update)
         {
             try
             {

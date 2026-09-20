@@ -1,6 +1,6 @@
 using PubQuizMaster.Core.Models.Event;
 
-namespace PubQuizMaster.Core.Models.Player
+namespace PubQuizMaster.Core.Models.Standings
 {
     /// <summary>
     /// Total score of a team for one quiz night. Imported for legacy nights,

@@ -1,4 +1,6 @@
 @page "/matrix/{RoundId:guid}"
+@using PubQuizMaster.Core
+@using PubQuizMaster.Core.Models.Standings
 @using PubQuizMaster.Services
 @using PubQuizMaster.Services.Common
 @inject QuizService LiveQuizService
@@ -8,7 +10,7 @@
 @implements IDisposable
 
 <PageTitle>Matrix – @(round?.Name ?? "Round")</PageTitle>
-<SectionContent SectionName="@LayoutSections.PageTitle">@(round == null ? "Matrix" : $"Matrix · {round.Name}")</SectionContent>
+<SectionContent SectionName="@Constants.PageTitle">@(round == null ? "Matrix" : $"Matrix · {round.Name}")</SectionContent>
 
 @if (isLoading)
 {
@@ -61,7 +63,7 @@ else
                         @onclick="StartRename">
                     <span class="mif-pencil" aria-hidden="true"></span>
                 </button>
-                <small class="text-muted">@teams.Length teams, @round.QuestionCount questions</small>
+                <small class="text-muted">@teams.Length teams, @round.Length questions</small>
             </div>
         }
         <div class="d-flex align-items-center gap-3">
@@ -93,7 +95,7 @@ else
                     <th style="width: 52px;" title="Round Points">Pts</th>
                     <th style="width: 48px;" title="Overall Evening Rank">#T</th>
                     <th style="width: 55px;" title="Overall Evening Points">Tot</th>
-                    @for (int q = 0; q < round.QuestionCount; q++)
+                    @for (int q = 0; q < round.Length; q++)
                     {
                         var qNum = q + 1;
                         <th style="width: 40px;">Q@(qNum)</th>
@@ -105,7 +107,7 @@ else
                     <td class="text-success fw-bold">@columnSums.Sum()</td>
                     <td>—</td>
                     <td>—</td>
-                    @for (int q = 0; q < round.QuestionCount; q++)
+                    @for (int q = 0; q < round.Length; q++)
                     {
                         var colIdx = q;
                         <td class="text-success">@columnSums[colIdx]</td>
@@ -128,7 +130,7 @@ else
                         <td class="text-secondary small">@row.OverallRank</td>
                         <td class="fw-bold text-primary">@row.OverallScore.ToString("0.#")</td>
 
-                        @for (int q = 0; q < round.QuestionCount; q++)
+                        @for (int q = 0; q < round.Length; q++)
                         {
                             var qIdx = q;
                             var isCorrect = row.Answers[qIdx];

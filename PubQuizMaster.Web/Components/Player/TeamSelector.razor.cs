@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Components;
-using PubQuizMaster.Core.Models.Player;
-using PubQuizMaster.Core.Records.Player;
+using PubQuizMaster.Core.Models.Standings;
+using PubQuizMaster.Core.Records.Standings;
 using PubQuizMaster.Services;
 
 namespace PubQuizMaster.Web.Components.Player

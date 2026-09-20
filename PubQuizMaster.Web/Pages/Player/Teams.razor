@@ -1,9 +1,10 @@
 @page "/teams"
+@using PubQuizMaster.Core
 @inject TeamService TeamService
 @inject ToastService ToastService
 
 <PageTitle>Teams – PubQuizMaster</PageTitle>
-<SectionContent SectionName="@LayoutSections.PageTitle">Teams</SectionContent>
+<SectionContent SectionName="@Constants.PageTitle">Teams</SectionContent>
 
 <div class="row g-3">
     <!-- Left Column: Add Team & Team List -->

@@ -20,9 +20,9 @@ namespace PubQuizMaster.Web.ViewModels
 
         #region Public Methods
 
-        public AssignmentRequest ToRequest()
+        public ScorerRequest ToRequest()
         {
-            return new AssignmentRequest(ScorerId.Trim(), Label.Trim(), [.. TeamIds]);
+            return new ScorerRequest(ScorerId.Trim(), Label.Trim(), [.. TeamIds]);
         }
 
         #endregion Public Methods

@@ -4,9 +4,9 @@ using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Presentation;
 using PubQuizMaster.Core.Enums;
 using PubQuizMaster.Core.Models.Event;
-using PubQuizMaster.Core.Models.Player;
+using PubQuizMaster.Core.Models.Standings;
 using PubQuizMaster.Core.Records.Event;
-using PubQuizMaster.Core.Records.Player;
+using PubQuizMaster.Core.Records.Standings;
 using PubQuizMaster.Core.Scoring;
 using Drawing = DocumentFormat.OpenXml.Drawing;
 using P14 = DocumentFormat.OpenXml.Office2010.PowerPoint;
@@ -36,7 +36,7 @@ namespace PubQuizMaster.Services.Event
         /// Slides and shapes the template lacks are skipped and reported in the result, the export still succeeds.
         /// </summary>
         public static PresentationResult FillPresentation(Quiz quizNight, Guid roundId,
-            PresentationMode mode, Stream document)
+            PresentationType mode, Stream document)
         {
             if (!document.CanSeek || !document.CanWrite)
             {
@@ -53,7 +53,7 @@ namespace PubQuizMaster.Services.Event
                 throw new InvalidOperationException($"Round '{round.Name}' is not finalized yet.");
             }
 
-            var isFinalRound = mode == PresentationMode.Final;
+            var isFinalRound = mode == PresentationType.Final;
 
             document.Position = 0;
 
@@ -106,7 +106,7 @@ namespace PubQuizMaster.Services.Event
             //    Explicit slide names win, otherwise the questions map to the Question slides in deck order.
             var questionSlides = GetQuestionSlides(slides);
 
-            for (var qi = 0; qi < round.QuestionCount; qi++)
+            for (var qi = 0; qi < round.Length; qi++)
             {
                 var slideName = $"Answer{qi + 1}";
                 var slidePart = FindSlide(slides, slideName)
@@ -232,7 +232,7 @@ namespace PubQuizMaster.Services.Event
         {
             // Tie order within a rank, same comparer as dashboard and matrix
             var ordered = scores.OrderBy(x => x.Team.Name, StringComparer.CurrentCultureIgnoreCase).ToArray();
-            return [.. CompetitionRanking.Rank(ordered, x => x.Score, x => x.IsNonCompetitive)
+            return [.. ordered.Rank(x => x.Score, x => x.IsNonCompetitive)
                 .Select(r => new RankedTeam(r.Item.Team, r.Item.Score, r.Rank))];
         }
 

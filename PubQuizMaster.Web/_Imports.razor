@@ -3,25 +3,22 @@
 @using Microsoft.AspNetCore.Components.Authorization
 @using Microsoft.AspNetCore.Components.Forms
 @using Microsoft.AspNetCore.Components.Routing
+@using Microsoft.AspNetCore.Components.Sections
 @using Microsoft.AspNetCore.Components.Web
 @using Microsoft.AspNetCore.Components.Web.Virtualization
-@using Microsoft.AspNetCore.Components.Sections 
 @using Microsoft.JSInterop
-
 @using PubQuizMaster.Core.Models.Content
 @using PubQuizMaster.Core.Models.Event
-@using PubQuizMaster.Core.Models.Player
-
+@using PubQuizMaster.Core.Models.Standings
 @using PubQuizMaster.Services.Common
 @using PubQuizMaster.Services.Event
 @using PubQuizMaster.Services.Import
 @using PubQuizMaster.Services.Player
-
 @using PubQuizMaster.Web
-@using PubQuizMaster.Web.Shared
 @using PubQuizMaster.Web.Components.Common
 @using PubQuizMaster.Web.Components.Event
 @using PubQuizMaster.Web.Components.Player
+@using PubQuizMaster.Web.Shared
 
 @* All components require the admin login unless marked [AllowAnonymous] *@
 @attribute [Authorize]

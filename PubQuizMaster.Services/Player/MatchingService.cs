@@ -1,7 +1,7 @@
 using System.Text.RegularExpressions;
 using Microsoft.EntityFrameworkCore;
-using PubQuizMaster.Core.Models.Player;
-using PubQuizMaster.Core.Records.Player;
+using PubQuizMaster.Core.Models.Standings;
+using PubQuizMaster.Core.Records.Standings;
 using PubQuizMaster.Data;
 
 namespace PubQuizMaster.Services
@@ -27,22 +27,22 @@ namespace PubQuizMaster.Services
 
             var teams = await db.Teams
                 .AsNoTracking()
-                .Select(t => new { t.Id, t.Name, t.NormalizedName })
+                .Select(t => new { t.Id, t.Name, t.Normalized })
                 .ToListAsync(ct);
 
             var matches = new List<TeamMatch>();
 
             foreach (var team in teams)
             {
-                var target = string.IsNullOrEmpty(team.NormalizedName)
+                var target = string.IsNullOrEmpty(team.Normalized)
                     ? Normalize(team.Name)
-                    : team.NormalizedName;
+                    : team.Normalized;
 
                 var similarity = CalculateSimilarity(normalizedCandidate, target);
                 if (similarity >= minThreshold)
                 {
                     matches.Add(new TeamMatch(
-                        new Team { Id = team.Id, Name = team.Name, NormalizedName = target },
+                        new Team { Id = team.Id, Name = team.Name, Normalized = target },
                         similarity));
                 }
             }

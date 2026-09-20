@@ -1,6 +1,6 @@
-﻿using PubQuizMaster.Core.Models.Player;
+using PubQuizMaster.Core.Models.Standings;
 
-namespace PubQuizMaster.Core.Records.Player
+namespace PubQuizMaster.Core.Records.Standings
 {
     public record RankedTeam(
         Team Team,

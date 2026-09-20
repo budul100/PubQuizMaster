@@ -17,7 +17,7 @@ namespace PubQuizMaster.Web.Shared
         private static readonly TimeSpan RefreshInterval = TimeSpan.FromSeconds(10);
 
         private readonly CancellationTokenSource cts = new();
-        private ActiveRoundInfo? info;
+        private ActiveRound? info;
         private PeriodicTimer? refreshTimer;
 
         #endregion Private Fields

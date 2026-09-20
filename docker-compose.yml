@@ -25,6 +25,8 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: Production
       ConnectionStrings__Default: "Host=pubquizmaster-db;Port=5432;Database=pubquizmaster;Username=pubquizmaster;Password=${DB_PASSWORD}"
+    volumes:
+      - pubquizmaster-keys:/data/keys
     depends_on:
       pubquizmaster-db:
         condition: service_healthy
@@ -34,6 +36,7 @@ services:
 
 volumes:
   pubquizmaster-pgdata:
+  pubquizmaster-keys:
 
 networks:
   proxynet:

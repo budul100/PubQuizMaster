@@ -1,4 +1,4 @@
-namespace PubQuizMaster.Core.Models.Player
+namespace PubQuizMaster.Core.Models.Standings
 {
     public class Team
     {
@@ -10,7 +10,7 @@ namespace PubQuizMaster.Core.Models.Player
 
         public string Name { get; set; } = string.Empty;
 
-        public string NormalizedName { get; set; } = string.Empty;
+        public string Normalized { get; set; } = string.Empty;
 
         public List<Result> Results { get; set; } = [];
 

@@ -1,4 +1,4 @@
-﻿namespace PubQuizMaster.Core.Models.Content
+namespace PubQuizMaster.Core.Models.Content
 {
     /// <summary>Boolean answer: correct = 1 point, incorrect = 0 points.</summary>
     public class AnswerBool

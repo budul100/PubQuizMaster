@@ -29,7 +29,7 @@ namespace PubQuizMaster.Web.Components.Event
 
         [Parameter] public EventCallback OnCanceled { get; set; }
 
-        [Parameter] public EventCallback<QuizDetailsUpdate> OnSaved { get; set; }
+        [Parameter] public EventCallback<QuizDetails> OnSaved { get; set; }
 
         [Parameter] public Quiz? Quiz { get; set; }
 
@@ -75,7 +75,7 @@ namespace PubQuizMaster.Web.Components.Event
 
             try
             {
-                var update = new QuizDetailsUpdate(
+                var update = new QuizDetails(
                     Quiz.Id,
                     editTitle.Trim(),
                     DateOnly.FromDateTime(editDate),

@@ -1,5 +1,5 @@
 using Microsoft.EntityFrameworkCore;
-using PubQuizMaster.Core.Models.Player;
+using PubQuizMaster.Core.Models.Standings;
 using PubQuizMaster.Core.Scoring;
 using PubQuizMaster.Data;
 
@@ -72,7 +72,7 @@ namespace PubQuizMaster.Services.Event
                         IsAK: akLookup.GetValueOrDefault((quiz.Id, teamId), false)))
                     .ToArray();
 
-                foreach (var (entry, rank) in CompetitionRanking.Rank(scores, x => x.Score, x => x.IsAK))
+                foreach (var (entry, rank) in scores.Rank(x => x.Score, x => x.IsAK))
                 {
                     db.Scores.Add(new Result
                     {

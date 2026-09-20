@@ -1,6 +1,6 @@
 using PubQuizMaster.Core.Models.Content;
 using PubQuizMaster.Core.Models.Event;
-using PubQuizMaster.Core.Models.Player;
+using PubQuizMaster.Core.Models.Standings;
 
 namespace PubQuizMaster.Core.Records.Event
 {

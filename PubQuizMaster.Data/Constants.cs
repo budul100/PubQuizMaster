@@ -3,7 +3,7 @@ namespace PubQuizMaster.Data
     /// <summary>
     /// Database names of constraints the application reacts to.
     /// </summary>
-    public static class DbConstraintNames
+    public static class Constants
     {
         #region Public Fields
 

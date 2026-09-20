@@ -1,9 +1,10 @@
 using Microsoft.EntityFrameworkCore;
 using PubQuizMaster.Core.Models.Content;
 using PubQuizMaster.Core.Models.Event;
-using PubQuizMaster.Core.Models.Player;
+using PubQuizMaster.Core.Models.Standings;
 using PubQuizMaster.Core.Records.Event;
 using PubQuizMaster.Data;
+using PubQuizMaster.Data.Extensions;
 using PubQuizMaster.Services.Player;
 
 namespace PubQuizMaster.Services.Event
@@ -129,7 +130,7 @@ namespace PubQuizMaster.Services.Event
             {
                 await db.SaveChangesAsync(ct);
             }
-            catch (DbUpdateException ex) when (ex.IsUniqueViolation(DbConstraintNames.SingleActiveQuiz))
+            catch (DbUpdateException ex) when (ex.IsUniqueViolation(Constants.SingleActiveQuiz))
             {
                 throw new InvalidOperationException(
                     "An active quiz night is already in progress. " +
@@ -216,7 +217,7 @@ namespace PubQuizMaster.Services.Event
         /// Name and scorer stations of the open round of the active quiz night, for the header badges.
         /// Null when no quiz night is active or no round is open.
         /// </summary>
-        public async Task<ActiveRoundInfo?> GetActiveRoundInfoAsync(CancellationToken ct = default)
+        public async Task<ActiveRound?> GetActiveRoundInfoAsync(CancellationToken ct = default)
         {
             await using var db = await dbFactory.CreateDbContextAsync(ct);
 
@@ -230,7 +231,7 @@ namespace PubQuizMaster.Services.Event
 
             return round == null
                 ? null
-                : new ActiveRoundInfo(round.Name, [.. round.ScorerIds.Distinct(StringComparer.OrdinalIgnoreCase)]);
+                : new ActiveRound(round.Name, [.. round.ScorerIds.Distinct(StringComparer.OrdinalIgnoreCase)]);
         }
 
         public async Task<List<Quiz>> GetAllQuizzesAsync(CancellationToken ct = default)
@@ -468,7 +469,7 @@ namespace PubQuizMaster.Services.Event
             {
                 await db.SaveChangesAsync(ct);
             }
-            catch (DbUpdateException ex) when (ex.IsUniqueViolation(DbConstraintNames.SingleActiveQuiz))
+            catch (DbUpdateException ex) when (ex.IsUniqueViolation(Constants.SingleActiveQuiz))
             {
                 throw new InvalidOperationException(
                     "Another quiz night is active. Complete it before reopening this one.", ex);
@@ -534,14 +535,14 @@ namespace PubQuizMaster.Services.Event
                 .AsNoTracking()
                 .Include(q => q.ParticipatingTeams)
                 .Include(q => q.Rounds)
-                .FirstOrDefaultAsync(q => q.Id == request.QuizNightId, ct)
+                .FirstOrDefaultAsync(q => q.Id == request.QuizId, ct)
                 ?? throw new InvalidOperationException("Active quiz night not found.");
 
             ValidateRoundRequest(request, quiz);
 
             if (request.IsFinal)
             {
-                await ClearOtherFinalRoundsAsync(db, request.QuizNightId, null, ct);
+                await ClearOtherFinalRoundsAsync(db, request.QuizId, null, ct);
             }
 
             var roundId = Guid.NewGuid();
@@ -549,9 +550,9 @@ namespace PubQuizMaster.Services.Event
             var newRound = new Round
             {
                 Id = roundId,
-                QuizId = request.QuizNightId,
+                QuizId = request.QuizId,
                 Name = request.RoundName.Trim(),
-                QuestionCount = request.QuestionCount,
+                Length = request.Length,
                 IsFinal = request.IsFinal,
                 IsFinalized = false,
                 CreatedAt = DateTime.UtcNow
@@ -584,7 +585,7 @@ namespace PubQuizMaster.Services.Event
                 () => UpdateAnswersCoreAsync(roundId, cellUpdates, ct));
         }
 
-        public async Task UpdateQuizAsync(QuizDetailsUpdate update, CancellationToken ct = default)
+        public async Task UpdateQuizAsync(QuizDetails update, CancellationToken ct = default)
         {
             if (string.IsNullOrWhiteSpace(update.Title))
             {
@@ -668,7 +669,7 @@ namespace PubQuizMaster.Services.Event
             {
                 await action();
             }
-            catch (DbUpdateException ex) when (ex.IsUniqueViolation(DbConstraintNames.AnswerCell))
+            catch (DbUpdateException ex) when (ex.IsUniqueViolation(Constants.AnswerCell))
             {
                 await action();
             }
@@ -732,7 +733,7 @@ namespace PubQuizMaster.Services.Event
 
             ValidateRoundName(request.RoundName, quiz.Rounds.Select(r => r.Name));
 
-            if (request.QuestionCount is < 1 or > MaxQuestionCount)
+            if (request.Length is < 1 or > MaxQuestionCount)
             {
                 throw new InvalidOperationException($"Question count must be between 1 and {MaxQuestionCount}.");
             }
@@ -810,7 +811,7 @@ namespace PubQuizMaster.Services.Event
             if (existing != null)
             {
                 existing.Value = new AnswerBool { Correct = isCorrect };
-                existing.RecordedByScorerId = scorerId;
+                existing.ScorerId = scorerId;
                 existing.RecordedAt = DateTime.UtcNow;
             }
             else
@@ -821,7 +822,7 @@ namespace PubQuizMaster.Services.Event
                     TeamId = teamId,
                     QuestionIndex = questionIndex,
                     Value = new AnswerBool { Correct = isCorrect },
-                    RecordedByScorerId = scorerId,
+                    ScorerId = scorerId,
                     RecordedAt = DateTime.UtcNow
                 });
             }
@@ -859,7 +860,7 @@ namespace PubQuizMaster.Services.Event
                 if (lookup.TryGetValue(key, out var existing))
                 {
                     existing.Value = new AnswerBool { Correct = value };
-                    existing.RecordedByScorerId = "host";
+                    existing.ScorerId = "host";
                     existing.RecordedAt = DateTime.UtcNow;
                 }
                 else
@@ -870,7 +871,7 @@ namespace PubQuizMaster.Services.Event
                         TeamId = key.TeamId,
                         QuestionIndex = key.QuestionIndex,
                         Value = new AnswerBool { Correct = value },
-                        RecordedByScorerId = "host",
+                        ScorerId = "host",
                         RecordedAt = DateTime.UtcNow
                     });
                 }

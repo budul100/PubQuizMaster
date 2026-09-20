@@ -1,7 +1,7 @@
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 using PubQuizMaster.Core.Models.Event;
-using PubQuizMaster.Core.Models.Player;
+using PubQuizMaster.Core.Models.Standings;
 using PubQuizMaster.Core.Records.Event;
 using PubQuizMaster.Core.Scoring;
 using PubQuizMaster.Web.Records;
@@ -60,10 +60,10 @@ namespace PubQuizMaster.Web.Pages.Event
 
         private static MatrixRow[] AssignRanks(MatrixRow[] source)
         {
-            var roundRanks = CompetitionRanking.Rank(source, r => r.RoundScore, r => r.IsNonCompetitive)
+            var roundRanks = source.Rank(r => r.RoundScore, r => r.IsNonCompetitive)
                 .ToDictionary(x => x.Item.TeamId, x => x.Rank);
 
-            var overallRanks = CompetitionRanking.Rank(source, r => r.OverallScore, r => r.IsNonCompetitive)
+            var overallRanks = source.Rank(r => r.OverallScore, r => r.IsNonCompetitive)
                 .ToDictionary(x => x.Item.TeamId, x => x.Rank);
 
             return source
@@ -147,15 +147,15 @@ namespace PubQuizMaster.Web.Pages.Event
         {
             if (round == null) return;
 
-            columnSums = new int[round.QuestionCount];
+            columnSums = new int[round.Length];
             var unranked = new MatrixRow[teams.Length];
 
             for (var teamIndex = 0; teamIndex < teams.Length; teamIndex++)
             {
                 var team = teams[teamIndex];
-                var teamAnswers = new bool[round.QuestionCount];
+                var teamAnswers = new bool[round.Length];
 
-                for (var q = 0; q < round.QuestionCount; q++)
+                for (var q = 0; q < round.Length; q++)
                 {
                     var isCorrect = answersLookup.GetValueOrDefault((team.TeamId, q), false);
                     teamAnswers[q] = isCorrect;

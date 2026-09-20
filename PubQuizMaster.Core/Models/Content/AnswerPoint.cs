@@ -1,4 +1,4 @@
-﻿namespace PubQuizMaster.Core.Models.Content
+namespace PubQuizMaster.Core.Models.Content
 {
     /// <summary>Point-based answer for future use (e.g. partial credit).</summary>
     public class AnswerPoint

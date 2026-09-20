@@ -1,9 +1,9 @@
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
 
-namespace PubQuizMaster.Data
+namespace PubQuizMaster.Data.Extensions
 {
-    public static class DbUpdateExceptionExtensions
+    public static class ExceptionExtensions
     {
         #region Public Methods
 

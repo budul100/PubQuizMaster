@@ -1,4 +1,4 @@
-using PubQuizMaster.Core.Records.Player;
+using PubQuizMaster.Core.Records.Standings;
 using PubQuizMaster.Core.Scoring;
 using PubQuizMaster.Web.Enums;
 using PubQuizMaster.Web.Records;
@@ -42,7 +42,7 @@ namespace PubQuizMaster.Web.Pages.Player
 
         private static LeaderboardRow[] RankBy(IEnumerable<LeaderboardTeam> teams, Func<LeaderboardTeam, decimal> metric)
         {
-            return [.. CompetitionRanking.Rank(teams, metric).Select(r => new LeaderboardRow(r.Item, r.Rank))];
+            return [.. teams.Rank(metric).Select(r => new LeaderboardRow(r.Item, r.Rank))];
         }
 
         private void ApplySort()

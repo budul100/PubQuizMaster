@@ -1,4 +1,4 @@
-namespace PubQuizMaster.Core.Records.Player
+namespace PubQuizMaster.Core.Records.Standings
 {
     public record LeaderboardTeam(
         Guid TeamId,

@@ -219,6 +219,28 @@ main {
     color: var(--pqm-card-title);
 }
 
+/* ==========================================================================
+   Row actions in list panels (QuizListPanel, RoundListPanel)
+   The cell itself becomes the flex container, so the alignment no longer
+   depends on the inline-level behaviour of Bootstrap's .btn-group.
+   ========================================================================== */
+.pqm-actions-cell {
+    /* Prevents the icons from wrapping into a second line when the column
+       gets squeezed on narrow screens */
+    white-space: nowrap;
+}
+
+.pqm-row-actions {
+    display: flex;
+    /* flex-end pushes the group against the right edge of the cell */
+    justify-content: flex-end;
+    /* Keeps buttons, labels and links on a common baseline instead of
+       stretching them to the tallest child */
+    align-items: center;
+    /* Small gap between the icons, comparable to btn-group without joined borders */
+    gap: 0.25rem;
+}
+
 /* Matrix styles, moved here from the component-level <style> block in Matrix.razor.
    Scoped CSS is not an option: PubQuizMaster.Web.styles.css is not linked in _Host.cshtml. */
 

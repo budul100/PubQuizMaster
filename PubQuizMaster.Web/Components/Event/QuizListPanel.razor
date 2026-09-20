@@ -1,16 +1,17 @@
 @namespace PubQuizMaster.Web.Components.Event
 @using PubQuizMaster.Core.Models.Event
+@using PubQuizMaster.Core.Models.Standings
 @using PubQuizMaster.Services.Common
 @using PubQuizMaster.Services.Event
 @using PubQuizMaster.Web.Components.Common
 @inject QuizService LiveQuizService
 @inject ToastService ToastService
 
-@* Only rendered while no quiz night is active: every row is completed or a legacy import *@
+@* Only rendered while no quiz night is active: every row is completed or a import *@
 <div class="card shadow-sm border-0">
     <div class="card-header pqm-card-header">
         <span class="pqm-card-title">
-            <span class="mif-calendar" aria-hidden="true"></span> Quiz Nights (@QuizNights.Count)
+            <span class="mif-calendar" aria-hidden="true"></span> Quizzes (@QuizNights.Count)
         </span>
         <button class="btn btn-sm btn-primary py-0 px-2"
                 title="New quiz night"
@@ -35,7 +36,7 @@
                     <th>Title</th>
                     <th class="text-end" style="width: 80px;">Teams</th>
                     <th class="text-end" style="width: 80px;">Rounds</th>
-                    <th class="text-end pe-3" style="width: 100px;">Actions</th>
+                    <th class="text-end pe-3" style="width: 100px;"></th>
                 </tr>
             </thead>
             <tbody>
@@ -62,18 +63,18 @@
                             </td>
                             <td class="text-end small">@quiz.ParticipatingTeams.Count</td>
                             <td class="text-end small">@quiz.Rounds.Count</td>
-                            <td class="text-end pe-3">
-                                <div class="btn-group btn-group-sm">
+                            <td class="pqm-actions-cell pe-3">
+                                <div class="pqm-row-actions">
                                     @if (!quiz.IsLegacyImport)
                                     {
-                                        <button class="btn btn-outline-warning py-0 px-2"
+                                        <button class="btn btn-sm btn-outline-warning py-0 px-2"
                                                 title="Reopen quiz night"
                                                 aria-label="Reopen quiz night"
                                                 @onclick="() => PromptReopen(quiz)">
                                             <span class="mif-undo" aria-hidden="true"></span>
                                         </button>
                                     }
-                                    <button class="btn btn-outline-danger py-0 px-2"
+                                    <button class="btn btn-sm btn-outline-danger py-0 px-2"
                                             title="Delete quiz night"
                                             aria-label="Delete quiz night"
                                             @onclick="() => PromptDelete(quiz)">
@@ -98,7 +99,7 @@
 
 <ConfirmModal IsOpen="@showReopenModal"
               Title="Reopen Quiz Night"
-              Message="@($"Reopen \"{quizToReopen?.Title}\"? It becomes the active quiz night again and is removed from the all-time standings until it is completed.")"
+              Message="@($"Reopen \"{quizToReopen?.Title}\"? It becomes the active quiz night again and is removed from the standings until it is completed.")"
               ConfirmText="Reopen"
               ConfirmButtonClass="btn-warning"
               HeaderClass="bg-warning"

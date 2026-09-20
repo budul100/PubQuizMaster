@@ -14,9 +14,9 @@ namespace PubQuizMaster.Core.Models.Content
 
         public DateTime RecordedAt { get; set; } = DateTime.UtcNow;
 
-        public string RecordedByScorerId { get; set; } = string.Empty;
-
         public Guid RoundId { get; set; }
+
+        public string ScorerId { get; set; } = string.Empty;
 
         public Guid TeamId { get; set; }
 
@@ -24,4 +24,4 @@ namespace PubQuizMaster.Core.Models.Content
 
         #endregion Public Properties
     }
-}
+}

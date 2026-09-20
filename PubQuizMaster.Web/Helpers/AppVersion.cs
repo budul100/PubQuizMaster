@@ -1,7 +1,7 @@
 using System.Globalization;
 using System.Reflection;
 
-namespace PubQuizMaster.Web
+namespace PubQuizMaster.Web.Helpers
 {
     /// <summary>
     /// Build stamp shown at the bottom of the sidebar.

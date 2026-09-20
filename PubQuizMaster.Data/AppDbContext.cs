@@ -2,7 +2,7 @@ using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using PubQuizMaster.Core.Models.Content;
 using PubQuizMaster.Core.Models.Event;
-using PubQuizMaster.Core.Models.Player;
+using PubQuizMaster.Core.Models.Standings;
 
 namespace PubQuizMaster.Data
 {
@@ -47,7 +47,7 @@ namespace PubQuizMaster.Data
                 .HasIndex(q => new { q.IsCompleted, q.IsLegacyImport })
                 .IsUnique()
                 .HasFilter("\"IsCompleted\" = false AND \"IsLegacyImport\" = false")
-                .HasDatabaseName(DbConstraintNames.SingleActiveQuiz);
+                .HasDatabaseName(Constants.SingleActiveQuiz);
 
             modelBuilder.Entity<Round>()
                 .HasMany(r => r.Answers)
@@ -57,15 +57,15 @@ namespace PubQuizMaster.Data
 
             // Team names are matched by their normalized form
             modelBuilder.Entity<Team>()
-                .HasIndex(t => t.NormalizedName)
+                .HasIndex(t => t.Normalized)
                 .IsUnique()
-                .HasDatabaseName(DbConstraintNames.TeamName);
+                .HasDatabaseName(Constants.TeamName);
 
             // One answer per cell
             modelBuilder.Entity<Answer>()
                 .HasIndex(a => new { a.RoundId, a.TeamId, a.QuestionIndex })
                 .IsUnique()
-                .HasDatabaseName(DbConstraintNames.AnswerCell);
+                .HasDatabaseName(Constants.AnswerCell);
 
             modelBuilder.Entity<Participant>()
                 .HasKey(qt => new { qt.QuizId, qt.TeamId });
@@ -95,7 +95,7 @@ namespace PubQuizMaster.Data
             modelBuilder.Entity<Result>()
                 .HasIndex(r => new { r.QuizId, r.TeamId })
                 .IsUnique()
-                .HasDatabaseName(DbConstraintNames.ResultPerTeam);
+                .HasDatabaseName(Constants.ResultPerTeam);
 
             var jsonOptions = new JsonSerializerOptions();
 
