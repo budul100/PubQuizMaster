@@ -1,4 +1,4 @@
-<div class="top-row ps-3 navbar navbar-dark bg-dark">
+<div class="top-row ps-3 navbar navbar-dark">
     <div class="container-fluid">
         <a class="navbar-brand fw-bold d-flex align-items-center gap-2" href="">
             <span class="mif-target text-danger" aria-hidden="true"></span> PubQuizMaster
@@ -23,10 +23,25 @@
                 <span class="mif-group" aria-hidden="true"></span> Teams
             </NavLink>
         </div>
+
+        <div class="nav-section-label">Options</div>
+
         <div class="nav-item">
             <NavLink class="nav-link" href="/legacy-import" Match="NavLinkMatch.Prefix">
                 <span class="mif-upload" aria-hidden="true"></span> Legacy Import
             </NavLink>
         </div>
+        <AuthorizeView>
+            <Authorized>
+                <div class="nav-item">
+                    @* Plain link with target="_top": logout is a Razor Page outside the Blazor circuit *@
+                    <a class="nav-link" href="/logout" target="_top">
+                        <span class="mif-exit" aria-hidden="true"></span> Logout
+                    </a>
+                </div>
+            </Authorized>
+        </AuthorizeView>
     </nav>
 </div>
+
+<div class="sidebar-version">Version @AppVersion.Current</div>

@@ -1,4 +1,24 @@
 /* ==========================================================================
+   Design tokens
+   All colors of the layout in one place. Change a value here and every rule
+   below that uses var(--name) follows.
+   ========================================================================== */
+:root {
+    /* Sidebar gradient: navy at the top, violet at the bottom */
+    --pqm-sidebar-top: #1b1f5c;
+    --pqm-sidebar-mid: #3a1a58;
+    --pqm-sidebar-bottom: #4a1259;
+    /* Sidebar text and states, as white with transparency so they work on every gradient tone */
+    --pqm-sidebar-text: rgba(255, 255, 255, 0.75);
+    --pqm-sidebar-muted: rgba(255, 255, 255, 0.45);
+    --pqm-sidebar-divider: rgba(255, 255, 255, 0.10);
+    --pqm-sidebar-hover: rgba(255, 255, 255, 0.10);
+    --pqm-sidebar-active: rgba(255, 255, 255, 0.16);
+    /* Accent line on the left of the active navigation item */
+    --pqm-accent: #9db4ff;
+}
+
+/* ==========================================================================
    Blazor error bar (#blazor-error-ui in Pages/_Host.cshtml)
    Blazor shows the bar on an unhandled error by setting style="display: block".
    It has to be hidden by a normal rule: Bootstrap's d-none uses !important,
@@ -38,7 +58,16 @@ main {
 }
 
 .sidebar {
-    background-color: #212529;
+    /* Fallback color, painted below the gradient; visible only if gradients are unsupported */
+    background-color: var(--pqm-sidebar-top);
+    /* Vertical gradient over the full height of the sidebar box */
+    background-image: linear-gradient(180deg,
+        var(--pqm-sidebar-top) 0%,
+        var(--pqm-sidebar-mid) 55%,
+        var(--pqm-sidebar-bottom) 100%);
+    /* Stack header, navigation and version from top to bottom */
+    display: flex;
+    flex-direction: column;
 }
 
 .top-row {
@@ -64,6 +93,19 @@ main {
         position: sticky;
         top: 0;
     }
+
+    /* Only the link list scrolls, header and version stay in place */
+    .sidebar .nav-scrollable {
+        flex: 1;
+        min-height: 0;
+        overflow-y: auto;
+    }
+}
+
+/* Sidebar header: the generic .top-row above paints it white, here it becomes transparent */
+.sidebar .top-row {
+    background-color: transparent;
+    border-bottom: 1px solid var(--pqm-sidebar-divider);
 }
 
 /* Sidebar Navigation */
@@ -72,7 +114,7 @@ main {
 }
 
 .sidebar .nav-link {
-    color: rgba(255, 255, 255, 0.75);
+    color: var(--pqm-sidebar-text);
     display: flex;
     align-items: center;
     gap: 0.75rem;
@@ -82,13 +124,34 @@ main {
 
     .sidebar .nav-link:hover {
         color: #ffffff;
-        background-color: rgba(255, 255, 255, 0.1);
+        background-color: var(--pqm-sidebar-hover);
     }
 
     .sidebar .nav-link.active {
         color: #ffffff;
-        background-color: #0d6efd;
+        background-color: var(--pqm-sidebar-active);
+        /* Accent bar on the left, drawn as inset shadow so the text does not shift */
+        box-shadow: inset 3px 0 0 var(--pqm-accent);
     }
+
+/* Small caps label that groups the options below the main items */
+.nav-section-label {
+    padding: 1rem 1rem 0.25rem;
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--pqm-sidebar-muted);
+}
+
+/* Build stamp at the bottom of the sidebar */
+.sidebar-version {
+    padding: 0.75rem 1rem;
+    border-top: 1px solid var(--pqm-sidebar-divider);
+    font-size: 0.75rem;
+    text-align: center;
+    color: var(--pqm-sidebar-muted);
+}
 
 /* Matrix styles, moved here from the component-level <style> block in Matrix.razor.
    Scoped CSS is not an option: PubQuizMaster.Web.styles.css is not linked in _Host.cshtml. */
