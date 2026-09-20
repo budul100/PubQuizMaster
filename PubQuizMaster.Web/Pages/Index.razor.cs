@@ -175,9 +175,11 @@ namespace PubQuizMaster.Web.Pages
                         .Where(a => a.TeamId == pt.TeamId)
                         .Sum(a => a.Value.GetScore())
                 })
-                .OrderBy(x => x.Name)
+                // Tie order within a rank, same comparer as the display order below and the matrix
+                .OrderBy(x => x.Name, StringComparer.CurrentCultureIgnoreCase)
                 .ToArray();
 
+            // Ranks come from the ranking, the list itself is alphabetical so teams are easy to find
             teamStandings = [.. CompetitionRanking.Rank(entries, x => x.TotalScore, x => x.IsNonCompetitive)
                 .Select(r => new TeamStanding(
                     r.Item.TeamId,
@@ -187,7 +189,8 @@ namespace PubQuizMaster.Web.Pages
                     r.Rank,
                     r.Item.IsActive,
                     r.Item.IsNonCompetitive,
-                    r.Item.CanDelete))];
+                    r.Item.CanDelete))
+                .OrderBy(s => s.TeamName, StringComparer.CurrentCultureIgnoreCase)];
         }
 
         private async Task ExportRoundPresentationAsync(RoundExportRequest request)
@@ -462,26 +465,12 @@ namespace PubQuizMaster.Web.Pages
             }
         }
 
-        private async Task ToggleFinalRoundAsync((Guid RoundId, bool IsFinal) payload)
-        {
-            try
-            {
-                await LiveQuizService.SetFinalRoundAsync(payload.RoundId, payload.IsFinal);
-                NotifyRoundChanged();
-                await LoadDashboardStateAsync();
-            }
-            catch (Exception ex)
-            {
-                ToastService.ShowError(ex.Message);
-            }
-        }
-
-        private async Task UpdateParticipantStatusAsync((Guid TeamId, bool IsActive, bool IsAk) status)
+        private async Task UpdateParticipantStatusAsync((Guid TeamId, bool IsActive, bool IsNonCompetitive) status)
         {
             if (activeNight == null) return;
             try
             {
-                await LiveQuizService.SetParticipantStatusAsync(activeNight.Id, status.TeamId, status.IsActive, status.IsAk);
+                await LiveQuizService.SetParticipantStatusAsync(activeNight.Id, status.TeamId, status.IsActive, status.IsNonCompetitive);
                 NotifyRoundChanged();
                 await LoadDashboardStateAsync();
             }

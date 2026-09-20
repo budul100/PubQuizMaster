@@ -16,6 +16,7 @@ namespace PubQuizMaster.Web.Pages.Event
 
         private int[] columnSums = [];
         private bool isLoading = true;
+        private bool isSavingFinal;
         private Dictionary<Guid, decimal> priorScores = [];
         private Round? round;
         private MatrixRow[] rows = [];
@@ -151,6 +152,36 @@ namespace PubQuizMaster.Web.Pages.Event
             }
 
             rows = AssignRanks(unranked);
+        }
+
+        private async Task SetFinalRoundAsync(bool isFinal)
+        {
+            if (round == null || isSavingFinal) return;
+
+            var previousValue = round.IsFinal;
+
+            // Optimistic local update, the service resets IsFinal on the other rounds of the night
+            round.IsFinal = isFinal;
+            isSavingFinal = true;
+
+            try
+            {
+                await LiveQuizService.SetFinalRoundAsync(round.Id, isFinal);
+                SessionService.NotifyRoundChanged();
+
+                ToastService.ShowSuccess(isFinal
+                    ? $"'{round.Name}' is now the final round."
+                    : $"'{round.Name}' is no longer the final round.");
+            }
+            catch (Exception ex)
+            {
+                round.IsFinal = previousValue;
+                ToastService.ShowError($"Failed to change the final round: {ex.Message}");
+            }
+            finally
+            {
+                isSavingFinal = false;
+            }
         }
 
         private async Task ToggleAnswerAsync(Guid teamId, int questionIndex)

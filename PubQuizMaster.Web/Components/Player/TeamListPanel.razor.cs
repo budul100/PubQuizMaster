@@ -17,7 +17,7 @@ namespace PubQuizMaster.Web.Components.Player
 
         [Parameter] public EventCallback<string> OnRegisterTeam { get; set; }
         [Parameter] public EventCallback<Guid> OnRemoveTeam { get; set; }
-        [Parameter] public EventCallback<(Guid TeamId, bool IsActive, bool IsAk)> OnUpdateStatus { get; set; }
+        [Parameter] public EventCallback<(Guid TeamId, bool IsActive, bool IsNonCompetitive)> OnUpdateStatus { get; set; }
 
         [Parameter] public TeamStanding[] Standings { get; set; } = [];
 
@@ -50,12 +50,12 @@ namespace PubQuizMaster.Web.Components.Player
             }
         }
 
-        private async Task ToggleAkAsync(Guid teamId, bool isAk)
+        private async Task ToggleNonCompetitiveAsync(Guid teamId, bool isNonCompetitive)
         {
             var current = Standings.FirstOrDefault(s => s.TeamId == teamId);
             if (current != null)
             {
-                await OnUpdateStatus.InvokeAsync((teamId, current.IsActive, isAk));
+                await OnUpdateStatus.InvokeAsync((teamId, current.IsActive, isNonCompetitive));
             }
         }
 

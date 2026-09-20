@@ -33,7 +33,7 @@
                 <tr>
                     <th class="text-end" style="width: 40px;">#</th>
                     <th>Team</th>
-                    <th class="text-center" style="width: 50px;" title="Außer Konkurrenz (Out of Competition)">AK</th>
+                    <th class="text-center" style="width: 50px;" title="Out of competition">OOC</th>
                     <th class="text-end" style="width: 70px;" title="Latest active round score">Round</th>
                     <th class="text-end" style="width: 70px;" title="Total score of the evening">Total</th>
                     <th class="text-end pe-3" style="width: 60px;">Actions</th>
@@ -62,7 +62,7 @@
                                 </span>
                                 @if (entry.IsNonCompetitive)
                                 {
-                                    <span class="badge bg-secondary ms-1" title="Out of Competition">AK</span>
+                                    <span class="badge bg-secondary ms-1" title="Out of competition">OOC</span>
                                 }
                                 @if (!entry.IsActive)
                                 {
@@ -73,9 +73,9 @@
                                 <input type="checkbox"
                                        class="form-check-input"
                                        checked="@entry.IsNonCompetitive"
-                                       title="Toggle Out of Competition (AK)"
-                                       aria-label="Toggle Out of Competition (AK)"
-                                       @onchange="e => ToggleAkAsync(entry.TeamId, (bool)(e.Value ?? false))" />
+                                       title="Out of competition"
+                                       aria-label="Out of competition"
+                                       @onchange="e => ToggleNonCompetitiveAsync(entry.TeamId, (bool)(e.Value ?? false))" />
                             </td>
                             <td class="text-end text-muted small">
                                 @(entry.LatestRoundScore.HasValue ? entry.LatestRoundScore.Value.ToString("0.#") : "—")

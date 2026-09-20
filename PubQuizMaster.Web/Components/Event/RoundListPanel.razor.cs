@@ -25,8 +25,6 @@ namespace PubQuizMaster.Web.Components.Event
 
         [Parameter] public EventCallback OnStartRoundClick { get; set; }
 
-        [Parameter] public EventCallback<(Guid RoundId, bool IsFinal)> OnToggleFinal { get; set; }
-
         [Parameter] public List<Round> Rounds { get; set; } = [];
 
         #endregion Public Properties
