@@ -1,40 +1,34 @@
 using Microsoft.AspNetCore.Components;
-using Microsoft.AspNetCore.Components.Forms;
 using PubQuizMaster.Core.Models.Event;
-using PubQuizMaster.Core.Records.Event;
-using PubQuizMaster.Services.Common;
-using PubQuizMaster.Web.Services;
 
 namespace PubQuizMaster.Web.Components.Event
 {
+    /// <summary>
+    /// Start page while no quiz night is active: list of completed nights and legacy imports.
+    /// Title, date and description are edited only in the live dashboard (QuizEditModal).
+    /// </summary>
     public partial class QuizListPanel
     {
         #region Private Fields
 
-        private Guid? exportingQuizId;
-        private int exportVersion;
         private bool isSubmitting;
-        private DateTime newDate = DateTime.Today;
-        private string? newDescription;
-        private string newTitle = $"Pub Quiz ({DateTime.Today:dd.MM.yyyy})";
         private Quiz? quizToDelete;
-        private Quiz? quizToEdit;
         private Quiz? quizToReopen;
         private bool showDeleteModal;
-        private bool showEditModal;
         private bool showReopenModal;
 
         #endregion Private Fields
 
         #region Public Properties
 
-        [Parameter] public bool HasActiveQuiz { get; set; }
-
-        [Parameter] public bool IsLoading { get; set; }
-
+        /// <summary>Raised after a quiz night was created or deleted. The page reloads its state.</summary>
         [Parameter] public EventCallback OnDataChanged { get; set; }
 
-        [Parameter] public EventCallback<Guid> OnSelectQuiz { get; set; }
+        /// <summary>
+        /// Raised after a quiz night was reopened. The page notifies the other circuits and reloads,
+        /// so the round change is announced once and loaded once.
+        /// </summary>
+        [Parameter] public EventCallback OnQuizReopened { get; set; }
 
         [Parameter] public List<Quiz> QuizNights { get; set; } = [];
 
@@ -44,23 +38,16 @@ namespace PubQuizMaster.Web.Components.Event
 
         private async Task CreateQuizNightAsync()
         {
-            if (string.IsNullOrWhiteSpace(newTitle))
-            {
-                ToastService.ShowError("Title is required.");
-                return;
-            }
+            if (isSubmitting) return;
 
             isSubmitting = true;
             try
             {
-                var created = await LiveQuizService.CreateQuizAsync(
-                    newTitle,
-                    DateOnly.FromDateTime(newDate),
-                    newDescription);
+                // Defaults only, everything is edited in the live dashboard afterwards
+                var today = DateOnly.FromDateTime(DateTime.Today);
+                var created = await LiveQuizService.CreateQuizAsync($"Pub Quiz ({today:dd.MM.yyyy})", today, null);
 
-                ToastService.ShowSuccess($"Quiz '{created.Title}' created!");
-                newTitle = $"Pub Quiz ({DateTime.Today:dd.MM.yyyy})";
-                newDescription = null;
+                ToastService.ShowSuccess($"Quiz night '{created.Title}' created.");
                 await OnDataChanged.InvokeAsync();
             }
             catch (Exception ex)
@@ -73,22 +60,6 @@ namespace PubQuizMaster.Web.Components.Event
             }
         }
 
-        private async Task ExportFinalAsync(Quiz quiz, IBrowserFile sourceFile)
-        {
-            if (exportingQuizId != null) return;
-
-            exportingQuizId = quiz.Id;
-            try
-            {
-                await PresentationDownloadService.DownloadFinalAsync(quiz.Id, sourceFile);
-            }
-            finally
-            {
-                exportingQuizId = null;
-                exportVersion++;
-            }
-        }
-
         private async Task HandleDeleteConfirmedAsync()
         {
             if (quizToDelete == null) return;
@@ -96,30 +67,14 @@ namespace PubQuizMaster.Web.Components.Event
             try
             {
                 await LiveQuizService.DeleteQuizAsync(quizToDelete.Id);
-                ToastService.ShowSuccess($"Quiz '{quizToDelete.Title}' deleted.");
+                ToastService.ShowSuccess($"Quiz night '{quizToDelete.Title}' deleted.");
                 showDeleteModal = false;
                 quizToDelete = null;
                 await OnDataChanged.InvokeAsync();
             }
             catch (Exception ex)
             {
-                ToastService.ShowError($"Failed to delete quiz: {ex.Message}");
-            }
-        }
-
-        private async Task HandleQuizSavedAsync(QuizDetailsUpdate update)
-        {
-            try
-            {
-                await LiveQuizService.UpdateQuizAsync(update);
-                ToastService.ShowSuccess("Quiz details updated.");
-                showEditModal = false;
-                quizToEdit = null;
-                await OnDataChanged.InvokeAsync();
-            }
-            catch (Exception ex)
-            {
-                ToastService.ShowError($"Failed to update quiz: {ex.Message}");
+                ToastService.ShowError($"Failed to delete quiz night: {ex.Message}");
             }
         }
 
@@ -133,21 +88,14 @@ namespace PubQuizMaster.Web.Components.Event
             try
             {
                 await LiveQuizService.ReopenQuizAsync(quizToReopen.Id);
-                SessionService.NotifyRoundChanged();
                 ToastService.ShowSuccess($"Quiz night '{title}' reopened.");
                 quizToReopen = null;
-                await OnDataChanged.InvokeAsync();
+                await OnQuizReopened.InvokeAsync();
             }
             catch (Exception ex)
             {
-                ToastService.ShowError($"Failed to reopen quiz: {ex.Message}");
+                ToastService.ShowError($"Failed to reopen quiz night: {ex.Message}");
             }
-        }
-
-        private void OpenEditModal(Quiz quiz)
-        {
-            quizToEdit = quiz;
-            showEditModal = true;
         }
 
         private void PromptDelete(Quiz quiz)

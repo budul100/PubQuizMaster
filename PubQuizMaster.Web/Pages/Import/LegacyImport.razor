@@ -3,18 +3,16 @@
 @inject ToastService ToastService
 
 <PageTitle>Legacy Import – PubQuizMaster</PageTitle>
-
 <SectionContent SectionName="@LayoutSections.PageTitle">Legacy Import</SectionContent>
 
-<div class="mb-4">
-    <h4 class="fw-bold mb-1 d-flex align-items-center gap-2">
-        <span class="mif-upload text-primary" aria-hidden="true"></span> Legacy Excel Import
-    </h4>
-    <small class="text-muted">Import historic aggregated quiz night records from spreadsheet tables</small>
-</div>
-
-<div class="card shadow-sm border-0 mb-4" style="max-width: 700px;">
+<div class="card shadow-sm border-0 mb-3" style="max-width: 700px;">
+    <div class="card-header pqm-card-header">
+        <span class="pqm-card-title">
+            <span class="mif-upload" aria-hidden="true"></span> Excel Import
+        </span>
+    </div>
     <div class="card-body">
+        <p class="small text-muted mb-3">Import historic aggregated quiz night records from spreadsheet tables.</p>
         <div class="mb-3">
             <label class="form-label fw-semibold">Select Excel File (.xlsx)</label>
             <InputFile OnChange="HandleFileSelected" accept=".xlsx" class="form-control" />
@@ -40,8 +38,12 @@
 
 @if (summary != null)
 {
-    <div class="card shadow-sm border-success mb-4" style="max-width: 700px;">
-        <div class="card-header bg-success text-white fw-bold">Import Completed</div>
+    <div class="card shadow-sm border-0 mb-3" style="max-width: 700px;">
+        <div class="card-header pqm-card-header">
+            <span class="pqm-card-title">
+                <span class="mif-checkmark text-success" aria-hidden="true"></span> Import Completed
+            </span>
+        </div>
         <div class="card-body">
             <ul class="list-unstyled mb-0 d-flex flex-column gap-1">
                 <li><span class="mif-checkmark text-success me-1" aria-hidden="true"></span> <strong>@summary.QuizzesCreated</strong> Quiz Nights imported</li>

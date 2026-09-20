@@ -309,9 +309,11 @@ namespace PubQuizMaster.Web.Pages
             }
         }
 
-        private Task HandleSelectQuiz(Guid quizId)
+        private async Task HandleQuizReopenedAsync()
         {
-            return LoadDashboardStateAsync();
+            // Reopening changes the active quiz night for every circuit (scorers, header, other admins)
+            NotifyRoundChanged();
+            await LoadDashboardStateAsync();
         }
 
         private void HandleStatusChanged()

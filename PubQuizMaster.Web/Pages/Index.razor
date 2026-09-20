@@ -9,7 +9,6 @@
 @implements IDisposable
 
 <PageTitle>PubQuizMaster</PageTitle>
-
 <SectionContent SectionName="@LayoutSections.PageTitle">@(isLoading ? "Quiz" : activeNight != null ? "Live Quiz" : "Quiz Nights")</SectionContent>
 
 @if (isLoading)
@@ -23,10 +22,8 @@ else if (activeNight == null)
 {
     <!-- No active night: the quiz list takes over the start page -->
     <QuizListPanel QuizNights="@allQuizzes"
-                   HasActiveQuiz="@false"
-                   IsLoading="@false"
                    OnDataChanged="LoadDashboardStateAsync"
-                   OnSelectQuiz="HandleSelectQuiz" />
+                   OnQuizReopened="HandleQuizReopenedAsync" />
 }
 else
 {
@@ -47,11 +44,12 @@ else
             <span class="text-muted small">@activeNight.Date.ToString("dd.MM.yyyy") • @teamStandings.Length teams active</span>
         </div>
         <div class="d-flex gap-2">
-            <button class="btn btn-outline-success btn-sm d-flex align-items-center gap-1"
+            <button class="btn btn-outline-success btn-sm"
                     disabled="@(activeRound != null || isProcessing)"
-                    title="@(activeRound != null ? "Finalize the active round first" : "Close this quiz night")"
+                    title="@(activeRound != null ? "Finalize the active round first" : "Complete quiz night")"
+                    aria-label="Complete quiz night"
                     @onclick="() => showCompleteModal = true">
-                <span class="mif-flag" aria-hidden="true"></span> Complete Quiz Night
+                <span class="mif-flag" aria-hidden="true"></span>
             </button>
         </div>
     </div>
@@ -97,7 +95,8 @@ else
 
 <ConfirmModal IsOpen="@showCompleteModal"
               Title="Complete Quiz Night"
-              Message="@($"Complete \"{activeNight?.Title}\"? Results will be added to the all-time standings and no further rounds can be started. The final presentation can still be exported from the quiz night list.")" ConfirmText="Complete"
+              Message="@($"Complete \"{activeNight?.Title}\"? Results will be added to the all-time standings and no further rounds can be started. To export the final presentation later, reopen the quiz night.")"
+              ConfirmText="Complete"
               ConfirmButtonClass="btn-success"
               HeaderClass="bg-success"
               OnConfirmed="CompleteQuizAsync"

@@ -1,38 +1,38 @@
 @namespace PubQuizMaster.Web.Components.Event
-@using PubQuizMaster.Core.Enums
 @using PubQuizMaster.Web.Records
 @using Microsoft.AspNetCore.Components.Forms
 
 <div class="card shadow-sm border-0 h-100">
-    <div class="card-header bg-light d-flex justify-content-between align-items-center py-2">
-        <span class="fw-bold small d-flex align-items-center gap-1">
-            <span class="mif-target text-primary" aria-hidden="true"></span> QUIZ ROUNDS (@Rounds.Count)
+    <div class="card-header pqm-card-header">
+        <span class="pqm-card-title">
+            <span class="mif-target" aria-hidden="true"></span> Quiz Rounds (@Rounds.Count)
         </span>
         @if (ActiveRound == null)
         {
-            <button class="btn btn-sm btn-primary py-0 px-2 d-flex align-items-center gap-1" @onclick="OnStartRoundClick">
-                <span class="mif-play" aria-hidden="true"></span> Start Next Round
+            <button class="btn btn-sm btn-primary py-0 px-2"
+                    title="Start next round"
+                    aria-label="Start next round"
+                    @onclick="OnStartRoundClick">
+                <span class="mif-play" aria-hidden="true"></span>
             </button>
         }
     </div>
 
     <div class="table-responsive flex-grow-1">
-        <table class="table table-hover table-sm align-middle mb-0">
-            <thead class="table-light small">
+        <table class="table table-sm table-hover align-middle mb-0">
+            <thead class="small text-secondary">
                 <tr>
-                    <th>Round</th>
-                    <th style="width: 50px;" class="text-center" title="Final round of the quiz night">Final</th>
-                    <th style="width: 60px;">Q</th>
-                    <th style="width: 80px;">Status</th>
-                    <th class="text-end pe-3">Actions</th>
+                    <th class="ps-3">Round</th>
+                    <th class="text-end" style="width: 50px;" title="Number of questions">Q</th>
+                    <th class="text-end pe-3" style="width: 170px;">Actions</th>
                 </tr>
             </thead>
             <tbody>
                 @if (Rounds.Count == 0)
                 {
                     <tr>
-                        <td colspan="5" class="text-center py-4 text-muted small">
-                            No rounds started yet. Click "Start Next Round" to begin!
+                        <td colspan="3" class="text-center py-4 text-muted small">
+                            No rounds started yet. Use the play button above to start the first round.
                         </td>
                     </tr>
                 }
@@ -40,48 +40,39 @@
                 {
                     @foreach (var round in Rounds)
                     {
-                        var isCurrent = ActiveRound?.Id == round.Id;
                         <tr>
-                            <td class="fw-semibold small">
-                                @round.Name
-                                @if (round.IsFinal)
-                                {
-                                    <span class="badge bg-success ms-1">Final</span>
-                                }
-                            </td>
-                            <td class="text-center">
-                                <input type="checkbox"
-                                       class="form-check-input"
-                                       checked="@round.IsFinal"
-                                       title="Toggle Final Round"
-                                       aria-label="Toggle Final Round"
-                                       @onchange="e => OnToggleFinal.InvokeAsync((round.Id, (bool)(e.Value ?? false)))" />
-                            </td>
-                            <td class="small text-muted">@round.QuestionCount</td>
-                            <td>
-                                @if (round.IsFinalized)
-                                {
-                                    <span class="badge bg-success small">Completed</span>
-                                }
-                                else if (isCurrent)
-                                {
-                                    <span class="badge bg-primary small">Scoring</span>
-                                }
-                                else
-                                {
-                                    <span class="badge bg-secondary small">Pending</span>
-                                }
-                            </td>
+                            <td class="ps-3 fw-semibold small">@round.Name</td>
+                            <td class="text-end small text-muted">@round.QuestionCount</td>
                             <td class="text-end pe-3">
-                                <div class="btn-group btn-group-sm">
-                                    <a class="btn btn-outline-secondary py-0 px-2" href="/matrix/@round.Id" title="Open Matrix">
-                                        Matrix
+                                @* Fixed slot order: Matrix, Final, Export, Delete.
+                                   Unavailable actions keep an invisible placeholder so the icons line up across rows. *@
+                                <div class="d-inline-flex gap-1 align-items-center">
+                                    <a class="btn btn-sm btn-outline-secondary py-0 px-2"
+                                       href="/matrix/@round.Id"
+                                       title="Open matrix"
+                                       aria-label="Open matrix">
+                                        <span class="mif-pencil" aria-hidden="true"></span>
                                     </a>
+
+                                    <label class="btn btn-sm btn-outline-secondary py-0 px-2 mb-0 d-inline-flex align-items-center"
+                                           title="Final round">
+                                        <input type="checkbox"
+                                               class="form-check-input m-0"
+                                               aria-label="Final round"
+                                               checked="@round.IsFinal"
+                                               @onchange="e => OnToggleFinal.InvokeAsync((round.Id, (bool)(e.Value ?? false)))" />
+                                    </label>
+
                                     @if (round.IsFinalized)
                                     {
-                                        <label class="btn btn-outline-primary py-0 px-2 mb-0 @(IsExporting ? "disabled" : null)"
-                                               title="@(round.IsFinal ? "Export final results and podium" : "Export round results")">
-                                            Export
+                                        var exportTitle = round.IsFinal ? "Export final results and podium" : "Export round results";
+
+                                        @* A label, not a button: the export needs an uploaded template, clicking the label opens the file dialog.
+                                           The changing @key recreates the input, otherwise the same file cannot be picked twice. *@
+                                        <label class="btn btn-sm btn-outline-primary py-0 px-2 mb-0 @(IsExporting ? "disabled" : null)"
+                                               title="@exportTitle"
+                                               aria-label="@exportTitle">
+                                            <span class="mif-download" aria-hidden="true"></span>
                                             <InputFile @key="@($"{round.Id}-export-{inputVersion}")"
                                                        class="d-none"
                                                        accept=".pptx,.ppsx,.potx"
@@ -89,14 +80,27 @@
                                                        OnChange="e => ExportAsync(round, e)" />
                                         </label>
                                     }
+                                    else
+                                    {
+                                        <span class="btn btn-sm btn-outline-primary py-0 px-2 invisible" aria-hidden="true">
+                                            <span class="mif-download"></span>
+                                        </span>
+                                    }
+
                                     @if (round.Answers.Count == 0)
                                     {
-                                        <button class="btn btn-outline-danger py-0 px-2"
-                                                title="Delete Round"
-                                                aria-label="Delete Round"
+                                        <button class="btn btn-sm btn-outline-danger py-0 px-2"
+                                                title="Delete round"
+                                                aria-label="Delete round"
                                                 @onclick="() => OnDeleteRound.InvokeAsync(round)">
                                             <span class="mif-bin" aria-hidden="true"></span>
                                         </button>
+                                    }
+                                    else
+                                    {
+                                        <span class="btn btn-sm btn-outline-danger py-0 px-2 invisible" aria-hidden="true">
+                                            <span class="mif-bin"></span>
+                                        </span>
                                     }
                                 </div>
                             </td>

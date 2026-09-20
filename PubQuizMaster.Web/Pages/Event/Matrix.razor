@@ -8,7 +8,6 @@
 @implements IDisposable
 
 <PageTitle>Matrix – @(round?.Name ?? "Round")</PageTitle>
-
 <SectionContent SectionName="@LayoutSections.PageTitle">@(round == null ? "Matrix" : $"Matrix · {round.Name}")</SectionContent>
 
 @if (isLoading)
@@ -24,16 +23,15 @@ else if (round == null)
 }
 else
 {
+    @* Round name is shown in the top row, this toolbar only carries the context and the way back *@
     <div class="d-flex justify-content-between align-items-center mb-3">
-        <div>
-            <h4 class="mb-0">@round.Name – Review &amp; Edit</h4>
-            <small class="text-muted">@teams.Length teams, @round.QuestionCount questions</small>
-        </div>
-        <div>
-            <a class="btn btn-outline-secondary btn-sm d-flex align-items-center gap-1" href="/">
-                <span class="mif-arrow-left" aria-hidden="true"></span> Back to Dashboard
-            </a>
-        </div>
+        <small class="text-muted">@teams.Length teams, @round.QuestionCount questions</small>
+        <a class="btn btn-outline-secondary btn-sm"
+           href="/"
+           title="Back to dashboard"
+           aria-label="Back to dashboard">
+            <span class="mif-arrow-left" aria-hidden="true"></span>
+        </a>
     </div>
 
     <div class="table-responsive border rounded bg-white shadow-sm">

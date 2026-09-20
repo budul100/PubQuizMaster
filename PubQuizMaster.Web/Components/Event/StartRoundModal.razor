@@ -37,11 +37,17 @@
                     <div class="d-flex justify-content-between align-items-center mb-2">
                         <h6 class="fw-bold mb-0">Scorer Assignments (@assignments.Count Scorers)</h6>
                         <div class="d-flex gap-2">
-                            <button type="button" class="btn btn-sm btn-outline-secondary d-flex align-items-center gap-1" @onclick="AutoDistributeTeams">
-                                <span class="mif-loop2" aria-hidden="true"></span> Auto-Distribute
+                            <button type="button" class="btn btn-sm btn-outline-secondary"
+                                    title="Distribute teams evenly across scorers"
+                                    aria-label="Distribute teams evenly across scorers"
+                                    @onclick="AutoDistributeTeams">
+                                <span class="mif-shuffle" aria-hidden="true"></span>
                             </button>
-                            <button type="button" class="btn btn-sm btn-outline-primary" @onclick="AddScorer">
-                                + Add Scorer
+                            <button type="button" class="btn btn-sm btn-outline-primary"
+                                    title="Add scorer"
+                                    aria-label="Add scorer"
+                                    @onclick="AddScorer">
+                                <span class="mif-add-person" aria-hidden="true"></span>
                             </button>
                         </div>
                     </div>
@@ -62,16 +68,19 @@
                                             <input type="text" class="form-control font-monospace" value="@sc.ScorerId" readonly title="Scorer token" />
                                             <button type="button" class="btn btn-outline-secondary"
                                                     title="Generate new token"
+                                                    aria-label="Generate new token"
                                                     @onclick="() => sc.ScorerId = ScorerTokens.Create()">
-                                                <span class="mif-undo" aria-hidden="true"></span>
+                                                <span class="mif-refresh" aria-hidden="true"></span>
                                             </button>
                                         </div>
                                     </div>
                                     <div class="col-md-2 text-end">
-                                        <button type="button" class="btn btn-outline-danger btn-sm d-inline-flex align-items-center gap-1"
+                                        <button type="button" class="btn btn-outline-danger btn-sm"
+                                                title="Remove scorer"
+                                                aria-label="Remove scorer"
                                                 disabled="@(assignments.Count <= 1)"
                                                 @onclick="() => RemoveScorer(sIdx)">
-                                            <span class="mif-cross" aria-hidden="true"></span> Remove
+                                            <span class="mif-bin" aria-hidden="true"></span>
                                         </button>
                                     </div>
                                 </div>

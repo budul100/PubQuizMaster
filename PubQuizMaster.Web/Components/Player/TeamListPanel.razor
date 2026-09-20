@@ -1,21 +1,16 @@
 @namespace PubQuizMaster.Web.Components.Player
 
 <div class="card shadow-sm border-0 h-100">
-    <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center py-2">
-        <span class="fw-bold small d-flex align-items-center gap-1">
-            <span class="mif-group" aria-hidden="true"></span> TEAMS &amp; STANDINGS (@Standings.Length)
+    <div class="card-header pqm-card-header">
+        <span class="pqm-card-title">
+            <span class="mif-group" aria-hidden="true"></span> Teams &amp; Standings (@Standings.Length)
         </span>
-        <button class="btn btn-sm btn-outline-light py-0 px-2 d-flex align-items-center gap-1"
+        <button class="btn btn-sm @(showAddTeamForm ? "btn-outline-secondary" : "btn-primary") py-0 px-2"
+                title="@(showAddTeamForm ? "Close" : "Register team")"
+                aria-label="@(showAddTeamForm ? "Close" : "Register team")"
+                aria-expanded="@(showAddTeamForm ? "true" : "false")"
                 @onclick="() => showAddTeamForm = !showAddTeamForm">
-            @if (showAddTeamForm)
-            {
-                <span class="mif-cross" aria-hidden="true"></span>
-                <span>Close</span>
-            }
-            else
-            {
-                <span>+ Register Team</span>
-            }
+            <span class="@(showAddTeamForm ? "mif-cross" : "mif-plus")" aria-hidden="true"></span>
         </button>
     </div>
 
@@ -33,15 +28,15 @@
     }
 
     <div class="table-responsive flex-grow-1" style="max-height: 650px; overflow-y: auto;">
-        <table class="table table-hover table-sm align-middle mb-0">
-            <thead class="table-light small">
+        <table class="table table-sm table-hover align-middle mb-0">
+            <thead class="small text-secondary">
                 <tr>
-                    <th style="width: 36px;" class="text-center">#</th>
+                    <th class="text-end" style="width: 40px;">#</th>
                     <th>Team</th>
-                    <th style="width: 50px;" class="text-center" title="Außer Konkurrenz (Out of Competition)">AK</th>
-                    <th style="width: 70px;" class="text-end" title="Latest active round score">Round</th>
-                    <th style="width: 80px;" class="text-end pe-2" title="Total score of the evening">Total</th>
-                    <th style="width: 60px;" class="text-end pe-3">Action</th>
+                    <th class="text-center" style="width: 50px;" title="Außer Konkurrenz (Out of Competition)">AK</th>
+                    <th class="text-end" style="width: 70px;" title="Latest active round score">Round</th>
+                    <th class="text-end" style="width: 70px;" title="Total score of the evening">Total</th>
+                    <th class="text-end pe-3" style="width: 60px;">Actions</th>
                 </tr>
             </thead>
             <tbody>
@@ -49,7 +44,7 @@
                 {
                     <tr>
                         <td colspan="6" class="text-center py-4 text-muted small">
-                            No teams registered yet. Add teams above!
+                            No teams registered yet. Use the plus button above to add teams.
                         </td>
                     </tr>
                 }
@@ -58,8 +53,8 @@
                     @foreach (var entry in Standings)
                     {
                         <tr class="@(!entry.IsActive ? "opacity-50 bg-light" : "")">
-                            <td class="text-center fw-bold text-secondary small">
-                                @(entry.IsActive? entry.OverallRank.ToString() : "—")
+                            <td class="text-end fw-bold text-secondary small">
+                                @(entry.IsActive ? entry.OverallRank.ToString() : "—")
                             </td>
                             <td class="fw-semibold text-truncate small" style="max-width: 160px;">
                                 <span class="@(!entry.IsActive ? "text-decoration-line-through text-muted" : "")">
@@ -79,29 +74,31 @@
                                        class="form-check-input"
                                        checked="@entry.IsNonCompetitive"
                                        title="Toggle Out of Competition (AK)"
+                                       aria-label="Toggle Out of Competition (AK)"
                                        @onchange="e => ToggleAkAsync(entry.TeamId, (bool)(e.Value ?? false))" />
                             </td>
                             <td class="text-end text-muted small">
-                                @(entry.LatestRoundScore.HasValue? entry.LatestRoundScore.Value.ToString("0.#") : "—")
+                                @(entry.LatestRoundScore.HasValue ? entry.LatestRoundScore.Value.ToString("0.#") : "—")
                             </td>
-                            <td class="text-end pe-2 fw-bold text-primary small">
+                            <td class="text-end fw-bold text-primary small">
                                 @entry.TotalScore.ToString("0.#")
                             </td>
                             <td class="text-end pe-3">
                                 @if (entry.CanDelete)
                                 {
-                                    <button class="btn btn-outline-danger btn-sm py-0 px-1"
-                                            title="Delete Team from Night"
-                                            aria-label="Delete Team"
+                                    <button class="btn btn-outline-danger btn-sm py-0 px-2"
+                                            title="Delete team from night"
+                                            aria-label="Delete team from night"
                                             @onclick="() => OnRemoveTeam.InvokeAsync(entry.TeamId)">
                                         <span class="mif-bin" aria-hidden="true"></span>
                                     </button>
                                 }
                                 else
                                 {
-                                    <button class="btn btn-outline-secondary btn-sm py-0 px-1"
-                                            title="@(entry.IsActive ? "Deactivate Team" : "Reactivate Team")"
-                                            aria-label="Toggle Active"
+                                    var toggleText = entry.IsActive ? "Deactivate team" : "Reactivate team";
+                                    <button class="btn btn-outline-secondary btn-sm py-0 px-2"
+                                            title="@toggleText"
+                                            aria-label="@toggleText"
                                             @onclick="() => ToggleActiveAsync(entry.TeamId, !entry.IsActive)">
                                         <span class="@(entry.IsActive ? "mif-cross" : "mif-checkmark")" aria-hidden="true"></span>
                                     </button>

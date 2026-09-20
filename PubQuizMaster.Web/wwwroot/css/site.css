@@ -23,6 +23,9 @@
     --pqm-badge-ok-fg: #1d6b3b;
     --pqm-badge-warn-bg: #fff2d4;
     --pqm-badge-warn-fg: #7d5200;
+    /* Card headers: white bar with a small uppercase title */
+    --pqm-card-header-bg: #ffffff;
+    --pqm-card-title: #495057;
 }
 
 /* ==========================================================================
@@ -186,6 +189,34 @@ main {
 .header-badge-warn {
     color: var(--pqm-badge-warn-fg);
     background-color: var(--pqm-badge-warn-bg);
+}
+
+/* ==========================================================================
+   Card header pattern
+   Markup: <div class="card-header pqm-card-header">
+               <span class="pqm-card-title"><span class="mif-…"></span> Title</span>
+               …actions…
+           </div>
+   Keep Bootstrap's .card-header on the element: it provides the rounded top corners.
+   ========================================================================== */
+.pqm-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    background-color: var(--pqm-card-header-bg);
+}
+
+.pqm-card-title {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--pqm-card-title);
 }
 
 /* Matrix styles, moved here from the component-level <style> block in Matrix.razor.
