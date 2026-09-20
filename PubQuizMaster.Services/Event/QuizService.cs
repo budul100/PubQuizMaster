@@ -398,6 +398,43 @@ namespace PubQuizMaster.Services.Event
             await transaction.CommitAsync(ct);
         }
 
+        /// <summary>
+        /// Renames a round. Same rules as when starting it; returns the stored (trimmed) name.
+        /// </summary>
+        public async Task<string> RenameRoundAsync(Guid roundId, string newName, CancellationToken ct = default)
+        {
+            await using var db = await dbFactory.CreateDbContextAsync(ct);
+
+            var round = await db.Rounds.FirstOrDefaultAsync(r => r.Id == roundId, ct)
+                ?? throw new InvalidOperationException("Round not found.");
+
+            var quiz = await db.Quizzes
+                .AsNoTracking()
+                .Where(q => q.Id == round.QuizId)
+                .Select(q => new { q.Title, q.IsCompleted })
+                .FirstAsync(ct);
+
+            if (quiz.IsCompleted)
+            {
+                throw new InvalidOperationException($"Quiz night '{quiz.Title}' is already completed.");
+            }
+
+            var otherNames = await db.Rounds
+                .Where(r => r.QuizId == round.QuizId && r.Id != roundId)
+                .Select(r => r.Name)
+                .ToArrayAsync(ct);
+
+            var roundName = ValidateRoundName(newName, otherNames);
+
+            if (round.Name != roundName)
+            {
+                round.Name = roundName;
+                await db.SaveChangesAsync(ct);
+            }
+
+            return roundName;
+        }
+
         public async Task ReopenQuizAsync(Guid quizId, CancellationToken ct = default)
         {
             await using var db = await dbFactory.CreateDbContextAsync(ct);
@@ -660,6 +697,26 @@ namespace PubQuizMaster.Services.Event
             return quiz;
         }
 
+        /// <summary>
+        /// Round names must be set and unique per quiz night (case-insensitive):
+        /// the presentation export finds the round's slides by a section of the same name.
+        /// </summary>
+        private static string ValidateRoundName(string name, IEnumerable<string> otherRoundNames)
+        {
+            var roundName = name.Trim();
+            if (roundName.Length == 0)
+            {
+                throw new InvalidOperationException("Round name is required.");
+            }
+
+            if (otherRoundNames.Any(n => n.Equals(roundName, StringComparison.OrdinalIgnoreCase)))
+            {
+                throw new InvalidOperationException($"Round \"{roundName}\" already exists.");
+            }
+
+            return roundName;
+        }
+
         private static void ValidateRoundRequest(RoundRequest request, Quiz quiz)
         {
             if (quiz.IsCompleted)
@@ -673,16 +730,7 @@ namespace PubQuizMaster.Services.Event
                 throw new InvalidOperationException($"Finalize round '{openRound.Name}' before starting a new one.");
             }
 
-            var roundName = request.RoundName.Trim();
-            if (roundName.Length == 0)
-            {
-                throw new InvalidOperationException("Round name is required.");
-            }
-
-            if (quiz.Rounds.Any(r => r.Name.Equals(roundName, StringComparison.OrdinalIgnoreCase)))
-            {
-                throw new InvalidOperationException($"Round \"{roundName}\" already exists.");
-            }
+            ValidateRoundName(request.RoundName, quiz.Rounds.Select(r => r.Name));
 
             if (request.QuestionCount is < 1 or > MaxQuestionCount)
             {

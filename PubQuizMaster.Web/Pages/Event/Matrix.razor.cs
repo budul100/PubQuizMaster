@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Components;
+using Microsoft.AspNetCore.Components.Web;
 using PubQuizMaster.Core.Models.Event;
 using PubQuizMaster.Core.Models.Player;
 using PubQuizMaster.Core.Records.Event;
@@ -16,8 +17,11 @@ namespace PubQuizMaster.Web.Pages.Event
 
         private int[] columnSums = [];
         private bool isLoading = true;
+        private bool isRenaming;
         private bool isSavingFinal;
+        private bool isSavingName;
         private Dictionary<Guid, decimal> priorScores = [];
+        private string renameInput = string.Empty;
         private Round? round;
         private MatrixRow[] rows = [];
         private MatrixTeam[] teams = [];
@@ -72,6 +76,12 @@ namespace PubQuizMaster.Web.Pages.Event
                 .ToArray();
         }
 
+        private void CancelRename()
+        {
+            isRenaming = false;
+            renameInput = string.Empty;
+        }
+
         private void HandleAnswersChanged()
         {
             // Our own save already updated the local state, reloading would only cause flicker
@@ -82,6 +92,18 @@ namespace PubQuizMaster.Web.Pages.Event
                 await LoadMatrixDataAsync(showSpinner: false);
                 StateHasChanged();
             });
+        }
+
+        private async Task HandleRenameKeyDownAsync(KeyboardEventArgs e)
+        {
+            if (e.Key == "Enter")
+            {
+                await SaveRenameAsync();
+            }
+            else if (e.Key == "Escape")
+            {
+                CancelRename();
+            }
         }
 
         private async Task LoadMatrixDataAsync(bool showSpinner)
@@ -154,6 +176,39 @@ namespace PubQuizMaster.Web.Pages.Event
             rows = AssignRanks(unranked);
         }
 
+        private async Task SaveRenameAsync()
+        {
+            if (round == null || isSavingName) return;
+
+            if (renameInput.Trim() == round.Name)
+            {
+                CancelRename();
+                return;
+            }
+
+            isSavingName = true;
+
+            try
+            {
+                var savedName = await LiveQuizService.RenameRoundAsync(round.Id, renameInput);
+                round.Name = savedName;
+                CancelRename();
+
+                // Dashboards and the header badge show the round name
+                SessionService.NotifyRoundChanged();
+                ToastService.ShowSuccess($"Round renamed to '{savedName}'.");
+            }
+            catch (Exception ex)
+            {
+                // Stay in edit mode so the input can be corrected
+                ToastService.ShowError(ex.Message);
+            }
+            finally
+            {
+                isSavingName = false;
+            }
+        }
+
         private async Task SetFinalRoundAsync(bool isFinal)
         {
             if (round == null || isSavingFinal) return;
@@ -182,6 +237,14 @@ namespace PubQuizMaster.Web.Pages.Event
             {
                 isSavingFinal = false;
             }
+        }
+
+        private void StartRename()
+        {
+            if (round == null) return;
+
+            renameInput = round.Name;
+            isRenaming = true;
         }
 
         private async Task ToggleAnswerAsync(Guid teamId, int questionIndex)

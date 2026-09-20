@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Components.Forms;
 using Microsoft.JSInterop;
 using PubQuizMaster.Core.Enums;
 using PubQuizMaster.Core.Models.Event;
+using PubQuizMaster.Core.Records.Event;
 using PubQuizMaster.Services.Common;
 using PubQuizMaster.Services.Event;
 
@@ -16,7 +17,6 @@ namespace PubQuizMaster.Web.Services
         IConfiguration configuration,
         IJSRuntime js,
         ILogger<PresentationDownloadService> logger,
-        QuizService quizService,
         ToastService toastService)
     {
         #region Private Fields
@@ -46,51 +46,6 @@ namespace PubQuizMaster.Web.Services
             await DownloadCoreAsync(quiz, round, mode, sourceFile, ct);
         }
 
-        public async Task DownloadFinalAsync(Guid quizId, IBrowserFile sourceFile, CancellationToken ct = default)
-        {
-            Quiz? quiz;
-
-            try
-            {
-                quiz = await quizService.GetQuizAsync(quizId, ct);
-            }
-            catch (OperationCanceledException)
-            {
-                return;
-            }
-            catch (Exception ex)
-            {
-                logger.LogError(ex, "Loading quiz night {QuizId} for export failed.", quizId);
-                toastService.ShowError($"Export failed: {ex.Message}");
-                return;
-            }
-
-            if (quiz == null)
-            {
-                toastService.ShowError("Quiz night not found.");
-                return;
-            }
-
-            // Prefer round marked as IsFinal, fallback to last finalized round
-            var finalRound = quiz.Rounds
-                .Where(r => r.IsFinalized && r.IsFinal)
-                .OrderBy(r => r.CreatedAt)
-                .LastOrDefault()
-                ?? quiz.Rounds
-                    .Where(r => r.IsFinalized)
-                    .OrderBy(r => r.CreatedAt)
-                    .LastOrDefault();
-
-            if (finalRound == null)
-            {
-                toastService.ShowError($"Quiz night '{quiz.Title}' has no finalized round to export.");
-                return;
-            }
-
-            // The fallback round is not marked final, the closing slides are still wanted here
-            await DownloadCoreAsync(quiz, finalRound, PresentationMode.Final, sourceFile, ct);
-        }
-
         #endregion Public Methods
 
         #region Private Methods
@@ -107,6 +62,25 @@ namespace PubQuizMaster.Web.Services
             return $"{cleanName}{extension}";
         }
 
+        private static string FormatIssues(PresentationResult result)
+        {
+            var parts = new List<string>();
+
+            if (result.MissingSlides.Length > 0)
+            {
+                parts.Add($"Missing slides: {string.Join(", ", result.MissingSlides)}");
+            }
+
+            if (result.MissingShapes.Length > 0)
+            {
+                parts.Add($"Missing shapes: {string.Join(", ", result.MissingShapes)}");
+            }
+
+            parts.AddRange(result.Warnings);
+
+            return "The template is incomplete, these parts were skipped. " + string.Join(" · ", parts);
+        }
+
         private static string SanitizeFileNamePart(string value)
         {
             var chars = value.Trim()
@@ -118,7 +92,7 @@ namespace PubQuizMaster.Web.Services
         }
 
         private async Task DownloadCoreAsync(Quiz quiz, Round round, PresentationMode mode,
-                    IBrowserFile sourceFile, CancellationToken ct)
+            IBrowserFile sourceFile, CancellationToken ct)
         {
             var maxFileSize = GetMaxFileSize();
             if (sourceFile.Size > maxFileSize)
@@ -135,13 +109,24 @@ namespace PubQuizMaster.Web.Services
                     await upload.CopyToAsync(document, ct);
                 }
 
-                var format = ExportService.FillPresentation(quiz, round.Id, mode, document);
-                var fileName = CreateFileName(sourceFile.Name, format.Extension);
+                var result = ExportService.FillPresentation(quiz, round.Id, mode, document);
+                var fileName = CreateFileName(sourceFile.Name, result.Format.Extension);
 
-                using var streamReference = new DotNetStreamReference(new MemoryStream(document.ToArray()));
-                await js.InvokeVoidAsync("downloadFileFromStream", ct, fileName, format.ContentType, streamReference);
+                // Hand the filled stream over directly instead of copying it once more (S8).
+                // InvokeVoidAsync returns only after the browser has read the stream,
+                // so disposing the document afterwards is safe.
+                document.Position = 0;
+                using var streamReference = new DotNetStreamReference(document, leaveOpen: true);
+                await js.InvokeVoidAsync("downloadFileFromStream", ct, fileName, result.Format.ContentType, streamReference);
 
                 toastService.ShowSuccess($"Presentation '{fileName}' downloaded.");
+
+                if (result.HasIssues)
+                {
+                    var message = FormatIssues(result);
+                    logger.LogWarning("Presentation export for round {RoundId}: {Issues}", round.Id, message);
+                    toastService.ShowError(message);
+                }
             }
             catch (OperationCanceledException)
             {
