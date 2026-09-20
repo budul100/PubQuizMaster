@@ -53,6 +53,19 @@ namespace PubQuizMaster.Web.Pages.Player
 
         #region Private Methods
 
+        private static string FormatMergeResult(TeamMergeResult result)
+        {
+            var message = $"Merged '{result.SourceName}' into '{result.TargetName}'.";
+
+            if (result.DroppedAnswers > 0 || result.DroppedResults > 0)
+            {
+                message += $" Kept the target's entries for {result.DroppedAnswers} conflicting answer(s) " +
+                    $"and {result.DroppedResults} legacy result(s).";
+            }
+
+            return message;
+        }
+
         private async Task CreateTeamAsync()
         {
             if (string.IsNullOrWhiteSpace(newTeamName) || isBusy) return;
@@ -76,19 +89,6 @@ namespace PubQuizMaster.Web.Pages.Player
             {
                 isBusy = false;
             }
-        }
-
-        private static string FormatMergeResult(TeamMergeResult result)
-        {
-            var message = $"Merged '{result.SourceName}' into '{result.TargetName}'.";
-
-            if (result.DroppedAnswers > 0 || result.DroppedResults > 0)
-            {
-                message += $" Kept the target's entries for {result.DroppedAnswers} conflicting answer(s) " +
-                    $"and {result.DroppedResults} legacy result(s).";
-            }
-
-            return message;
         }
 
         private async Task LoadTeamsAsync()
