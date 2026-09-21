@@ -7,17 +7,14 @@ using PubQuizMaster.Core.Records.Event;
 using PubQuizMaster.Services.Common;
 using PubQuizMaster.Services.Event;
 
-namespace PubQuizMaster.Web.Services
+namespace PubQuizMaster.Web.Helpers
 {
     /// <summary>
     /// Fills an uploaded presentation with the round results and hands it back to the browser.
     /// Scoped, so IJSRuntime and ToastService belong to the calling circuit.
     /// </summary>
-    public class PresentationDownloadService(
-        IConfiguration configuration,
-        IJSRuntime js,
-        ILogger<PresentationDownloadService> logger,
-        ToastService toastService)
+    public class DownloadService(IConfiguration configuration, IJSRuntime js,
+        ILogger<DownloadService> logger, ToastService toastService)
     {
         #region Private Fields
 

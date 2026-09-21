@@ -8,7 +8,8 @@ namespace PubQuizMaster.Web.Shared
     /// Status badges in the top row: name of the running round and number of scorer stations online.
     /// Renders nothing while no round of the active quiz night is open.
     /// </summary>
-    public partial class HeaderStatus : IDisposable
+    public partial class HeaderStatus
+        : IDisposable
     {
         #region Private Fields
 
@@ -17,6 +18,7 @@ namespace PubQuizMaster.Web.Shared
         private static readonly TimeSpan RefreshInterval = TimeSpan.FromSeconds(10);
 
         private readonly CancellationTokenSource cts = new();
+
         private ActiveRound? info;
         private PeriodicTimer? refreshTimer;
 
@@ -40,9 +42,12 @@ namespace PubQuizMaster.Web.Shared
         {
             SessionService.OnRoundChanged -= HandleRoundChanged;
             SessionService.OnStatusChanged -= HandleStatusChanged;
+
             cts.Cancel();
             cts.Dispose();
             refreshTimer?.Dispose();
+
+            GC.SuppressFinalize(this);
         }
 
         #endregion Public Methods
@@ -113,11 +118,9 @@ namespace PubQuizMaster.Web.Shared
                 }
             }
             catch (OperationCanceledException)
-            {
-            }
+            { }
             catch (ObjectDisposedException)
-            {
-            }
+            { }
         }
 
         #endregion Private Methods

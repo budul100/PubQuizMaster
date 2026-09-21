@@ -9,7 +9,6 @@ using PubQuizMaster.Services.Import;
 using PubQuizMaster.Services.Standings;
 using PubQuizMaster.Web;
 using PubQuizMaster.Web.Helpers;
-using PubQuizMaster.Web.Services;
 using System.Threading.RateLimiting;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -91,7 +90,7 @@ builder.Services.AddScoped<QuizService>();
 builder.Services.AddScoped<TeamService>();
 
 builder.Services.AddScoped<ImportService>();
-builder.Services.AddScoped<PresentationDownloadService>();
+builder.Services.AddScoped<DownloadService>();
 
 // ── Blazor & Razor Pages ──────────────────────────────────────────
 builder.Services.AddRazorPages();

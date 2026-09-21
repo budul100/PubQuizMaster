@@ -2,8 +2,8 @@ using Microsoft.AspNetCore.Components;
 using PubQuizMaster.Core.Extensions;
 using PubQuizMaster.Core.Models.Event;
 using PubQuizMaster.Core.Records.Event;
+using PubQuizMaster.Web.Helpers;
 using PubQuizMaster.Web.Records;
-using PubQuizMaster.Web.Services;
 
 namespace PubQuizMaster.Web.Pages
 {
@@ -41,7 +41,7 @@ namespace PubQuizMaster.Web.Pages
 
         [Inject] private ILogger<Index> Logger { get; set; } = null!;
 
-        [Inject] private PresentationDownloadService PresentationDownloadService { get; set; } = null!;
+        [Inject] private DownloadService PresentationDownloadService { get; set; } = null!;
 
         #endregion Private Properties
 
