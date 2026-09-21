@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Components;
+using PubQuizMaster.Web.Components.Common;
 using PubQuizMaster.Web.Records;
 
 namespace PubQuizMaster.Web.Components.Standings

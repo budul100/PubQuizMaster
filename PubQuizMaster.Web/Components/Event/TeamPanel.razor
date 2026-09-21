@@ -3,7 +3,7 @@
 <div class="card shadow-sm border-0 h-100">
     <div class="card-header pqm-card-header">
         <span class="pqm-card-title">
-            <span class="mif-group" aria-hidden="true"></span> Teams &amp; Standings (@Standings.Length)
+            <span class="mif-group" aria-hidden="true"></span> Teams (@Standings.Length)
         </span>
         <button class="btn btn-sm @(showAddTeamForm ? "btn-outline-secondary" : "btn-primary") py-0 px-2"
                 title="@(showAddTeamForm ? "Close" : "Register team")"
@@ -35,8 +35,8 @@
                     <th class="text-end" style="width: 40px;">#</th>
                     <th>Team</th>
                     <th class="text-center" style="width: 50px;" title="Out of competition">OOC</th>
-                    <th class="text-end" style="width: 70px;" title="Latest active round score">Round</th>
-                    <th class="text-end" style="width: 70px;" title="Total score of the evening">Total</th>
+                    <th class="text-center" style="width: 95px;" title="Latest active round score">Round</th>
+                    <th class="text-center" style="width: 100px;" title="Total score of the evening">Total</th>
                     <th class="text-end pe-3" style="width: 60px;"></th>
                 </tr>
             </thead>
@@ -78,11 +78,22 @@
                                        aria-label="Out of competition"
                                        @onchange="e => ToggleNonCompetitiveAsync(entry.TeamId, (bool)(e.Value ?? false))" />
                             </td>
-                            <td class="text-end text-muted small">
-                                @(entry.LatestRoundScore.HasValue ? entry.LatestRoundScore.Value.ToString("0.#") : "—")
+                            <td class="text-center text-muted small">
+                                <span class="pqm-rank-value">
+                                    <span>@(entry.LatestRoundScore.HasValue? entry.LatestRoundScore.Value.ToString("0.#") : "—")</span>
+                                    <RankBadge 
+                                        Rank="entry.LatestRoundRank"
+                                        MaxRank="1"
+                                        IsCompeting="@(entry.IsActive && !entry.IsNonCompetitive)" />
+                                </span>
                             </td>
-                            <td class="text-end fw-bold text-primary small">
-                                @entry.TotalScore.ToString("0.#")
+                            <td class="text-center fw-bold text-primary small">
+                                <span class="pqm-rank-value">
+                                    <span>@entry.TotalScore.ToString("0.#")</span>
+                                    <RankBadge 
+                                        Rank="entry.OverallRank"
+                                        IsCompeting="@(entry.IsActive && !entry.IsNonCompetitive)" />
+                                </span>
                             </td>
                             <td class="text-end pe-3">
                                 @if (entry.CanDelete)

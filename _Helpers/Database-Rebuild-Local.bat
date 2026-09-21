@@ -14,7 +14,7 @@ set EF_ARGS=--project "%DATA_PROJECT%" --startup-project "%WEB_PROJECT%"
 rem Only for this script: the design-time factory reads appsettings.Development.json and the user secrets
 set ASPNETCORE_ENVIRONMENT=Development
 
-echo [1/4] Target database:
+echo [1/4] Target database...
 rem Shows provider, data source and database name from the connection string
 dotnet ef dbcontext info %EF_ARGS%
 if errorlevel 1 ( echo ERROR: Could not read the DbContext configuration & pause & exit /b 1 )

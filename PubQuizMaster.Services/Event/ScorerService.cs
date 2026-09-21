@@ -53,10 +53,23 @@ namespace PubQuizMaster.Services.Event
                 : null;
         }
 
-        public bool IsConnected(string scorerId)
+        public bool IsConnected(string scorerId) => IsOnline(GetStatus(scorerId));
+
+        /// <summary>
+        /// True while at least one of the given stations is online and still sorting or scoring
+        /// the given round. Reviewing the overview counts as done, so it does not block.
+        /// </summary>
+        public bool IsScoringActive(Guid roundId, IEnumerable<string> scorerIds)
         {
-            var status = GetStatus(scorerId);
-            return status != null && DateTime.UtcNow - status.LastSeenUtc < OnlineWindow;
+            return scorerIds.Any(id =>
+            {
+                var status = GetStatus(id);
+
+                return status != null
+                    && status.RoundId == roundId
+                    && IsOnline(status)
+                    && status.Phase is ScoringType.Sorting or ScoringType.Scoring;
+            });
         }
 
         public void NotifyAnswerRecorded() => OnAnswersChanged?.Invoke();
@@ -82,5 +95,12 @@ namespace PubQuizMaster.Services.Event
         }
 
         #endregion Public Methods
+
+        #region Private Methods
+
+        private static bool IsOnline(ScorerStatus? status) => status != null
+                                                   && DateTime.UtcNow - status.LastSeenUtc < OnlineWindow;
+
+        #endregion Private Methods
     }
 }

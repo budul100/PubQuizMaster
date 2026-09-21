@@ -182,17 +182,26 @@ namespace PubQuizMaster.Web.Pages
                 .OrderBy(x => x.Name, StringComparer.CurrentCultureIgnoreCase)
                 .ToArray();
 
+            // The round column carries its own badge, so the latest round needs a ranking of its own
+            var roundRanks = entries
+                .Where(x => x.LatestScore.HasValue)
+                .Rank(
+                    score: x => x.LatestScore!.Value,
+                    isNonCompetitive: x => x.IsNonCompetitive)
+                .ToDictionary(x => x.Item.TeamId, x => x.Rank);
+
             // Ranks come from the ranking, the list itself is alphabetical so teams are easy to find
             teamStandings = [.. entries.Rank(x => x.TotalScore, x => x.IsNonCompetitive)
                 .Select(r => new TeamStanding(
-                    r.Item.TeamId,
-                    r.Item.Name,
-                    r.Item.LatestScore,
-                    r.Item.TotalScore,
-                    r.Rank,
-                    r.Item.IsActive,
-                    r.Item.IsNonCompetitive,
-                    r.Item.CanDelete))
+                    TeamId: r.Item.TeamId,
+                    TeamName: r.Item.Name,
+                    LatestRoundScore: r.Item.LatestScore,
+                    LatestRoundRank: roundRanks.GetValueOrDefault(r.Item.TeamId),
+                    TotalScore: r.Item.TotalScore,
+                    OverallRank: r.Rank,
+                    IsActive: r.Item.IsActive,
+                    IsNonCompetitive: r.Item.IsNonCompetitive,
+                    CanDelete: r.Item.CanDelete))
                 .OrderBy(s => s.TeamName, StringComparer.CurrentCultureIgnoreCase)];
         }
 
@@ -216,6 +225,19 @@ namespace PubQuizMaster.Web.Pages
         private async Task FinalizeRoundAsync()
         {
             if (activeRound == null) return;
+
+            // Second barrier next to the disabled button: the button state of another browser
+            // can be older than the current scorer positions
+            var scorerIds = activeRound.Assignments
+                .Select(a => a.ScorerId).ToArray();
+
+            if (SessionService.IsScoringActive(
+                roundId: activeRound.Id,
+                scorerIds: scorerIds))
+            {
+                ToastService.ShowError("Scoring is still running. Wait until every scorer station reaches the overview.");
+                return;
+            }
 
             isProcessing = true;
             try

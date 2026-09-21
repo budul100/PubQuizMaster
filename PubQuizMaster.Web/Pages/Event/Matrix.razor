@@ -92,10 +92,10 @@ else
             <thead class="table-light">
                 <tr>
                     <th class="text-start ps-3" style="min-width: 180px;">Team</th>
-                    <th style="width: 48px;" title="Round Rank">#R</th>
-                    <th style="width: 52px;" title="Round Points">Pts</th>
-                    <th style="width: 48px;" title="Overall Evening Rank">#T</th>
-                    <th style="width: 55px;" title="Overall Evening Points">Tot</th>
+                    <th style="width: 56px;" title="Current Round Rank">#R</th>
+                    <th style="width: 52px;" title="Current Round Points">Pts</th>
+                    <th style="width: 56px;" title="Overall Quiz Rank">#T</th>
+                    <th style="width: 55px;" title="Overall Quiz Points">Tot</th>
                     @for (int q = 0; q < round.Length; q++)
                     {
                         var qNum = q + 1;
@@ -126,9 +126,20 @@ else
                                 <span class="badge bg-secondary ms-1" title="Out of competition">OOC</span>
                             }
                         </td>
-                        <td class="text-muted small">@row.RoundRank</td>
+                        <td class="text-muted small">
+                            <RankBadge 
+                                Rank="row.RoundRank"
+                                MaxRank="1"
+                                IsCompeting="!row.IsNonCompetitive"
+                                ShowPlainRank="true" />
+                        </td>
                         <td class="fw-bold text-success">@row.RoundScore</td>
-                        <td class="text-secondary small">@row.OverallRank</td>
+                        <td class="text-secondary small">
+                            <RankBadge 
+                                Rank="row.OverallRank"
+                                IsCompeting="!row.IsNonCompetitive"
+                                ShowPlainRank="true" />
+                        </td>
                         <td class="fw-bold text-primary">@row.OverallScore.ToString("0.#")</td>
 
                         @for (int q = 0; q < round.Length; q++)

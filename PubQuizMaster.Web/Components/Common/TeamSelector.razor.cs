@@ -2,7 +2,7 @@ using Microsoft.AspNetCore.Components;
 using PubQuizMaster.Core.Models.Standings;
 using PubQuizMaster.Core.Records.Standings;
 
-namespace PubQuizMaster.Web.Components.Standings
+namespace PubQuizMaster.Web.Components.Common
 {
     public partial class TeamSelector
         : ComponentBase, IDisposable

@@ -4,8 +4,7 @@ namespace PubQuizMaster.Core.Records.Standings
         Guid TeamId,
         string TeamName,
         decimal TotalScore,
-        int QuizzesPlayed,
-        int Rank)
+        int QuizzesPlayed)
     {
         /// <summary>Average points per quiz night played.</summary>
         public decimal AverageScore => QuizzesPlayed > 0 ? TotalScore / QuizzesPlayed : 0m;

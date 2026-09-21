@@ -241,6 +241,60 @@ main {
     gap: 0.25rem;
 }
 
+/* ==========================================================================
+   Podium badges (Components/Common/RankBadge.razor)
+   ========================================================================== */
+
+/* Das Badge selbst.
+   Bootstraps .badge bleibt auf dem Element und liefert Hintergrundfarbe,
+   Eckenradius und Textfarbe. Diese Klasse macht daraus nur eine kompaktere
+   Variante, damit das Badge auch in schmale Tabellenzellen passt
+   (#R und #T in der Matrix sind 56 px breit).
+
+   display: inline-flex  -> Pokal-Icon und Zahl liegen nebeneinander in einer
+                            Zeile, das Badge bleibt aber ein Inline-Element und
+                            laesst sich vom umgebenden text-center zentrieren.
+   align-items: center   -> Icon und Zahl stehen auf gleicher Hoehe, das Icon
+                            haengt sonst leicht nach unten.
+   gap                   -> Abstand zwischen Icon und Zahl, ersetzt ein
+                            Leerzeichen im Markup, das je nach Font unterschiedlich
+                            breit waere.
+   padding / font-size   -> deutlich kleiner als Bootstraps Standard-Badge.
+   line-height: 1        -> nimmt dem Badge die zusaetzliche Zeilenhoehe, sonst
+                            waechst die Tabellenzeile in der Hoehe. */
+.pqm-rank-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.2rem;
+    padding: 0.25em 0.4em;
+    font-size: 0.7rem;
+    line-height: 1;
+}
+
+/* Wertzelle, die ein Badge neben ihrer Zahl traegt (Leaderboard, Teams-Liste).
+   Markup: <td class="text-center">
+               <span class="pqm-rank-value"><RankBadge … /><span>42</span></span>
+           </td>
+
+   display: inline-flex     -> Badge und Wert bilden eine Einheit. Weil der
+                               Container inline bleibt, zentriert ihn das
+                               text-center der Zelle als Ganzes. Ein Block-Flex
+                               wuerde die Zentrierung der Zelle ignorieren.
+   justify-content: center  -> zentriert Badge und Wert zusaetzlich innerhalb des
+                               Containers, falls dieser jemals eine feste Breite
+                               bekommt.
+   align-items: center      -> gemeinsame vertikale Mittellinie von Badge und Zahl.
+   gap                      -> fester Abstand zwischen Badge und Wert.
+   white-space: nowrap      -> verhindert, dass der Wert bei schmaler Spalte unter
+                               das Badge umbricht. */
+.pqm-rank-value {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.35rem;
+    white-space: nowrap;
+}
+
 /* Matrix styles, moved here from the component-level <style> block in Matrix.razor.
    Scoped CSS is not an option: PubQuizMaster.Web.styles.css is not linked in _Host.cshtml. */
 

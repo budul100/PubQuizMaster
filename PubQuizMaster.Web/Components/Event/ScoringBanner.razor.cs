@@ -19,6 +19,17 @@ namespace PubQuizMaster.Web.Components.Event
 
         #region Private Properties
 
+        private string FinalizeTitle => IsScoringActive
+            ? "Scoring still running, wait for the stations to reach the overview"
+            : "Finalize Round";
+
+        /// <summary>
+        /// Finalizing while a station is still recording would cut off the answers still coming in.
+        /// </summary>
+        private bool IsScoringActive => SessionService.IsScoringActive(
+            roundId: Round.Id,
+            scorerIds: Round.Assignments.Select(a => a.ScorerId));
+
         /// <summary>Teams of the round, including late registrations without a scorer assignment.</summary>
         private int TeamCount => Round.GetTeamIds().Length;
 

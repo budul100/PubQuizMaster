@@ -56,8 +56,7 @@ namespace PubQuizMaster.Services.Standings
                     TeamId: r.Item.TeamId,
                     TeamName: r.Item.Name,
                     TotalScore: r.Item.Score,
-                    QuizzesPlayed: r.Item.Count,
-                    Rank: r.Rank))];
+                    QuizzesPlayed: r.Item.Count))];
 
             return new LeaderboardData(
                 Teams: teams,

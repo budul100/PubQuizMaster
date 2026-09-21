@@ -1,0 +1,14 @@
+@namespace PubQuizMaster.Web.Components.Common
+
+@if (HasBadge)
+{
+    <span class="badge pqm-rank-badge @BadgeClass" title="@BadgeTitle">
+        <span class="mif-trophy" aria-hidden="true"></span> @Rank
+    </span>
+}
+else if (ShowPlainRank && Rank > 0)
+{
+    <span>@Rank</span>
+}
+
+
