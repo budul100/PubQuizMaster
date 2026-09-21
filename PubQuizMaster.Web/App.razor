@@ -6,7 +6,7 @@
     <Found Context="routeData">
         <AuthorizeRouteView RouteData="@routeData" DefaultLayout="@typeof(Shared.MainLayout)">
             <NotAuthorized>
-                <RedirectToLogin />
+                <LoginRedirect />
             </NotAuthorized>
             <Authorizing>
                 <p class="text-muted p-3">Checking access…</p>
