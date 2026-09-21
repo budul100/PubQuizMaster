@@ -4,7 +4,7 @@ namespace PubQuizMaster.Web.Components.Common
     {
         #region Private Fields
 
-        private static readonly TimeSpan DisplayDuration = TimeSpan.FromSeconds(4);
+        private static readonly TimeSpan DisplayDuration = TimeSpan.FromSeconds(Constants.ToastVisualizerSeconds);
 
         private CancellationTokenSource? cts;
         private bool isError;
@@ -19,6 +19,8 @@ namespace PubQuizMaster.Web.Components.Common
         {
             ToastService.OnShow -= Show;
             CancelPending();
+
+            GC.SuppressFinalize(this);
         }
 
         #endregion Public Methods

@@ -7,7 +7,7 @@ namespace PubQuizMaster.Web.Components.Event
     /// <summary>
     /// Edits a copy of the quiz details. The passed quiz stays untouched until the parent has saved and reloaded.
     /// </summary>
-    public partial class QuizEditModal
+    public partial class QuizModal
     {
         #region Private Fields
 
@@ -75,11 +75,15 @@ namespace PubQuizMaster.Web.Components.Event
 
             try
             {
+                var description = !string.IsNullOrWhiteSpace(editDescription)
+                    ? editDescription.Trim()
+                    : null;
+
                 var update = new QuizDetails(
-                    Quiz.Id,
-                    editTitle.Trim(),
-                    DateOnly.FromDateTime(editDate),
-                    string.IsNullOrWhiteSpace(editDescription) ? null : editDescription.Trim());
+                    QuizId: Quiz.Id,
+                    Title: editTitle.Trim(),
+                    Date: DateOnly.FromDateTime(editDate),
+                    Description: description);
 
                 // The parent saves, reports errors and closes the modal on success
                 await OnSaved.InvokeAsync(update);

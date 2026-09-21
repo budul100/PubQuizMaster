@@ -22,6 +22,7 @@ namespace PubQuizMaster.Web.Pages
         public async Task<IActionResult> OnPostAsync()
         {
             await HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+
             return LocalRedirect("/login");
         }
 

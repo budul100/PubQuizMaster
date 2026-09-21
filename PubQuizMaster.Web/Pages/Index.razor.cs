@@ -52,9 +52,12 @@ namespace PubQuizMaster.Web.Pages
             SessionService.OnStatusChanged -= HandleStatusChanged;
             SessionService.OnAnswersChanged -= HandleDataChanged;
             SessionService.OnRoundChanged -= HandleDataChanged;
+
             cts.Cancel();
             cts.Dispose();
             pollTimer?.Dispose();
+
+            GC.SuppressFinalize(this);
         }
 
         #endregion Public Methods
@@ -85,7 +88,7 @@ namespace PubQuizMaster.Web.Pages
 
             try
             {
-                var registration = await LiveQuizService.AddTeamAsync(activeNight.Id, name);
+                var registration = await QuizService.AddTeamAsync(activeNight.Id, name);
 
                 if (registration.AddedToOpenRound)
                 {
@@ -133,7 +136,7 @@ namespace PubQuizMaster.Web.Pages
             {
                 var title = activeNight.Title;
 
-                await LiveQuizService.CompleteQuizAsync(activeNight.Id);
+                await QuizService.CompleteQuizAsync(activeNight.Id);
                 NotifyRoundChanged();
 
                 ToastService.ShowSuccess($"Quiz night '{title}' completed.");
@@ -193,7 +196,7 @@ namespace PubQuizMaster.Web.Pages
                 .OrderBy(s => s.TeamName, StringComparer.CurrentCultureIgnoreCase)];
         }
 
-        private async Task ExportRoundPresentationAsync(RoundExportRequest request)
+        private async Task ExportRoundPresentationAsync(ExportRequest request)
         {
             if (activeNight == null || isExporting) return;
 
@@ -220,7 +223,7 @@ namespace PubQuizMaster.Web.Pages
                 var wasFinal = activeRound.IsFinal;
                 var roundName = activeRound.Name;
 
-                await LiveQuizService.FinalizeRoundAsync(activeRound.Id);
+                await QuizService.FinalizeRoundAsync(activeRound.Id);
                 NotifyRoundChanged();
 
                 ToastService.ShowSuccess($"{roundName} finalized.");
@@ -248,7 +251,7 @@ namespace PubQuizMaster.Web.Pages
         {
             try
             {
-                await LiveQuizService.UpdateQuizAsync(update);
+                await QuizService.UpdateQuizAsync(update);
                 ToastService.ShowSuccess("Quiz details updated.");
                 showEditModal = false;
                 await LoadDashboardStateAsync();
@@ -278,7 +281,7 @@ namespace PubQuizMaster.Web.Pages
 
             try
             {
-                await LiveQuizService.DeleteRoundAsync(roundId);
+                await QuizService.DeleteRoundAsync(roundId);
                 NotifyRoundChanged();
                 ToastService.ShowSuccess($"Round '{roundName}' deleted.");
                 await LoadDashboardStateAsync();
@@ -301,7 +304,7 @@ namespace PubQuizMaster.Web.Pages
 
             try
             {
-                await LiveQuizService.RemoveTeamAsync(activeNight.Id, teamId);
+                await QuizService.RemoveTeamAsync(activeNight.Id, teamId);
                 NotifyRoundChanged();
                 ToastService.ShowSuccess($"Team '{teamName}' removed from quiz night.");
                 await LoadDashboardStateAsync();
@@ -326,15 +329,15 @@ namespace PubQuizMaster.Web.Pages
 
         private async Task LoadDashboardStateAsync()
         {
-            var fingerprint = await LiveQuizService.GetActiveQuizFingerprintAsync();
+            var fingerprint = await QuizService.GetActiveQuizFingerprintAsync();
 
-            activeNight = await LiveQuizService.GetActiveQuizAsync();
+            activeNight = await QuizService.GetActiveQuizAsync();
             lastFingerprint = fingerprint;
             ticksSinceFullReload = 0;
 
             if (activeNight == null)
             {
-                allQuizzes = await LiveQuizService.GetAllQuizzesAsync();
+                allQuizzes = await QuizService.GetAllQuizzesAsync();
             }
             else
             {
@@ -378,7 +381,7 @@ namespace PubQuizMaster.Web.Pages
 
             try
             {
-                var fingerprint = await LiveQuizService.GetActiveQuizFingerprintAsync();
+                var fingerprint = await QuizService.GetActiveQuizFingerprintAsync();
                 if (fingerprint == lastFingerprint && ticksSinceFullReload < FullReloadEveryTicks) return;
             }
             catch (Exception ex)
@@ -447,7 +450,7 @@ namespace PubQuizMaster.Web.Pages
             isProcessing = true;
             try
             {
-                var newRound = await LiveQuizService.StartRoundAsync(request);
+                var newRound = await QuizService.StartRoundAsync(request);
                 NotifyRoundChanged();
 
                 ToastService.ShowSuccess($"{newRound.Name} started.");
@@ -470,7 +473,7 @@ namespace PubQuizMaster.Web.Pages
             if (activeNight == null) return;
             try
             {
-                await LiveQuizService.SetParticipantStatusAsync(activeNight.Id, status.TeamId, status.IsActive, status.IsNonCompetitive);
+                await QuizService.SetParticipantStatusAsync(activeNight.Id, status.TeamId, status.IsActive, status.IsNonCompetitive);
                 NotifyRoundChanged();
                 await LoadDashboardStateAsync();
             }

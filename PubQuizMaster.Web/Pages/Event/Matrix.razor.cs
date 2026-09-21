@@ -2,13 +2,13 @@ using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 using PubQuizMaster.Core.Extensions;
 using PubQuizMaster.Core.Models.Event;
-using PubQuizMaster.Core.Models.Standings;
 using PubQuizMaster.Core.Records.Event;
 using PubQuizMaster.Web.Records;
 
 namespace PubQuizMaster.Web.Pages.Event
 {
-    public partial class Matrix : IDisposable
+    public partial class Matrix
+        : IDisposable
     {
         #region Private Fields
 
@@ -60,10 +60,12 @@ namespace PubQuizMaster.Web.Pages.Event
 
         private static MatrixRow[] AssignRanks(MatrixRow[] source)
         {
-            var roundRanks = source.Rank(r => r.RoundScore, r => r.IsNonCompetitive)
+            var roundRanks = source
+                .Rank(r => r.RoundScore, r => r.IsNonCompetitive)
                 .ToDictionary(x => x.Item.TeamId, x => x.Rank);
 
-            var overallRanks = source.Rank(r => r.OverallScore, r => r.IsNonCompetitive)
+            var overallRanks = source
+                .Rank(r => r.OverallScore, r => r.IsNonCompetitive)
                 .ToDictionary(x => x.Item.TeamId, x => x.Rank);
 
             return source
@@ -72,8 +74,9 @@ namespace PubQuizMaster.Web.Pages.Event
                     RoundRank = roundRanks[r.TeamId],
                     OverallRank = overallRanks[r.TeamId]
                 })
-                .OrderBy(r => r.TeamName, StringComparer.CurrentCultureIgnoreCase)
-                .ToArray();
+                .OrderBy(
+                    keySelector: r => r.TeamName,
+                    comparer: StringComparer.CurrentCultureIgnoreCase).ToArray();
         }
 
         private void CancelRename()
@@ -170,7 +173,12 @@ namespace PubQuizMaster.Web.Pages.Event
                 var overallScore = priorScores.GetValueOrDefault(team.TeamId) + roundScore;
 
                 unranked[teamIndex] = new MatrixRow(
-                    team.TeamId, team.Name, team.IsNonCompetitive, teamAnswers, roundScore, overallScore);
+                    TeamId: team.TeamId,
+                    TeamName: team.Name,
+                    IsNonCompetitive: team.IsNonCompetitive,
+                    Answers: teamAnswers,
+                    RoundScore: roundScore,
+                    OverallScore: overallScore);
             }
 
             rows = AssignRanks(unranked);
@@ -190,7 +198,9 @@ namespace PubQuizMaster.Web.Pages.Event
 
             try
             {
-                var savedName = await LiveQuizService.RenameRoundAsync(round.Id, renameInput);
+                var savedName = await LiveQuizService.RenameRoundAsync(
+                    roundId: round.Id,
+                    newName: renameInput);
                 round.Name = savedName;
                 CancelRename();
 
@@ -224,9 +234,10 @@ namespace PubQuizMaster.Web.Pages.Event
                 await LiveQuizService.SetFinalRoundAsync(round.Id, isFinal);
                 SessionService.NotifyRoundChanged();
 
-                ToastService.ShowSuccess(isFinal
+                var message = isFinal
                     ? $"'{round.Name}' is now the final round."
-                    : $"'{round.Name}' is no longer the final round.");
+                    : $"'{round.Name}' is no longer the final round.";
+                ToastService.ShowSuccess(message);
             }
             catch (Exception ex)
             {
@@ -263,7 +274,10 @@ namespace PubQuizMaster.Web.Pages.Event
             try
             {
                 var updates = new Dictionary<(Guid TeamId, int QuestionIndex), bool> { [key] = newValue };
-                await LiveQuizService.UpdateAnswersAsync(RoundId, updates);
+                await LiveQuizService.UpdateAnswersAsync(
+                    roundId: RoundId,
+                    cellUpdates: updates);
+
                 SessionService.NotifyAnswerRecorded();
             }
             catch (Exception ex)

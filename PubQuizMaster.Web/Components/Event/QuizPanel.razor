@@ -4,6 +4,7 @@
 @using PubQuizMaster.Services.Common
 @using PubQuizMaster.Services.Event
 @using PubQuizMaster.Web.Components.Common
+@using PubQuizMaster.Web.Components.Standings
 @inject QuizService LiveQuizService
 @inject ToastService ToastService
 
@@ -90,18 +91,20 @@
     </div>
 </div>
 
-<ConfirmModal IsOpen="@showDeleteModal"
-              Title="Delete Quiz Night"
-              Message="@($"Are you sure you want to delete \"{quizToDelete?.Title}\"? This will permanently remove all associated rounds, teams, and answers.")"
-              ConfirmText="Yes, Delete"
-              OnConfirmed="HandleDeleteConfirmedAsync"
-              OnCanceled="() => showDeleteModal = false" />
+<ConfirmModal 
+    IsOpen="@showDeleteModal"
+    Title="Delete Quiz Night"
+    Message="@($"Are you sure you want to delete \"{quizToDelete?.Title}\"? This will permanently remove all associated rounds, teams, and answers.")"
+    ConfirmText="Yes, Delete"
+    OnConfirmed="HandleDeleteConfirmedAsync"
+    OnCanceled="() => showDeleteModal = false" />
 
-<ConfirmModal IsOpen="@showReopenModal"
-              Title="Reopen Quiz Night"
-              Message="@($"Reopen \"{quizToReopen?.Title}\"? It becomes the active quiz night again and is removed from the standings until it is completed.")"
-              ConfirmText="Reopen"
-              ConfirmButtonClass="btn-warning"
-              HeaderClass="bg-warning"
-              OnConfirmed="HandleReopenConfirmedAsync"
-              OnCanceled="() => showReopenModal = false" />
+<ConfirmModal 
+    IsOpen="@showReopenModal"
+    Title="Reopen Quiz Night"
+    Message="@($"Reopen \"{quizToReopen?.Title}\"? It becomes the active quiz night again and is removed from the standings until it is completed.")"
+    ConfirmText="Reopen"
+    ConfirmButtonClass="btn-warning"
+    HeaderClass="bg-warning"
+    OnConfirmed="HandleReopenConfirmedAsync"
+    OnCanceled="() => showReopenModal = false" />

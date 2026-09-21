@@ -3,7 +3,7 @@ using PubQuizMaster.Core.Records.Standings;
 using PubQuizMaster.Web.Enums;
 using PubQuizMaster.Web.Records;
 
-namespace PubQuizMaster.Web.Pages.Player
+namespace PubQuizMaster.Web.Pages.Standings
 {
     public partial class Standings
     {
@@ -20,9 +20,11 @@ namespace PubQuizMaster.Web.Pages.Player
         #region Private Properties
 
         /// <summary>Search filters after ranking, so a filtered view still shows the real position.</summary>
-        private LeaderboardRow[] FilteredRows => string.IsNullOrWhiteSpace(searchTerm)
-            ? rankedRows
-            : [.. rankedRows.Where(r => r.Team.TeamName.Contains(searchTerm, StringComparison.OrdinalIgnoreCase))];
+        private LeaderboardRow[] FilteredRows => !string.IsNullOrWhiteSpace(searchTerm)
+            ? [.. rankedRows.Where(r => r.Team.TeamName.Contains(
+                value: searchTerm,
+                comparisonType: StringComparison.OrdinalIgnoreCase))]
+            : rankedRows;
 
         #endregion Private Properties
 
@@ -32,6 +34,7 @@ namespace PubQuizMaster.Web.Pages.Player
         {
             isLoading = true;
             data = await LeaderboardService.GetLeaderboardAsync();
+
             ApplySort();
             isLoading = false;
         }
@@ -40,7 +43,8 @@ namespace PubQuizMaster.Web.Pages.Player
 
         #region Private Methods
 
-        private static LeaderboardRow[] RankBy(IEnumerable<LeaderboardTeam> teams, Func<LeaderboardTeam, decimal> metric)
+        private static LeaderboardRow[] RankBy(IEnumerable<LeaderboardTeam> teams,
+            Func<LeaderboardTeam, decimal> metric)
         {
             return [.. teams.Rank(metric).Select(r => new LeaderboardRow(r.Item, r.Rank))];
         }
@@ -55,24 +59,35 @@ namespace PubQuizMaster.Web.Pages.Player
 
             // Tie order within a rank: team name, same comparer as the other lists
             var teams = data.Teams
-                .OrderBy(t => t.TeamName, StringComparer.CurrentCultureIgnoreCase)
-                .ToArray();
+                .OrderBy(
+                    keySelector: t => t.TeamName,
+                    comparer: StringComparer.CurrentCultureIgnoreCase).ToArray();
 
             rankedRows = sort switch
             {
                 // Ranked on the value as displayed (one decimal), so equal-looking averages share a rank
                 StandingsSort.Average => RankBy(
-                    teams.Where(t => t.QuizzesPlayed >= data.MinQuizzesForAverage),
-                    t => Math.Round(t.AverageScore, 1)),
-                StandingsSort.Quizzes => RankBy(teams, t => t.QuizzesPlayed),
-                _ => RankBy(teams, t => t.TotalScore)
+                    teams: teams.Where(t => t.QuizzesPlayed >= data.MinQuizzesForAverage),
+                    metric: t => Math.Round(t.AverageScore, 1)),
+
+                StandingsSort.Quizzes => RankBy(
+                    teams: teams,
+                    metric: t => t.QuizzesPlayed),
+
+                _ => RankBy(
+                    teams: teams,
+                    metric: t => t.TotalScore)
             };
         }
 
         /// <summary>Highlights the cells of the column the ranking is based on.</summary>
-        private string CellClass(StandingsSort column) => sort == column ? "fw-bold text-primary" : "text-muted";
+        private string CellClass(StandingsSort column) => sort == column
+            ? "fw-bold text-primary"
+            : "text-muted";
 
-        private string HeaderClass(StandingsSort column) => sort == column ? "text-body fw-bold" : string.Empty;
+        private string HeaderClass(StandingsSort column) => sort == column
+            ? "text-body fw-bold"
+            : string.Empty;
 
         private void SetSort(StandingsSort newSort)
         {

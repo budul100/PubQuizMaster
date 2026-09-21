@@ -6,11 +6,10 @@ using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.AspNetCore.RateLimiting;
-using PubQuizMaster.Web.Security;
 
 namespace PubQuizMaster.Web.Pages
 {
-    [EnableRateLimiting(LoginRateLimit.PolicyName)]
+    [EnableRateLimiting(Constants.LoginPolicyName)]
     public class LoginModel(IConfiguration configuration, ILogger<LoginModel> logger)
         : PageModel
     {
@@ -40,7 +39,7 @@ namespace PubQuizMaster.Web.Pages
 
         public async Task<IActionResult> OnPostAsync()
         {
-            var expected = configuration[AdminAuth.PasswordKey];
+            var expected = configuration[Constants.LoginPasswordKey];
 
             if (string.IsNullOrEmpty(expected) || !PasswordMatches(Password, expected))
             {
@@ -50,13 +49,13 @@ namespace PubQuizMaster.Web.Pages
             }
 
             var identity = new ClaimsIdentity(
-                [new Claim(ClaimTypes.Name, "admin")],
-                CookieAuthenticationDefaults.AuthenticationScheme);
+                claims: [new Claim(ClaimTypes.Name, "admin")],
+                authenticationType: CookieAuthenticationDefaults.AuthenticationScheme);
 
             await HttpContext.SignInAsync(
-                CookieAuthenticationDefaults.AuthenticationScheme,
-                new ClaimsPrincipal(identity),
-                new AuthenticationProperties { IsPersistent = true });
+                scheme: CookieAuthenticationDefaults.AuthenticationScheme,
+                principal: new ClaimsPrincipal(identity),
+                properties: new AuthenticationProperties { IsPersistent = true });
 
             return LocalRedirect(GetSafeReturnUrl());
         }
@@ -73,10 +72,9 @@ namespace PubQuizMaster.Web.Pages
             return CryptographicOperations.FixedTimeEquals(inputHash, expectedHash);
         }
 
-        private string GetSafeReturnUrl() =>
-            !string.IsNullOrEmpty(ReturnUrl) && Url.IsLocalUrl(ReturnUrl)
-                ? ReturnUrl
-                : "/";
+        private string GetSafeReturnUrl() => !string.IsNullOrEmpty(ReturnUrl) && Url.IsLocalUrl(ReturnUrl)
+            ? ReturnUrl
+            : "/";
 
         #endregion Private Methods
     }

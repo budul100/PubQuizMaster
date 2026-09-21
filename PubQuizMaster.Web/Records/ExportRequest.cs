@@ -5,7 +5,7 @@ namespace PubQuizMaster.Web.Records
     /// <summary>
     /// Export request raised by the round list. The presentation mode follows from the round itself.
     /// </summary>
-    public record RoundExportRequest(
+    public record ExportRequest(
         Guid RoundId,
         IBrowserFile SourceFile);
 }

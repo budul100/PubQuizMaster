@@ -7,7 +7,8 @@ using PubQuizMaster.Services.Common;
 using PubQuizMaster.Services.Event;
 using PubQuizMaster.Services.Import;
 using PubQuizMaster.Services.Standings;
-using PubQuizMaster.Web.Security;
+using PubQuizMaster.Web;
+using PubQuizMaster.Web.Helpers;
 using PubQuizMaster.Web.Services;
 using System.Threading.RateLimiting;
 
@@ -17,8 +18,7 @@ var builder = WebApplication.CreateBuilder(args);
 var connectionString = builder.Configuration.GetConnectionString("Default")
     ?? throw new InvalidOperationException("Connection string 'Default' is not configured.");
 
-builder.Services.AddDbContextFactory<AppDbContext>(options =>
-    options.UseNpgsql(connectionString));
+builder.Services.AddDbContextFactory<AppDbContext>(options => options.UseNpgsql(connectionString));
 
 // ── Data Protection ──────────────────────────────────────────────
 // Without a persisted key ring the auth cookie is invalidated on every container restart
@@ -33,10 +33,10 @@ if (!string.IsNullOrWhiteSpace(keyPath))
 
 // ── Authentication (single admin, cookie based) ──────────────────
 // Fail closed: the app does not start without an admin password
-if (string.IsNullOrWhiteSpace(builder.Configuration[AdminAuth.PasswordKey]))
+if (string.IsNullOrWhiteSpace(builder.Configuration[Constants.LoginPasswordKey]))
 {
     throw new InvalidOperationException(
-        $"'{AdminAuth.PasswordKey}' is not configured. Set it via user secrets or environment variable 'Auth__AdminPassword'.");
+        $"'{Constants.LoginPasswordKey}' is not configured. Set it via user secrets or environment variable 'Auth__AdminPassword'.");
 }
 
 builder.Services
@@ -63,16 +63,18 @@ if (reverseProxyEnabled)
         ReverseProxy.Configure(options, builder.Configuration));
 }
 
+var window = TimeSpan.FromMinutes(1);
+
 builder.Services.AddRateLimiter(options =>
 {
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
-    options.AddPolicy(LoginRateLimit.PolicyName, context =>
+    options.AddPolicy(Constants.LoginPolicyName, context =>
         RateLimitPartition.GetFixedWindowLimiter(
             context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
             _ => new FixedWindowRateLimiterOptions
             {
-                PermitLimit = LoginRateLimit.PermitLimit,
-                Window = LoginRateLimit.Window,
+                PermitLimit = Constants.LoginPermitLimit,
+                Window = window,
                 QueueLimit = 0
             }));
 });

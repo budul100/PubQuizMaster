@@ -3,6 +3,7 @@
 @layout Shared.ScorerLayout
 @attribute [AllowAnonymous]
 @using PubQuizMaster.Core.Models.Standings
+@using PubQuizMaster.Web.Components.Standings
 @using PubQuizMaster.Web.Enums
 
 <PageTitle>PubQuizMaster – Scorer</PageTitle>
@@ -21,22 +22,22 @@
             <small class="text-secondary">@(assignment?.Label ?? currentScorerId)</small>
         </div>
         <div class="d-flex align-items-center gap-2">
-            @if (currentPhase == ScorerPagePhase.Scoring)
+            @if (currentPhase == ScoringPhase.Scoring)
             {
-                <button class="btn btn-outline-light btn-sm d-flex align-items-center gap-1" @onclick="() => SetPhase(ScorerPagePhase.Overview)">
+                <button class="btn btn-outline-light btn-sm d-flex align-items-center gap-1" @onclick="() => SetPhase(ScoringPhase.Overview)">
                     <span class="mif-list-bulleted" aria-hidden="true"></span> Overview
                 </button>
             }
-            else if (currentPhase == ScorerPagePhase.Overview)
+            else if (currentPhase == ScoringPhase.Overview)
             {
-                <button class="btn btn-outline-light btn-sm d-flex align-items-center gap-1" @onclick="() => SetPhase(ScorerPagePhase.Scoring)">
+                <button class="btn btn-outline-light btn-sm d-flex align-items-center gap-1" @onclick="() => SetPhase(ScoringPhase.Scoring)">
                     <span class="mif-arrow-left" aria-hidden="true"></span> Back
                 </button>
             }
         </div>
     </header>
 
-    @if (newTeamsHint != null && (currentPhase == ScorerPagePhase.Scoring || currentPhase == ScorerPagePhase.Overview))
+    @if (newTeamsHint != null && (currentPhase == ScoringPhase.Scoring || currentPhase == ScoringPhase.Overview))
     {
         <div class="alert alert-warning py-2 small mb-3 d-flex justify-content-between align-items-center gap-2 flex-shrink-0">
             <span>New team added at the end of your sheet stack: <strong>@newTeamsHint</strong></span>
@@ -44,7 +45,7 @@
         </div>
     }
 
-    @if (currentPhase == ScorerPagePhase.Connect)
+    @if (currentPhase == ScoringPhase.Connect)
     {
         <div class="card bg-dark text-light border-secondary my-auto p-4 shadow">
             <h4 class="text-center text-danger fw-bold mb-3">Scorer Identification</h4>
@@ -70,7 +71,7 @@
             </button>
         </div>
     }
-    else if (currentPhase == ScorerPagePhase.Waiting)
+    else if (currentPhase == ScoringPhase.Waiting)
     {
         <div class="card bg-dark text-light border-secondary my-auto p-4 shadow text-center">
             <div class="spinner-border text-danger mx-auto mb-3" role="status"></div>
@@ -90,7 +91,7 @@
             </button>
         </div>
     }
-    else if (currentPhase == ScorerPagePhase.SortSheets)
+    else if (currentPhase == ScoringPhase.SortSheets)
     {
         <div class="d-flex flex-column flex-grow-1 justify-content-between">
             <div>
@@ -116,7 +117,7 @@
             </button>
         </div>
     }
-    else if (currentPhase == ScorerPagePhase.Scoring)
+    else if (currentPhase == ScoringPhase.Scoring)
     {
         <div class="mb-3 flex-shrink-0">
             <div class="d-flex justify-content-between small text-secondary mb-1">
@@ -191,7 +192,7 @@
             </div>
         }
     }
-    else if (currentPhase == ScorerPagePhase.Overview)
+    else if (currentPhase == ScoringPhase.Overview)
     {
         <div class="d-flex flex-column flex-grow-1 overflow-hidden">
             <h6 class="fw-bold mb-2 text-light">Answer Matrix Overview</h6>
@@ -225,7 +226,7 @@
             </div>
 
             <button class="btn btn-primary w-100 py-3 fw-bold flex-shrink-0 d-flex align-items-center justify-content-center gap-2"
-                    @onclick="() => SetPhase(ScorerPagePhase.Scoring)"
+                    @onclick="() => SetPhase(ScoringPhase.Scoring)"
                     title="Continue Scoring / Review"
                     aria-label="Continue Scoring / Review">
                 <span class="mif-pencil" aria-hidden="true"></span> Continue Scoring / Review

@@ -5,7 +5,7 @@ using PubQuizMaster.Web.Records;
 
 namespace PubQuizMaster.Web.Components.Event
 {
-    public partial class RoundListPanel
+    public partial class RoundPanel
     {
         #region Private Fields
 
@@ -21,7 +21,7 @@ namespace PubQuizMaster.Web.Components.Event
 
         [Parameter] public EventCallback<Round> OnDeleteRound { get; set; }
 
-        [Parameter] public EventCallback<RoundExportRequest> OnExportPptx { get; set; }
+        [Parameter] public EventCallback<ExportRequest> OnExportPptx { get; set; }
 
         [Parameter] public EventCallback OnStartRoundClick { get; set; }
 
@@ -35,7 +35,7 @@ namespace PubQuizMaster.Web.Components.Event
         {
             try
             {
-                await OnExportPptx.InvokeAsync(new RoundExportRequest(round.Id, e.File));
+                await OnExportPptx.InvokeAsync(new ExportRequest(round.Id, e.File));
             }
             finally
             {

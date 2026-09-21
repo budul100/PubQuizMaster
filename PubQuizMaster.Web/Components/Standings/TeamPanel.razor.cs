@@ -1,9 +1,9 @@
 using Microsoft.AspNetCore.Components;
 using PubQuizMaster.Web.Records;
 
-namespace PubQuizMaster.Web.Components.Player
+namespace PubQuizMaster.Web.Components.Standings
 {
-    public partial class TeamListPanel
+    public partial class TeamPanel
     {
         #region Private Fields
 
@@ -16,7 +16,9 @@ namespace PubQuizMaster.Web.Components.Player
         #region Public Properties
 
         [Parameter] public EventCallback<string> OnRegisterTeam { get; set; }
+
         [Parameter] public EventCallback<Guid> OnRemoveTeam { get; set; }
+
         [Parameter] public EventCallback<(Guid TeamId, bool IsActive, bool IsNonCompetitive)> OnUpdateStatus { get; set; }
 
         [Parameter] public TeamStanding[] Standings { get; set; } = [];

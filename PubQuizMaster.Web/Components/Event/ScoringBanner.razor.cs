@@ -5,7 +5,7 @@ using PubQuizMaster.Core.Records.Event;
 
 namespace PubQuizMaster.Web.Components.Event
 {
-    public partial class ActiveScoringBanner
+    public partial class ScoringBanner
     {
         #region Public Properties
 
@@ -42,9 +42,11 @@ namespace PubQuizMaster.Web.Components.Event
             return status.Phase switch
             {
                 ScoringType.Sorting => "Sorting sheets",
-                ScoringType.Scoring =>
-                    $"Q {status.QuestionIndex + 1}/{Round.Length} \u00B7 Sheet {status.TeamIndex + 1}/{assignment.TeamIds.Count}",
+
+                ScoringType.Scoring => $"Q {status.QuestionIndex + 1}/{Round.Length} \u00B7 Sheet {status.TeamIndex + 1}/{assignment.TeamIds.Count}",
+
                 ScoringType.Reviewing => "Reviewing overview",
+
                 _ => "Idle"
             };
         }

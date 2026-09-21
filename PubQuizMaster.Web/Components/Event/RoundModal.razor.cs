@@ -2,15 +2,14 @@ using Microsoft.AspNetCore.Components;
 using PubQuizMaster.Core.Models.Event;
 using PubQuizMaster.Core.Records.Event;
 using PubQuizMaster.Web.Helpers;
-using PubQuizMaster.Web.ViewModels;
 
 namespace PubQuizMaster.Web.Components.Event
 {
-    public partial class StartRoundModal
+    public partial class RoundModal
     {
         #region Private Fields
 
-        private List<ScorerAssignmentViewModel> assignments = [];
+        private List<ScorerAssignment> assignments = [];
         private bool isFinalRound;
         private bool isSubmitting;
         private int questionCount = 20;
@@ -50,7 +49,7 @@ namespace PubQuizMaster.Web.Components.Event
 
         #region Private Methods
 
-        private static void ToggleTeam(ScorerAssignmentViewModel scorer, Guid teamId, bool isAssigned)
+        private static void ToggleTeam(ScorerAssignment scorer, Guid teamId, bool isAssigned)
         {
             if (isAssigned)
             {
@@ -72,10 +71,12 @@ namespace PubQuizMaster.Web.Components.Event
                 .Select(c => (char)c)
                 .FirstOrDefault(c => !usedLabels.Contains($"Scorer {c}"));
 
-            assignments.Add(new ScorerAssignmentViewModel
+            assignments.Add(new ScorerAssignment
             {
                 ScorerId = ScorerTokens.Create(),
-                Label = letter == default ? $"Scorer {assignments.Count + 1}" : $"Scorer {letter}"
+                Label = letter == default
+                    ? $"Scorer {assignments.Count + 1}"
+                    : $"Scorer {letter}"
             });
         }
 
@@ -87,8 +88,7 @@ namespace PubQuizMaster.Web.Components.Event
 
             var activeTeams = Quiz.ParticipatingTeams
                 .Where(pt => pt.IsActive)
-                .OrderBy(pt => pt.SheetOrder)
-                .ToList();
+                .OrderBy(pt => pt.SheetOrder).ToList();
 
             for (int i = 0; i < activeTeams.Count; i++)
             {
@@ -102,12 +102,15 @@ namespace PubQuizMaster.Web.Components.Event
         {
             if (Quiz == null) return;
 
-            var existingNames = Quiz.Rounds.Select(r => r.Name).ToHashSet(StringComparer.OrdinalIgnoreCase);
+            var existingNames = Quiz.Rounds.Select(r => r.Name)
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
             var nextNum = Quiz.Rounds.Count + 1;
             while (existingNames.Contains($"Round {nextNum}"))
             {
                 nextNum++;
             }
+
             roundName = $"Round {nextNum}";
 
             var lastRound = Quiz.Rounds
@@ -126,7 +129,7 @@ namespace PubQuizMaster.Web.Components.Event
 
                 assignments = lastRound.Assignments
                     .OrderBy(a => a.Label, StringComparer.OrdinalIgnoreCase)
-                    .Select(a => new ScorerAssignmentViewModel
+                    .Select(a => new ScorerAssignment
                     {
                         ScorerId = a.ScorerId,
                         Label = a.Label,
@@ -148,7 +151,11 @@ namespace PubQuizMaster.Web.Components.Event
             {
                 assignments =
                 [
-                    new ScorerAssignmentViewModel { ScorerId = ScorerTokens.Create(), Label = "Scorer A" }
+                    new ScorerAssignment
+                    {
+                        ScorerId = ScorerTokens.Create(),
+                        Label = "Scorer A"
+                    }
                 ];
 
                 AutoDistributeTeams();
@@ -175,12 +182,15 @@ namespace PubQuizMaster.Web.Components.Event
             isSubmitting = true;
             try
             {
+                var roundAssignements = assignments
+                    .Select(a => a.ToRequest()).ToList();
+
                 var request = new RoundRequest(
-                    Quiz.Id,
-                    roundName,
-                    questionCount,
-                    isFinalRound,
-                    [.. assignments.Select(a => a.ToRequest())]);
+                    QuizId: Quiz.Id,
+                    RoundName: roundName,
+                    Length: questionCount,
+                    IsFinal: isFinalRound,
+                    Assignments: roundAssignements);
 
                 await OnStartRound.InvokeAsync(request);
             }

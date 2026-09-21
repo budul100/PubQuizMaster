@@ -1,17 +1,13 @@
 using Microsoft.AspNetCore.Components;
 using PubQuizMaster.Core.Models.Standings;
 using PubQuizMaster.Core.Records.Standings;
-using PubQuizMaster.Services;
 
-namespace PubQuizMaster.Web.Components.Player
+namespace PubQuizMaster.Web.Components.Standings
 {
     public partial class TeamSelector
         : ComponentBase, IDisposable
     {
         #region Private Fields
-
-        private const int DebounceMilliseconds = 300;
-        private const int MinSearchLength = 3;
 
         // Only ever holds the source of the search currently running, the owning handler disposes it
         private CancellationTokenSource? debounceCts;
@@ -50,6 +46,8 @@ namespace PubQuizMaster.Web.Components.Player
         public void Dispose()
         {
             debounceCts?.Cancel();
+
+            GC.SuppressFinalize(this);
         }
 
         public async Task FocusAsync()
@@ -90,7 +88,7 @@ namespace PubQuizMaster.Web.Components.Player
             debounceCts?.Cancel();
 
             var searchText = Value.Trim();
-            if (searchText.Length < MinSearchLength)
+            if (searchText.Length < Constants.SearchLengthMin)
             {
                 similarCandidates = [];
                 return;
@@ -101,7 +99,7 @@ namespace PubQuizMaster.Web.Components.Player
 
             try
             {
-                await Task.Delay(DebounceMilliseconds, cts.Token);
+                await Task.Delay(Constants.SearchDebounceMilliseconds, cts.Token);
 
                 var matches = await TeamMatchingService.FindSimilarTeamsAsync(
                     searchText, minThreshold: 0.65, maxResults: 4, ct: cts.Token);

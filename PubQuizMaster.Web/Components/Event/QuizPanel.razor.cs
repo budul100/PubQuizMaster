@@ -7,7 +7,7 @@ namespace PubQuizMaster.Web.Components.Event
     /// Start page while no quiz is active: list of completed quizzes and imports.
     /// Title, date and description are edited only in the live dashboard (QuizEditModal).
     /// </summary>
-    public partial class QuizListPanel
+    public partial class QuizPanel
     {
         #region Private Fields
 
@@ -45,9 +45,12 @@ namespace PubQuizMaster.Web.Components.Event
             {
                 // Defaults only, everything is edited in the live dashboard afterwards
                 var today = DateOnly.FromDateTime(DateTime.Today);
-                var created = await LiveQuizService.CreateQuizAsync($"Pub Quiz ({today:dd.MM.yyyy})", today, null);
-
+                var created = await LiveQuizService.CreateQuizAsync(
+                    title: $"Pub Quiz ({today:dd.MM.yyyy})",
+                    date: today,
+                    description: null);
                 ToastService.ShowSuccess($"Quiz night '{created.Title}' created.");
+
                 await OnDataChanged.InvokeAsync();
             }
             catch (Exception ex)
@@ -68,6 +71,7 @@ namespace PubQuizMaster.Web.Components.Event
             {
                 await LiveQuizService.DeleteQuizAsync(quizToDelete.Id);
                 ToastService.ShowSuccess($"Quiz night '{quizToDelete.Title}' deleted.");
+
                 showDeleteModal = false;
                 quizToDelete = null;
                 await OnDataChanged.InvokeAsync();
@@ -88,6 +92,7 @@ namespace PubQuizMaster.Web.Components.Event
             try
             {
                 await LiveQuizService.ReopenQuizAsync(quizToReopen.Id);
+
                 ToastService.ShowSuccess($"Quiz night '{title}' reopened.");
                 quizToReopen = null;
                 await OnQuizReopened.InvokeAsync();

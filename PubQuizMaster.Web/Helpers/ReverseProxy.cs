@@ -1,7 +1,7 @@
 using System.Net;
 using Microsoft.AspNetCore.HttpOverrides;
 
-namespace PubQuizMaster.Web.Security
+namespace PubQuizMaster.Web.Helpers
 {
     /// <summary>
     /// Forwarded headers behind nginx/Traefik. Without them the rate limiter only sees the proxy address

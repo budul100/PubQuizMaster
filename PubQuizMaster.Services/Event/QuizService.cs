@@ -131,7 +131,7 @@ namespace PubQuizMaster.Services.Event
             {
                 await db.SaveChangesAsync(ct);
             }
-            catch (DbUpdateException ex) when (ex.IsUniqueViolation(Constants.SingleActiveQuiz))
+            catch (DbUpdateException ex) when (ex.IsUniqueViolation(Constraints.SingleActiveQuiz))
             {
                 throw new InvalidOperationException(
                     "An active quiz night is already in progress. " +
@@ -470,7 +470,7 @@ namespace PubQuizMaster.Services.Event
             {
                 await db.SaveChangesAsync(ct);
             }
-            catch (DbUpdateException ex) when (ex.IsUniqueViolation(Constants.SingleActiveQuiz))
+            catch (DbUpdateException ex) when (ex.IsUniqueViolation(Constraints.SingleActiveQuiz))
             {
                 throw new InvalidOperationException(
                     "Another quiz night is active. Complete it before reopening this one.", ex);
@@ -664,14 +664,13 @@ namespace PubQuizMaster.Services.Event
             }
         }
 
-
         private static async Task RetryOnAnswerCellConflictAsync(Func<Task> action)
         {
             try
             {
                 await action();
             }
-            catch (DbUpdateException ex) when (ex.IsUniqueViolation(Constants.AnswerCell))
+            catch (DbUpdateException ex) when (ex.IsUniqueViolation(Constraints.AnswerCell))
             {
                 await action();
             }

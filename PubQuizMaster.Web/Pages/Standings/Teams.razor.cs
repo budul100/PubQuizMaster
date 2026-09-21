@@ -2,7 +2,7 @@ using Microsoft.AspNetCore.Components;
 using PubQuizMaster.Core.Models.Standings;
 using PubQuizMaster.Core.Records.Standings;
 
-namespace PubQuizMaster.Web.Pages.Player
+namespace PubQuizMaster.Web.Pages.Standings
 {
     public partial class Teams
     {
@@ -29,11 +29,14 @@ namespace PubQuizMaster.Web.Pages.Player
 
         #region Private Properties
 
-        private IEnumerable<Team> FilteredTeams => string.IsNullOrWhiteSpace(filterQuery)
-            ? teams
-            : teams.Where(t => t.Name.Contains(filterQuery, StringComparison.OrdinalIgnoreCase));
+        private IEnumerable<Team> FilteredTeams => !string.IsNullOrWhiteSpace(filterQuery)
+            ? teams.Where(t => t.Name.Contains(
+                value: filterQuery,
+                comparisonType: StringComparison.OrdinalIgnoreCase))
+            : teams;
 
-        private string MergeTargetName => teams.FirstOrDefault(t => t.Id == targetMergeTeamId)?.Name ?? string.Empty;
+        private string MergeTargetName => teams.FirstOrDefault(t => t.Id == targetMergeTeamId)?.Name
+            ?? string.Empty;
 
         #endregion Private Properties
 
@@ -104,7 +107,9 @@ namespace PubQuizMaster.Web.Pages.Player
             isBusy = true;
             try
             {
-                var result = await TeamService.MergeTeamsAsync(selectedTeam.Id, targetMergeTeamId);
+                var result = await TeamService.MergeTeamsAsync(
+                    sourceTeamId: selectedTeam.Id,
+                    targetTeamId: targetMergeTeamId);
                 ToastService.ShowSuccess(FormatMergeResult(result));
 
                 var targetId = targetMergeTeamId;
@@ -128,7 +133,9 @@ namespace PubQuizMaster.Web.Pages.Player
             isBusy = true;
             try
             {
-                var team = await TeamService.RenameTeamAsync(selectedTeam.Id, renameInput);
+                var team = await TeamService.RenameTeamAsync(
+                    teamId: selectedTeam.Id,
+                    newName: renameInput);
                 ToastService.ShowSuccess($"Team renamed to '{team.Name}'.");
 
                 await LoadTeamsAsync();

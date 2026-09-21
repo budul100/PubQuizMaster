@@ -39,7 +39,7 @@ namespace PubQuizMaster.Services.Standings
             {
                 await db.SaveChangesAsync(ct);
             }
-            catch (DbUpdateException ex) when (ex.IsUniqueViolation(Constants.TeamName))
+            catch (DbUpdateException ex) when (ex.IsUniqueViolation(Constraints.TeamName))
             {
                 throw new InvalidOperationException($"Team '{trimmed}' already exists.", ex);
             }
@@ -73,7 +73,7 @@ namespace PubQuizMaster.Services.Standings
                 await db.SaveChangesAsync(ct);
                 return team;
             }
-            catch (DbUpdateException ex) when (ex.IsUniqueViolation(Constants.TeamName))
+            catch (DbUpdateException ex) when (ex.IsUniqueViolation(Constraints.TeamName))
             {
                 // Created concurrently by another request, use that one
                 return await db.Teams
@@ -173,7 +173,7 @@ namespace PubQuizMaster.Services.Standings
             {
                 await db.SaveChangesAsync(ct);
             }
-            catch (DbUpdateException ex) when (ex.IsUniqueViolation(Constants.TeamName))
+            catch (DbUpdateException ex) when (ex.IsUniqueViolation(Constraints.TeamName))
             {
                 throw new InvalidOperationException($"Team '{trimmed}' already exists.", ex);
             }

@@ -1,6 +1,7 @@
 @page "/teams"
 @using PubQuizMaster.Core
 @using PubQuizMaster.Services.Standings
+@using PubQuizMaster.Web.Components.Standings
 @inject TeamService TeamService
 @inject ToastService ToastService
 
@@ -17,11 +18,12 @@
                 </span>
             </div>
             <div class="card-body">
-                <TeamSelector @bind-Value="newTeamName"
-                              OnCreateNewConfirmed="CreateTeamAsync"
-                              OnTeamSelected="SelectExistingTeam"
-                              Placeholder="Enter new team name…"
-                              AddButtonText="Create Team" />
+                <TeamSelector 
+                    @bind-Value="newTeamName"
+                    OnCreateNewConfirmed="CreateTeamAsync"
+                    OnTeamSelected="SelectExistingTeam"
+                    Placeholder="Enter new team name…"
+                    AddButtonText="Create Team" />
             </div>
         </div>
 
@@ -116,9 +118,10 @@
     </div>
 </div>
 
-<ConfirmModal IsOpen="@showMergeModal"
-              Title="Merge Teams"
-              Message="@($"Merge \"{selectedTeam?.Name}\" into \"{MergeTargetName}\"? \"{selectedTeam?.Name}\" will be deleted. This cannot be undone.")"
-              ConfirmText="Merge"
-              OnConfirmed="MergeTeamsAsync"
-              OnCanceled="() => showMergeModal = false" />
+<ConfirmModal 
+    IsOpen="@showMergeModal"
+    Title="Merge Teams"
+    Message="@($"Merge \"{selectedTeam?.Name}\" into \"{MergeTargetName}\"? \"{selectedTeam?.Name}\" will be deleted. This cannot be undone.")"
+    ConfirmText="Merge"
+    OnConfirmed="MergeTeamsAsync"
+    OnCanceled="() => showMergeModal = false" />

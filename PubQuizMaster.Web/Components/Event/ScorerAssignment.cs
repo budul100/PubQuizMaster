@@ -1,11 +1,11 @@
 using PubQuizMaster.Core.Records.Event;
 
-namespace PubQuizMaster.Web.ViewModels
+namespace PubQuizMaster.Web.Components.Event
 {
     /// <summary>
     /// Editable scorer station in the start-round dialog. Decoupled from the Scorer entity.
     /// </summary>
-    public class ScorerAssignmentViewModel
+    public class ScorerAssignment
     {
         #region Public Properties
 

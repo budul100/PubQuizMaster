@@ -2,7 +2,7 @@ using Microsoft.AspNetCore.Components;
 
 namespace PubQuizMaster.Web.Components.Common
 {
-    public partial class RedirectToLogin
+    public partial class LoginRedirect
     {
         #region Private Properties
 

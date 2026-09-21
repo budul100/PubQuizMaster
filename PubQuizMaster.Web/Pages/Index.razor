@@ -4,8 +4,8 @@
 @using PubQuizMaster.Core.Models.Standings
 @using PubQuizMaster.Web.Components.Common
 @using PubQuizMaster.Web.Components.Event
-@using PubQuizMaster.Web.Components.Player
-@inject QuizService LiveQuizService
+@using PubQuizMaster.Web.Components.Standings
+@inject QuizService QuizService
 @inject ScorerService SessionService
 @inject ToastService ToastService
 @implements IDisposable
@@ -23,9 +23,10 @@
 else if (activeNight == null)
 {
     <!-- No active night: the quiz list takes over the start page -->
-    <QuizListPanel QuizNights="@allQuizzes"
-                   OnDataChanged="LoadDashboardStateAsync"
-                   OnQuizReopened="HandleQuizReopenedAsync" />
+    <QuizPanel 
+        QuizNights="@allQuizzes"
+        OnDataChanged="LoadDashboardStateAsync"
+        OnQuizReopened="HandleQuizReopenedAsync" />
 }
 else
 {
@@ -59,64 +60,72 @@ else
     @if (activeRound != null)
     {
         <div class="mb-4">
-            <ActiveScoringBanner Round="activeRound"
-                                 IsProcessing="isProcessing"
-                                 OnFinalizeRound="FinalizeRoundAsync" />
+            <ScoringBanner 
+                Round="activeRound"
+                IsProcessing="isProcessing"
+                OnFinalizeRound="FinalizeRoundAsync" />
         </div>
     }
 
     <div class="row g-3 align-items-stretch">
         <div class="col-12 col-lg-6">
-            <TeamListPanel Standings="teamStandings"
-                           OnRegisterTeam="AddTeamAsync"
-                           OnRemoveTeam="PromptDeleteTeam"
-                           OnUpdateStatus="UpdateParticipantStatusAsync" />
+            <TeamPanel 
+                Standings="teamStandings"
+                OnRegisterTeam="AddTeamAsync"
+                OnRemoveTeam="PromptDeleteTeam"
+                OnUpdateStatus="UpdateParticipantStatusAsync" />
         </div>
         <div class="col-12 col-lg-6">
-            <RoundListPanel Rounds="activeNight.Rounds"
-                            ActiveRound="activeRound"
-                            IsExporting="isExporting"
-                            OnStartRoundClick="OpenStartRoundModal"
-                            OnExportPptx="ExportRoundPresentationAsync"
-                            OnDeleteRound="PromptDeleteRound" />
+            <RoundPanel 
+                Rounds="activeNight.Rounds"
+                ActiveRound="activeRound"
+                IsExporting="isExporting"
+                OnStartRoundClick="OpenStartRoundModal"
+                OnExportPptx="ExportRoundPresentationAsync"
+                OnDeleteRound="PromptDeleteRound" />
         </div>
     </div>
 }
 
-<StartRoundModal IsOpen="@showSetupModal"
-                 Quiz="@activeNight"
-                 ErrorMessage="@startRoundError"
-                 OnStartRound="StartRoundConfirmedAsync"
-                 OnCanceled="CloseStartRoundModal" />
+<RoundModal 
+    IsOpen="@showSetupModal"
+    Quiz="@activeNight"
+    ErrorMessage="@startRoundError"
+    OnStartRound="StartRoundConfirmedAsync"
+    OnCanceled="CloseStartRoundModal" />
 
-<QuizEditModal IsOpen="@showEditModal"
-               Quiz="@activeNight"
-               OnSaved="HandleActiveQuizDetailsSavedAsync"
-               OnCanceled="() => showEditModal = false" />
+<QuizModal 
+    IsOpen="@showEditModal"
+    Quiz="@activeNight"
+    OnSaved="HandleActiveQuizDetailsSavedAsync"
+    OnCanceled="() => showEditModal = false" />
 
-<ConfirmModal IsOpen="@showCompleteModal"
-              Title="Complete Quiz Night"
-              Message="@($"Complete \"{activeNight?.Title}\"? Results will be added to the standings and no further rounds can be started. To export the final presentation later, reopen the quiz night.")"
-              ConfirmText="Complete"
-              ConfirmButtonClass="btn-success"
-              HeaderClass="bg-success"
-              OnConfirmed="CompleteQuizAsync"
-              OnCanceled="() => showCompleteModal = false" />
+<ConfirmModal 
+    IsOpen="@showCompleteModal"
+    Title="Complete Quiz Night"
+    Message="@($"Complete \"{activeNight?.Title}\"? Results will be added to the standings and no further rounds can be started. To export the final presentation later, reopen the quiz night.")"
+    ConfirmText="Complete"
+    ConfirmButtonClass="btn-success"
+    HeaderClass="bg-success"
+    OnConfirmed="CompleteQuizAsync"
+    OnCanceled="() => showCompleteModal = false" />
 
-<ConfirmModal IsOpen="@showDeleteRoundModal"
-              Title="Delete Round"
-              Message="@($"Are you sure you want to delete round \"{roundToDelete?.Name}\"?")"
-              ConfirmText="Delete"
-              ConfirmButtonClass="btn-danger"
-              HeaderClass="bg-danger"
-              OnConfirmed="HandleDeleteRoundConfirmedAsync"
-              OnCanceled="() => showDeleteRoundModal = false" />
+<ConfirmModal 
+    IsOpen="@showDeleteRoundModal"
+    Title="Delete Round"
+    Message="@($"Are you sure you want to delete round \"{roundToDelete?.Name}\"?")"
+    ConfirmText="Delete"
+    ConfirmButtonClass="btn-danger"
+    HeaderClass="bg-danger"
+    OnConfirmed="HandleDeleteRoundConfirmedAsync"
+    OnCanceled="() => showDeleteRoundModal = false" />
 
-<ConfirmModal IsOpen="@showDeleteTeamModal"
-              Title="Delete Team"
-              Message="@($"Remove \"{teamToDelete?.TeamName}\" from this quiz night? The team has no recorded answers, so nothing is lost.")"
-              ConfirmText="Delete"
-              ConfirmButtonClass="btn-danger"
-              HeaderClass="bg-danger"
-              OnConfirmed="HandleDeleteTeamConfirmedAsync"
-              OnCanceled="() => showDeleteTeamModal = false" />
+<ConfirmModal 
+    IsOpen="@showDeleteTeamModal"
+    Title="Delete Team"
+    Message="@($"Remove \"{teamToDelete?.TeamName}\" from this quiz night? The team has no recorded answers, so nothing is lost.")"
+    ConfirmText="Delete"
+    ConfirmButtonClass="btn-danger"
+    HeaderClass="bg-danger"
+    OnConfirmed="HandleDeleteTeamConfirmedAsync"
+    OnCanceled="() => showDeleteTeamModal = false" />

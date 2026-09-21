@@ -20,7 +20,7 @@ namespace PubQuizMaster.Web.Pages.Event
         private List<Team> assignedTeams = [];
         private Core.Models.Event.Scorer? assignment;
         private ElementReference containerRef;
-        private ScorerPagePhase currentPhase = ScorerPagePhase.Connect;
+        private ScoringPhase currentPhase = ScoringPhase.Connect;
         private int currentQuestionIndex;
         private string currentScorerId = string.Empty;
         private int currentTeamIndex;
@@ -53,12 +53,15 @@ namespace PubQuizMaster.Web.Pages.Event
             {
                 var totalCells = assignedTeams.Count * questionCount;
                 if (totalCells == 0) return 0;
+
                 var answered = recordedAnswers.Values.Count(v => v.HasValue);
                 return (int)Math.Round((double)answered / totalCells * 100);
             }
         }
 
-        private Team? CurrentTeam => assignedTeams.Count > currentTeamIndex ? assignedTeams[currentTeamIndex] : null;
+        private Team? CurrentTeam => assignedTeams.Count > currentTeamIndex
+            ? assignedTeams[currentTeamIndex]
+            : null;
 
         [Inject] private QuizService LiveQuizService { get; set; } = null!;
 
@@ -81,6 +84,8 @@ namespace PubQuizMaster.Web.Pages.Event
             {
                 SessionService.Disconnect(currentScorerId);
             }
+
+            GC.SuppressFinalize(this);
         }
 
         #endregion Public Methods
@@ -89,7 +94,7 @@ namespace PubQuizMaster.Web.Pages.Event
 
         protected override async Task OnAfterRenderAsync(bool firstRender)
         {
-            if (currentPhase == ScorerPagePhase.Scoring)
+            if (currentPhase == ScoringPhase.Scoring)
             {
                 try
                 {
@@ -136,11 +141,14 @@ namespace PubQuizMaster.Web.Pages.Event
             null => "btn-outline-secondary"
         };
 
-        private static ScoringType MapPhase(ScorerPagePhase phase) => phase switch
+        private static ScoringType MapPhase(ScoringPhase phase) => phase switch
         {
-            ScorerPagePhase.SortSheets => ScoringType.Sorting,
-            ScorerPagePhase.Scoring => ScoringType.Scoring,
-            ScorerPagePhase.Overview => ScoringType.Reviewing,
+            ScoringPhase.SortSheets => ScoringType.Sorting,
+
+            ScoringPhase.Scoring => ScoringType.Scoring,
+
+            ScoringPhase.Overview => ScoringType.Reviewing,
+
             _ => ScoringType.Idle
         };
 
@@ -156,7 +164,7 @@ namespace PubQuizMaster.Web.Pages.Event
             assignment = null;
             assignedTeams = [];
             recordedAnswers.Clear();
-            currentPhase = ScorerPagePhase.Connect;
+            currentPhase = ScoringPhase.Connect;
         }
 
         private async Task ConnectAsync()
@@ -184,7 +192,7 @@ namespace PubQuizMaster.Web.Pages.Event
             {
                 errorMessage = $"Connection error: {ex.Message}";
                 isRegistered = false;
-                currentPhase = ScorerPagePhase.Connect;
+                currentPhase = ScoringPhase.Connect;
             }
             finally
             {
@@ -215,7 +223,7 @@ namespace PubQuizMaster.Web.Pages.Event
 
         private async Task HandleKeyDown(KeyboardEventArgs e)
         {
-            if (currentPhase == ScorerPagePhase.Scoring)
+            if (currentPhase == ScoringPhase.Scoring)
             {
                 switch (e.Key.ToLowerInvariant())
                 {
@@ -245,15 +253,15 @@ namespace PubQuizMaster.Web.Pages.Event
                         break;
 
                     case "o":
-                        SetPhase(ScorerPagePhase.Overview);
+                        SetPhase(ScoringPhase.Overview);
                         break;
                 }
             }
-            else if (currentPhase == ScorerPagePhase.Overview)
+            else if (currentPhase == ScoringPhase.Overview)
             {
                 if (e.Key == "Escape" || e.Key.ToLowerInvariant() == "b")
                 {
-                    SetPhase(ScorerPagePhase.Scoring);
+                    SetPhase(ScoringPhase.Scoring);
                 }
             }
         }
@@ -281,7 +289,7 @@ namespace PubQuizMaster.Web.Pages.Event
         {
             currentTeamIndex = teamIndex;
             currentQuestionIndex = questionIndex;
-            SetPhase(ScorerPagePhase.Scoring);
+            SetPhase(ScoringPhase.Scoring);
         }
 
         private async Task LoadAssignmentAsync()
@@ -295,7 +303,7 @@ namespace PubQuizMaster.Web.Pages.Event
                 assignedTeams = [];
                 newTeamsHint = null;
                 recordedAnswers.Clear();
-                SetPhase(ScorerPagePhase.Waiting);
+                SetPhase(ScoringPhase.Waiting);
                 return;
             }
 
@@ -318,7 +326,12 @@ namespace PubQuizMaster.Web.Pages.Event
                 newTeamsHint = null;
                 currentTeamIndex = 0;
                 currentQuestionIndex = 0;
-                SetPhase(state.ExistingAnswers.Count == 0 ? ScorerPagePhase.SortSheets : ScorerPagePhase.Scoring);
+
+                var phase = state.ExistingAnswers.Count == 0
+                    ? ScoringPhase.SortSheets
+                    : ScoringPhase.Scoring;
+
+                SetPhase(phase);
             }
             else
             {
@@ -351,7 +364,7 @@ namespace PubQuizMaster.Web.Pages.Event
             }
             else
             {
-                SetPhase(ScorerPagePhase.Overview);
+                SetPhase(ScoringPhase.Overview);
                 return;
             }
 
@@ -388,7 +401,12 @@ namespace PubQuizMaster.Web.Pages.Event
 
             try
             {
-                await LiveQuizService.RecordAnswerAsync(roundId, teamId, qIdx, isCorrect, currentScorerId);
+                await LiveQuizService.RecordAnswerAsync(
+                    roundId: roundId,
+                    teamId: teamId,
+                    questionIndex: qIdx,
+                    isCorrect: isCorrect,
+                    scorerId: currentScorerId);
 
                 SessionService.NotifyAnswerRecorded();
             }
@@ -403,6 +421,7 @@ namespace PubQuizMaster.Web.Pages.Event
                 {
                     recordedAnswers.Remove((teamId, qIdx));
                 }
+
                 ToastService.ShowError($"Failed to persist score: {ex.Message}");
             }
         }
@@ -412,14 +431,14 @@ namespace PubQuizMaster.Web.Pages.Event
             if (!isRegistered) return;
 
             SessionService.ReportProgress(
-                currentScorerId,
-                MapPhase(currentPhase),
-                round?.Id,
-                currentQuestionIndex,
-                currentTeamIndex);
+                scorerId: currentScorerId,
+                phase: MapPhase(currentPhase),
+                roundId: round?.Id,
+                questionIndex: currentQuestionIndex,
+                teamIndex: currentTeamIndex);
         }
 
-        private void SetPhase(ScorerPagePhase phase)
+        private void SetPhase(ScoringPhase phase)
         {
             currentPhase = phase;
             ReportProgress();
@@ -457,7 +476,7 @@ namespace PubQuizMaster.Web.Pages.Event
         {
             currentTeamIndex = 0;
             currentQuestionIndex = 0;
-            SetPhase(ScorerPagePhase.Scoring);
+            SetPhase(ScoringPhase.Scoring);
         }
 
         #endregion Private Methods
