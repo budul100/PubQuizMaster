@@ -8,6 +8,14 @@ namespace PubQuizMaster.Services
 {
     public partial class MatchingService(IDbContextFactory<AppDbContext> dbFactory)
     {
+        #region Private Fields
+
+        // Prefix hits rank below complete matches, hits inside the name below prefix hits
+        private const double PrefixWeight = 0.9;
+        private const double WordWeight = 0.8;
+
+        #endregion Private Fields
+
         #region Public Methods
 
         public static string Normalize(string name)
@@ -69,14 +77,29 @@ namespace PubQuizMaster.Services
 
         #region Private Methods
 
+        /// <summary>
+        /// Best of three views on the candidate, so typing the beginning of a long name already finds it:
+        /// 1. Whole name: Levenshtein over the full length, catches typos in complete names.
+        /// 2. Prefix: candidate against the beginning of the name, typos included ("quiz mi" finds
+        ///    "quiz me baby one more time"). Capped below 1.0 so complete matches rank first.
+        /// 3. Word inside the name: candidate starts at a word boundary ("baby one" finds the same team).
+        /// </summary>
         private static double CalculateSimilarity(string source, string target)
         {
             if (source == target) return 1.0;
             if (source.Length == 0 || target.Length == 0) return 0.0;
 
-            int distance = LevenshteinDistance(source, target);
-            int maxLength = Math.Max(source.Length, target.Length);
-            return 1.0 - ((double)distance / maxLength);
+            var whole = LevenshteinSimilarity(source, target);
+
+            if (source.Length >= target.Length) return whole;
+
+            var prefix = LevenshteinSimilarity(source, target[..source.Length]) * PrefixWeight;
+
+            var word = target.Contains($" {source}", StringComparison.Ordinal)
+                ? WordWeight
+                : 0.0;
+
+            return Math.Max(whole, Math.Max(prefix, word));
         }
 
         private static int LevenshteinDistance(string s, string t)
@@ -100,6 +123,14 @@ namespace PubQuizMaster.Services
             }
 
             return d[n, m];
+        }
+
+        private static double LevenshteinSimilarity(string source, string target)
+        {
+            var distance = LevenshteinDistance(source, target);
+            var maxLength = Math.Max(source.Length, target.Length);
+
+            return 1.0 - ((double)distance / maxLength);
         }
 
         [GeneratedRegex(@"[^\w\d\s]")]

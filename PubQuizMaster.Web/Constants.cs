@@ -11,7 +11,7 @@ namespace PubQuizMaster.Web
         public const string PageTitle = "page-title";
 
         public const int SearchDebounceMilliseconds = 300;
-        public const int SearchLengthMin = 3;
+        public const int SearchLengthMin = 4;
 
         public const int ToastVisualizerSeconds = 4;
 
