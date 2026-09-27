@@ -20,6 +20,8 @@
             <InputFile OnChange="HandleFileSelected" accept=".xlsx" class="form-control" />
             <div class="form-text">
                 Expected column layout: <strong>A</strong> Date, <strong>B</strong> Title, <strong>C</strong> Remarks/Description, <strong>D</strong> Rank, <strong>E</strong> Team Name, <strong>F</strong> Total Points.
+                Rows without team name import the quiz night only, e.g. with a remark.
+                A team's creation date is the date of its first quiz night.
                 Importing the same file again updates existing results instead of duplicating them.
             </div>
         </div>
@@ -50,6 +52,7 @@
             <ul class="list-unstyled mb-0 d-flex flex-column gap-1">
                 <li><span class="mif-checkmark text-success me-1" aria-hidden="true"></span> <strong>@summary.QuizzesCreated</strong> Quiz Nights imported</li>
                 <li><span class="mif-group text-primary me-1" aria-hidden="true"></span> <strong>@summary.TeamsCreated</strong> New Teams registered</li>
+                <li><span class="mif-calendar text-primary me-1" aria-hidden="true"></span> <strong>@summary.TeamsBackdated</strong> Existing teams dated back to their first quiz night</li>
                 <li><span class="mif-bar-chart text-info me-1" aria-hidden="true"></span> <strong>@summary.ResultsCreated</strong> Team results recorded</li>
                 <li><span class="mif-pencil text-warning me-1" aria-hidden="true"></span> <strong>@summary.ResultsUpdated</strong> Existing results updated</li>
                 <li><span class="text-muted me-2">—</span> <strong>@summary.ResultsUnchanged</strong> Existing results unchanged</li>
@@ -73,3 +76,4 @@
         </div>
     </div>
 }
+

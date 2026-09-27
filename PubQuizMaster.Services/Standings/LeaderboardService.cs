@@ -29,11 +29,12 @@ namespace PubQuizMaster.Services.Standings
                 .Where(s => s.Quiz.IsCompleted);
 
             var totals = await completedResults
-                .GroupBy(s => new { s.TeamId, s.Team.Name })
+                .GroupBy(s => new { s.TeamId, s.Team.Name, s.Team.IsNonCompetitive })
                 .Select(g => new
                 {
                     g.Key.TeamId,
                     g.Key.Name,
+                    g.Key.IsNonCompetitive,
                     Score = g.Sum(s => s.TotalScore),
                     Count = g.Count()
                 })
@@ -51,12 +52,15 @@ namespace PubQuizMaster.Services.Standings
 
             // Ranked over all teams, so a filtered view still shows the real position
             LeaderboardTeam[] teams = [.. totals
-                .Rank(x => x.Score)
+                .Rank(
+                    score: x => x.Score,
+                    isNonCompetitive: x => x.IsNonCompetitive)
                 .Select(r => new LeaderboardTeam(
                     TeamId: r.Item.TeamId,
                     TeamName: r.Item.Name,
                     TotalScore: r.Item.Score,
-                    QuizzesPlayed: r.Item.Count))];
+                    QuizzesPlayed: r.Item.Count,
+                    IsNonCompetitive: r.Item.IsNonCompetitive))];
 
             return new LeaderboardData(
                 Teams: teams,

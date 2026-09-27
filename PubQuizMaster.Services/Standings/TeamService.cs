@@ -181,6 +181,21 @@ namespace PubQuizMaster.Services.Standings
             return team;
         }
 
+        /// <summary>Marks the team as out of competition in the all-time standings.</summary>
+        public async Task SetNonCompetitiveAsync(Guid teamId, bool isNonCompetitive, CancellationToken ct = default)
+        {
+            await using var db = await dbFactory.CreateDbContextAsync(ct);
+
+            var updated = await db.Teams
+                .Where(t => t.Id == teamId)
+                .ExecuteUpdateAsync(s => s.SetProperty(t => t.IsNonCompetitive, isNonCompetitive), ct);
+
+            if (updated == 0)
+            {
+                throw new InvalidOperationException("Team not found.");
+            }
+        }
+
         #endregion Public Methods
 
         #region Private Methods

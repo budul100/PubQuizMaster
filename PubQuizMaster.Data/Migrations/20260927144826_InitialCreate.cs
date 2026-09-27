@@ -35,6 +35,7 @@ namespace PubQuizMaster.Data.Migrations
                 {
                     Id = table.Column<Guid>(type: "uuid", nullable: false),
                     CreatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
+                    IsNonCompetitive = table.Column<bool>(type: "boolean", nullable: false),
                     Name = table.Column<string>(type: "text", nullable: false),
                     Normalized = table.Column<string>(type: "text", nullable: false)
                 },

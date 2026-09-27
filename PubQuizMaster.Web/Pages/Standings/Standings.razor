@@ -6,6 +6,8 @@
 @using PubQuizMaster.Web.Components.Standings
 @using PubQuizMaster.Web.Enums
 @inject LeaderboardService LeaderboardService
+@inject TeamService TeamService
+@inject ToastService ToastService
 
 <PageTitle>Standings – PubQuizMaster</PageTitle>
 <SectionContent SectionName="@Constants.PageTitle">Standings</SectionContent>
@@ -74,6 +76,7 @@
                 <thead class="small text-secondary">
                     <tr>
                         <th>Team</th>
+                        <th class="text-center" style="width: 50px;" title="Out of competition">OOC</th>
                         <th style="width: 130px;" class="text-center @HeaderClass(StandingsSort.Total)">Total</th>
                         <th style="width: 130px;" class="text-center pe-3 @HeaderClass(StandingsSort.Average)">Avg / Quiz</th>
                         <th style="width: 130px;" class="text-center @HeaderClass(StandingsSort.Quizzes)">Quizzes</th>
@@ -89,26 +92,41 @@
                                 <a class="text-decoration-none text-dark" href="/teams?teamId=@entry.TeamId">
                                     @entry.TeamName
                                 </a>
+                                @if (entry.IsNonCompetitive)
+                                {
+                                    <span class="badge bg-secondary ms-1" title="Out of competition">OOC</span>
+                                }
+                            </td>
+                            <td class="text-center">
+                                <input type="checkbox"
+                                       class="form-check-input"
+                                       checked="@entry.IsNonCompetitive"
+                                       title="Out of competition"
+                                       aria-label="Out of competition"
+                                       @onchange="e => SetNonCompetitiveAsync(entry.TeamId, (bool)(e.Value ?? false))" />
                             </td>
                             <td class="text-center @CellClass(StandingsSort.Total)">
                                 <span class="pqm-rank-value">
                                     <span>@entry.TotalScore.ToString("0.#")</span>
                                     <RankBadge 
-                                        Rank="row.TotalRank" />
+                                        Rank="row.TotalRank"
+                                        IsCompeting="@(!entry.IsNonCompetitive)" />
                                 </span>
                             </td>
                             <td class="text-center pe-3 @CellClass(StandingsSort.Average)">
                                 <span class="pqm-rank-value">
                                     <span>@entry.AverageScore.ToString("0.#")</span>
                                     <RankBadge 
-                                        Rank="row.AverageRank" />
+                                        Rank="row.AverageRank"
+                                        IsCompeting="@(!entry.IsNonCompetitive)" />
                                 </span>
                             </td>
                             <td class="text-center @CellClass(StandingsSort.Quizzes)">
                                 <span class="pqm-rank-value">
                                     <span>@entry.QuizzesPlayed</span>
                                     <RankBadge 
-                                        Rank="row.QuizzesRank" />
+                                        Rank="row.QuizzesRank"
+                                        IsCompeting="@(!entry.IsNonCompetitive)" />
                                 </span>
                             </td>
                         </tr>
@@ -118,4 +136,5 @@
         </div>
     }
 </div>
+
 

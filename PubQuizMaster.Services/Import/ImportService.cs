@@ -11,6 +11,8 @@ namespace PubQuizMaster.Services.Import
     /// <summary>
     /// Imports historic aggregated results. Idempotent: a result per quiz night and team
     /// is created once and updated on later imports.
+    /// Rows without team name import the quiz night only (e.g. with a remark).
+    /// A team's creation date is the date of the first quiz night it appears in.
     /// </summary>
     public class ImportService(IDbContextFactory<AppDbContext> dbFactory)
     {
@@ -37,6 +39,10 @@ namespace PubQuizMaster.Services.Import
             var resultsCreated = 0;
             var resultsUpdated = 0;
             var resultsUnchanged = 0;
+
+            // Teams of this import, to tell new teams from existing ones with a corrected creation date
+            var createdTeamIds = new HashSet<Guid>();
+            var backdatedTeamIds = new HashSet<Guid>();
 
             await using var db = await dbFactory.CreateDbContextAsync(ct);
 
@@ -89,6 +95,20 @@ namespace PubQuizMaster.Services.Import
 
                 // 3. Team
                 var rawTeamName = teamCell.GetString().Trim();
+
+                if (string.IsNullOrEmpty(rawTeamName))
+                {
+                    // Quiz night without results, kept in the list with its remark
+                    GetOrCreateQuiz(quizKey, title, description, quizDate);
+
+                    if (!rankCell.IsEmpty() || !scoreCell.IsEmpty())
+                    {
+                        warnings.Add($"Row {rowNumber}: Rank or points without team name. Only the quiz night was imported.");
+                    }
+
+                    continue;
+                }
+
                 var teamKey = MatchingService.Normalize(rawTeamName);
                 if (string.IsNullOrEmpty(teamKey))
                 {
@@ -111,39 +131,35 @@ namespace PubQuizMaster.Services.Import
                 var rank = ParseRank(rankCell);
 
                 // 5. Find or create team and quiz night
+                // Midnight UTC of the quiz date: the teams page shows the stored date without conversion
+                var appearedAt = quizDate.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc);
+
                 if (!teamLookup.TryGetValue(teamKey, out var team))
                 {
                     team = new Team
                     {
                         Name = rawTeamName,
                         Normalized = teamKey,
-                        CreatedAt = DateTime.UtcNow
+                        CreatedAt = appearedAt
                     };
 
                     db.Teams.Add(team);
                     teamLookup[teamKey] = team;
+                    createdTeamIds.Add(team.Id);
                     teamsCreated++;
                 }
-
-                if (!quizLookup.TryGetValue(quizKey, out var quizNight))
+                else if (team.CreatedAt > appearedAt)
                 {
-                    quizNight = new Quiz
+                    // Rows come in any order, and earlier imports stamped the import time
+                    team.CreatedAt = appearedAt;
+
+                    if (!createdTeamIds.Contains(team.Id))
                     {
-                        Title = title,
-                        Description = description,
-                        Date = quizDate,
-                        IsCompleted = true,
-                        IsLegacyImport = true
-                    };
+                        backdatedTeamIds.Add(team.Id);
+                    }
+                }
 
-                    db.Quizzes.Add(quizNight);
-                    quizLookup[quizKey] = quizNight;
-                    quizzesCreated++;
-                }
-                else if (description != null && string.IsNullOrEmpty(quizNight.Description))
-                {
-                    quizNight.Description = description;
-                }
+                var quizNight = GetOrCreateQuiz(quizKey, title, description, quizDate);
 
                 // 6. Create or update result
                 if (resultLookup.TryGetValue((quizNight.Id, team.Id), out var existing))
@@ -175,8 +191,36 @@ namespace PubQuizMaster.Services.Import
 
             await db.SaveChangesAsync(ct);
 
-            return new ImportSummary(quizzesCreated, teamsCreated, resultsCreated, resultsUpdated,
-                resultsUnchanged, [.. warnings]);
+            return new ImportSummary(quizzesCreated, teamsCreated, backdatedTeamIds.Count, resultsCreated,
+                resultsUpdated, resultsUnchanged, [.. warnings]);
+
+            Quiz GetOrCreateQuiz(string quizKey, string title, string? description, DateOnly date)
+            {
+                if (quizLookup.TryGetValue(quizKey, out var quiz))
+                {
+                    if (description != null && string.IsNullOrEmpty(quiz.Description))
+                    {
+                        quiz.Description = description;
+                    }
+
+                    return quiz;
+                }
+
+                quiz = new Quiz
+                {
+                    Title = title,
+                    Description = description,
+                    Date = date,
+                    IsCompleted = true,
+                    IsLegacyImport = true
+                };
+
+                db.Quizzes.Add(quiz);
+                quizLookup[quizKey] = quiz;
+                quizzesCreated++;
+
+                return quiz;
+            }
         }
 
         #endregion Public Methods
@@ -294,3 +338,4 @@ namespace PubQuizMaster.Services.Import
         #endregion Private Methods
     }
 }
+

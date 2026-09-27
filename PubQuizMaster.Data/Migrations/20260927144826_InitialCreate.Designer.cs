@@ -13,7 +13,7 @@ using PubQuizMaster.Data;
 namespace PubQuizMaster.Data.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20260927121125_InitialCreate")]
+    [Migration("20260927144826_InitialCreate")]
     partial class InitialCreate
     {
         /// <inheritdoc />
@@ -214,6 +214,9 @@ namespace PubQuizMaster.Data.Migrations
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("IsNonCompetitive")
+                        .HasColumnType("boolean");
 
                     b.Property<string>("Name")
                         .IsRequired()

@@ -43,10 +43,24 @@ namespace PubQuizMaster.Web.Pages.Standings
 
         #region Private Methods
 
+        /// <summary>
+        /// Average as displayed (one decimal), so equal-looking averages share a rank.
+        /// Used for ranking and ordering alike.
+        /// </summary>
+        private static decimal AverageMetric(LeaderboardTeam team) => Math.Round(team.AverageScore, 1);
+
+        /// <summary>
+        /// Same rule as within a quiz night: teams out of competition get the rank of the next
+        /// regular team below them and do not push the regular teams down.
+        /// </summary>
         private static Dictionary<Guid, int> RankLookup(IEnumerable<LeaderboardTeam> teams,
             Func<LeaderboardTeam, decimal> metric)
         {
-            return teams.Rank(metric).ToDictionary(r => r.Item.TeamId, r => r.Rank);
+            return teams
+                .Rank(
+                    score: metric,
+                    isNonCompetitive: t => t.IsNonCompetitive)
+                .ToDictionary(r => r.Item.TeamId, r => r.Rank);
         }
 
         private void ApplySort()
@@ -74,19 +88,27 @@ namespace PubQuizMaster.Web.Pages.Standings
                 teams: teams,
                 metric: t => t.TotalScore);
 
-            // Ranked on the value as displayed (one decimal), so equal-looking averages share a rank
             var averageRanks = RankLookup(
                 teams: rankedByAverage,
-                metric: t => Math.Round(t.AverageScore, 1));
+                metric: AverageMetric);
 
-            // OrderBy is stable, so the alphabetical input order survives inside a shared rank
+            // Ordered by the value, not by the rank: a team out of competition shares the rank of the
+            // next regular team below it, but is listed at the position its value earns.
+            // On equal values the regular team comes first, as in the quiz night ranking.
+            // OrderBy is stable, so the alphabetical input order survives after that.
             IEnumerable<LeaderboardTeam> ordered = sort switch
             {
-                StandingsSort.Average => rankedByAverage.OrderBy(t => averageRanks[t.TeamId]),
+                StandingsSort.Average => rankedByAverage
+                    .OrderByDescending(AverageMetric)
+                    .ThenBy(t => t.IsNonCompetitive),
 
-                StandingsSort.Quizzes => teams.OrderBy(t => quizzesRanks[t.TeamId]),
+                StandingsSort.Quizzes => teams
+                    .OrderByDescending(t => t.QuizzesPlayed)
+                    .ThenBy(t => t.IsNonCompetitive),
 
-                _ => teams.OrderBy(t => totalRanks[t.TeamId])
+                _ => teams
+                    .OrderByDescending(t => t.TotalScore)
+                    .ThenBy(t => t.IsNonCompetitive)
             };
 
             rankedRows = [.. ordered.Select(t => new LeaderboardRow(
@@ -104,6 +126,30 @@ namespace PubQuizMaster.Web.Pages.Standings
         private string HeaderClass(StandingsSort column) => sort == column
             ? "text-body fw-bold"
             : string.Empty;
+
+        private async Task SetNonCompetitiveAsync(Guid teamId, bool isNonCompetitive)
+        {
+            if (data == null) return;
+
+            try
+            {
+                await TeamService.SetNonCompetitiveAsync(teamId, isNonCompetitive);
+
+                // Local update instead of a reload: the totals are unchanged, only the ranks move
+                data = data with
+                {
+                    Teams = [.. data.Teams.Select(t => t.TeamId == teamId
+                        ? t with { IsNonCompetitive = isNonCompetitive }
+                        : t)]
+                };
+
+                ApplySort();
+            }
+            catch (Exception ex)
+            {
+                ToastService.ShowError(ex.Message);
+            }
+        }
 
         private void SetSort(StandingsSort newSort)
         {
