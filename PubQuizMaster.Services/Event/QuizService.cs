@@ -21,7 +21,7 @@ namespace PubQuizMaster.Services.Event
         #region Public Methods
 
         public async Task<TeamRegistration> AddTeamAsync(Guid quizNightId, string teamName,
-                         CancellationToken ct = default)
+            CancellationToken ct = default)
         {
             await using var db = await dbFactory.CreateDbContextAsync(ct);
 
@@ -97,14 +97,18 @@ namespace PubQuizMaster.Services.Event
             await using var transaction = await db.Database.BeginTransactionAsync(ct);
 
             quiz.IsCompleted = true;
+
+            // The question editor owns the content, it is only needed while the night is live
+            quiz.Content = null;
+
             await db.SaveChangesAsync(ct);
 
             await ResultService.RebuildAsync(db, [quizId], ct);
             await transaction.CommitAsync(ct);
         }
 
-        public async Task<Quiz> CreateQuizAsync(string title, DateOnly date, string? description,
-                                CancellationToken ct = default)
+        public async Task<Core.Models.Event.Quiz> CreateQuizAsync(string title, DateOnly date,
+            string? description, Core.Models.Content.Quiz? content = null, CancellationToken ct = default)
         {
             await using var db = await dbFactory.CreateDbContextAsync(ct);
 
@@ -116,11 +120,12 @@ namespace PubQuizMaster.Services.Event
                     "Complete or delete it before creating a new one.");
             }
 
-            var quiz = new Quiz
+            var quiz = new Core.Models.Event.Quiz
             {
                 Title = title.Trim(),
                 Date = date,
                 Description = string.IsNullOrWhiteSpace(description) ? null : description.Trim(),
+                Content = content,
                 IsCompleted = false,
                 IsLegacyImport = false
             };
@@ -184,7 +189,7 @@ namespace PubQuizMaster.Services.Event
             await db.SaveChangesAsync(ct);
         }
 
-        public async Task<Quiz?> GetActiveQuizAsync(CancellationToken ct = default)
+        public async Task<Core.Models.Event.Quiz?> GetActiveQuizAsync(CancellationToken ct = default)
         {
             await using var db = await dbFactory.CreateDbContextAsync(ct);
 
@@ -235,7 +240,7 @@ namespace PubQuizMaster.Services.Event
                 : new ActiveRound(round.Name, [.. round.ScorerIds.Distinct(StringComparer.OrdinalIgnoreCase)]);
         }
 
-        public async Task<List<Quiz>> GetAllQuizzesAsync(CancellationToken ct = default)
+        public async Task<List<Core.Models.Event.Quiz>> GetAllQuizzesAsync(CancellationToken ct = default)
         {
             await using var db = await dbFactory.CreateDbContextAsync(ct);
 
@@ -286,7 +291,7 @@ namespace PubQuizMaster.Services.Event
             return new MatrixData(round, teams, priorScores);
         }
 
-        public async Task<Quiz?> GetQuizAsync(Guid quizId, CancellationToken ct = default)
+        public async Task<Core.Models.Event.Quiz?> GetQuizAsync(Guid quizId, CancellationToken ct = default)
         {
             await using var db = await dbFactory.CreateDbContextAsync(ct);
 
@@ -342,7 +347,16 @@ namespace PubQuizMaster.Services.Event
                 .Where(a => a.RoundId == openRound.Id && teamIds.Contains(a.TeamId))
                 .ToListAsync(ct);
 
-            return new StateDto(assignment, openRound, orderedTeams, answers);
+            var content = openRound.Position == null
+                ? null
+                : await db.Quizzes
+                    .AsNoTracking()
+                    .Where(q => q.Id == openRound.QuizId)
+                    .Select(q => q.Content)
+                    .FirstOrDefaultAsync(ct);
+
+            return new StateDto(assignment, openRound, orderedTeams, answers,
+                content?.GetRound(openRound.Position));
         }
 
         public async Task RecordAnswerAsync(Guid roundId, Guid teamId, int questionIndex, bool isCorrect,
@@ -528,7 +542,7 @@ namespace PubQuizMaster.Services.Event
             await db.SaveChangesAsync(ct);
         }
 
-        public async Task<Round> StartRoundAsync(RoundRequest request, CancellationToken ct = default)
+        public async Task<Core.Models.Event.Round> StartRoundAsync(RoundRequest request, CancellationToken ct = default)
         {
             await using var db = await dbFactory.CreateDbContextAsync(ct);
 
@@ -548,7 +562,7 @@ namespace PubQuizMaster.Services.Event
 
             var roundId = Guid.NewGuid();
 
-            var newRound = new Round
+            var newRound = new Core.Models.Event.Round
             {
                 Id = roundId,
                 QuizId = request.QuizId,
@@ -556,6 +570,7 @@ namespace PubQuizMaster.Services.Event
                 Length = request.Length,
                 IsFinal = request.IsFinal,
                 IsFinalized = false,
+                Position = request.ContentPosition,
                 CreatedAt = DateTime.UtcNow
             };
 
@@ -601,6 +616,7 @@ namespace PubQuizMaster.Services.Event
             quiz.Title = update.Title.Trim();
             quiz.Date = update.Date;
             quiz.Description = string.IsNullOrWhiteSpace(update.Description) ? null : update.Description.Trim();
+            quiz.Content = update.Content;
 
             await db.SaveChangesAsync(ct);
         }
@@ -609,7 +625,7 @@ namespace PubQuizMaster.Services.Event
 
         #region Private Methods
 
-        private static IQueryable<Quiz> ActiveQuizzes(AppDbContext db)
+        private static IQueryable<Core.Models.Event.Quiz> ActiveQuizzes(AppDbContext db)
         {
             return db.Quizzes
                 .Where(q => !q.IsCompleted && !q.IsLegacyImport)
@@ -622,7 +638,7 @@ namespace PubQuizMaster.Services.Event
         /// A team that is already assigned keeps its station. Requires a tracked quiz graph
         /// with Rounds and Assignments loaded.
         /// </summary>
-        private static (bool HasOpenRound, string? ScorerLabel) AssignToOpenRound(Quiz quiz, Guid teamId)
+        private static (bool HasOpenRound, string? ScorerLabel) AssignToOpenRound(Core.Models.Event.Quiz quiz, Guid teamId)
         {
             var openRound = quiz.Rounds
                 .OrderBy(r => r.CreatedAt)
@@ -689,7 +705,7 @@ namespace PubQuizMaster.Services.Event
             }
         }
 
-        private static Quiz? SortRounds(Quiz? quiz)
+        private static Core.Models.Event.Quiz? SortRounds(Core.Models.Event.Quiz? quiz)
         {
             if (quiz != null)
             {
@@ -719,7 +735,7 @@ namespace PubQuizMaster.Services.Event
             return roundName;
         }
 
-        private static void ValidateRoundRequest(RoundRequest request, Quiz quiz)
+        private static void ValidateRoundRequest(RoundRequest request, Core.Models.Event.Quiz quiz)
         {
             if (quiz.IsCompleted)
             {
@@ -737,6 +753,19 @@ namespace PubQuizMaster.Services.Event
             if (request.Length is < 1 or > MaxQuestionCount)
             {
                 throw new InvalidOperationException($"Question count must be between 1 and {MaxQuestionCount}.");
+            }
+
+            if (request.ContentPosition is int position)
+            {
+                var contentRound = quiz.Content?.GetRound(position)
+                    ?? throw new InvalidOperationException($"Round {position} is not part of the uploaded questions.");
+
+                if (contentRound.Questions.Count != request.Length)
+                {
+                    throw new InvalidOperationException(
+                        $"Round {position} of the uploaded questions has {contentRound.Questions.Count} questions, " +
+                        $"the round is set up for {request.Length}.");
+                }
             }
 
             if (request.Assignments.Count == 0)
@@ -773,7 +802,7 @@ namespace PubQuizMaster.Services.Event
             }
         }
 
-        private static IQueryable<Quiz> WithFullGraph(IQueryable<Quiz> query)
+        private static IQueryable<Core.Models.Event.Quiz> WithFullGraph(IQueryable<Core.Models.Event.Quiz> query)
         {
             return query
                 .AsNoTracking()

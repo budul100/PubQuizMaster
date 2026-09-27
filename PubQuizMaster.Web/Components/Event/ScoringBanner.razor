@@ -18,11 +18,12 @@
             <a class="btn btn-light btn-sm" href="/matrix/@Round.Id" title="Open Matrix" aria-label="Open Matrix">
                 <span class="mif-pencil" aria-hidden="true"></span>
             </a>
-            <button class="btn btn-success btn-sm fw-semibold d-flex align-items-center gap-1"
+            @* Never blocked by running stations: the page asks for confirmation instead *@
+            <button class="btn @(IsComplete ? "btn-success" : "btn-warning") btn-sm fw-semibold d-flex align-items-center gap-1"
                     @onclick="OnFinalizeRound"
                     title="@FinalizeTitle"
                     aria-label="@FinalizeTitle"
-                    disabled="@(IsProcessing || IsScoringActive)">
+                    disabled="@IsProcessing">
                 <span class="mif-flag" aria-hidden="true"></span>
             </button>
         </div>

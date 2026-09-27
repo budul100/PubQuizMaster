@@ -7,6 +7,9 @@ namespace PubQuizMaster.Services.Event
     /// <summary>
     /// Tracks live scorer stations (presence and workflow position) in memory and
     /// notifies listeners about status, answer and round changes.
+    /// A station can be open in several scorer pages at once (second tab, reloaded page while the
+    /// old circuit is still retained). Each page reports under its own instance id; the station
+    /// status is the one of the online instance that changed its position last.
     /// </summary>
     public class ScorerService
     {
@@ -14,8 +17,9 @@ namespace PubQuizMaster.Services.Event
 
         private static readonly TimeSpan OnlineWindow = TimeSpan.FromSeconds(25);
 
-        // scorerId -> live status
-        private readonly ConcurrentDictionary<string, ScorerStatus> statuses = new(StringComparer.OrdinalIgnoreCase);
+        // scorerId -> instanceId -> live status of that scorer page
+        private readonly ConcurrentDictionary<string, ConcurrentDictionary<Guid, ScorerStatus>> statuses =
+            new(StringComparer.OrdinalIgnoreCase);
 
         #endregion Private Fields
 
@@ -34,23 +38,33 @@ namespace PubQuizMaster.Services.Event
 
         #region Public Methods
 
-        public void Disconnect(string scorerId)
+        /// <summary>Removes one scorer page. Other pages of the same station keep their status.</summary>
+        public void Disconnect(string scorerId, Guid instanceId)
         {
             if (string.IsNullOrWhiteSpace(scorerId)) return;
 
-            if (statuses.TryRemove(scorerId.Trim(), out _))
+            if (!statuses.TryGetValue(scorerId.Trim(), out var instances)) return;
+
+            if (instances.TryRemove(instanceId, out _))
             {
                 OnStatusChanged?.Invoke();
             }
         }
 
+        /// <summary>
+        /// Status of the station: the online page with the latest position change,
+        /// or the last seen page if none is online.
+        /// </summary>
         public ScorerStatus? GetStatus(string scorerId)
         {
             if (string.IsNullOrWhiteSpace(scorerId)) return null;
 
-            return statuses.TryGetValue(scorerId.Trim(), out var status)
-                ? status
-                : null;
+            if (!statuses.TryGetValue(scorerId.Trim(), out var instances)) return null;
+
+            var all = instances.Values.ToArray();
+
+            return all.Where(IsOnline).MaxBy(s => s.LastChangedUtc)
+                ?? all.MaxBy(s => s.LastSeenUtc);
         }
 
         public bool IsConnected(string scorerId) => IsOnline(GetStatus(scorerId));
@@ -77,19 +91,35 @@ namespace PubQuizMaster.Services.Event
         public void NotifyRoundChanged() => OnRoundChanged?.Invoke();
 
         /// <summary>
-        /// Stores the full live position of a scorer. Also acts as heartbeat.
+        /// Stores the full live position of one scorer page. Also acts as heartbeat:
+        /// an unchanged position only refreshes LastSeenUtc.
         /// </summary>
-        public void ReportProgress(string scorerId, ScoringType phase, Guid? roundId,
+        public void ReportProgress(string scorerId, Guid instanceId, ScoringType phase, Guid? roundId,
             int questionIndex, int teamIndex)
         {
             if (string.IsNullOrWhiteSpace(scorerId)) return;
 
-            statuses[scorerId.Trim()] = new ScorerStatus(
-                LastSeenUtc: DateTime.UtcNow,
-                Phase: phase,
-                RoundId: roundId,
-                QuestionIndex: questionIndex,
-                TeamIndex: teamIndex);
+            var now = DateTime.UtcNow;
+            var instances = statuses.GetOrAdd(scorerId.Trim(), _ => new ConcurrentDictionary<Guid, ScorerStatus>());
+
+            instances.AddOrUpdate(
+                instanceId,
+                _ => new ScorerStatus(now, now, phase, roundId, questionIndex, teamIndex),
+                (_, previous) =>
+                {
+                    var isUnchanged = previous.Phase == phase
+                        && previous.RoundId == roundId
+                        && previous.QuestionIndex == questionIndex
+                        && previous.TeamIndex == teamIndex;
+
+                    return new ScorerStatus(
+                        LastSeenUtc: now,
+                        LastChangedUtc: isUnchanged ? previous.LastChangedUtc : now,
+                        Phase: phase,
+                        RoundId: roundId,
+                        QuestionIndex: questionIndex,
+                        TeamIndex: teamIndex);
+                });
 
             OnStatusChanged?.Invoke();
         }

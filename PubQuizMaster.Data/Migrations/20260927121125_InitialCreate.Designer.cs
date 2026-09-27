@@ -13,7 +13,7 @@ using PubQuizMaster.Data;
 namespace PubQuizMaster.Data.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20260921011434_InitialCreate")]
+    [Migration("20260927121125_InitialCreate")]
     partial class InitialCreate
     {
         /// <inheritdoc />
@@ -89,6 +89,9 @@ namespace PubQuizMaster.Data.Migrations
                     b.Property<Guid>("Id")
                         .HasColumnType("uuid");
 
+                    b.Property<string>("Content")
+                        .HasColumnType("jsonb");
+
                     b.Property<DateOnly>("Date")
                         .HasColumnType("date");
 
@@ -135,6 +138,9 @@ namespace PubQuizMaster.Data.Migrations
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasColumnType("text");
+
+                    b.Property<int?>("Position")
+                        .HasColumnType("integer");
 
                     b.Property<Guid>("QuizId")
                         .HasColumnType("uuid");

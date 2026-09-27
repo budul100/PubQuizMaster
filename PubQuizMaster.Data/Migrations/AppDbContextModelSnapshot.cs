@@ -86,6 +86,9 @@ namespace PubQuizMaster.Data.Migrations
                     b.Property<Guid>("Id")
                         .HasColumnType("uuid");
 
+                    b.Property<string>("Content")
+                        .HasColumnType("jsonb");
+
                     b.Property<DateOnly>("Date")
                         .HasColumnType("date");
 
@@ -132,6 +135,9 @@ namespace PubQuizMaster.Data.Migrations
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasColumnType("text");
+
+                    b.Property<int?>("Position")
+                        .HasColumnType("integer");
 
                     b.Property<Guid>("QuizId")
                         .HasColumnType("uuid");

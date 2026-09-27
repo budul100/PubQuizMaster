@@ -6,7 +6,8 @@ namespace PubQuizMaster.Core.Records.Event
 {
     public record StateDto(
         Scorer? Assignment,
-        Round? Round,
+        Models.Event.Round? Round,
         List<Team> AssignedTeams,
-        List<Answer> ExistingAnswers);
+        List<Answer> ExistingAnswers,
+        Models.Content.Round? Content = null);
 }

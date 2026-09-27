@@ -14,9 +14,9 @@ namespace PubQuizMaster.Data
 
         public DbSet<Participant> Participants => Set<Participant>();
 
-        public DbSet<Quiz> Quizzes => Set<Quiz>();
+        public DbSet<Core.Models.Event.Quiz> Quizzes => base.Set<Core.Models.Event.Quiz>();
 
-        public DbSet<Round> Rounds => Set<Round>();
+        public DbSet<Core.Models.Event.Round> Rounds => base.Set<Core.Models.Event.Round>();
 
         public DbSet<Scorer> Scorers => Set<Scorer>();
 
@@ -35,21 +35,21 @@ namespace PubQuizMaster.Data
             // All keys are set client-side. With generated keys EF treats a new entity that is
             // discovered via a navigation and already has a key as existing (UPDATE instead of INSERT).
             modelBuilder.Entity<Answer>().Property(a => a.Id).ValueGeneratedNever();
-            modelBuilder.Entity<Quiz>().Property(q => q.Id).ValueGeneratedNever();
+            modelBuilder.Entity<Core.Models.Event.Quiz>().Property(q => q.Id).ValueGeneratedNever();
             modelBuilder.Entity<Result>().Property(r => r.Id).ValueGeneratedNever();
-            modelBuilder.Entity<Round>().Property(r => r.Id).ValueGeneratedNever();
+            modelBuilder.Entity<Core.Models.Event.Round>().Property(r => r.Id).ValueGeneratedNever();
             modelBuilder.Entity<Scorer>().Property(s => s.Id).ValueGeneratedNever();
             modelBuilder.Entity<Team>().Property(t => t.Id).ValueGeneratedNever();
 
             // At most one live quiz night. All rows matching the filter share the same
             // column values, so the unique index admits a single row only.
-            modelBuilder.Entity<Quiz>()
+            modelBuilder.Entity<Core.Models.Event.Quiz>()
                 .HasIndex(q => new { q.IsCompleted, q.IsLegacyImport })
                 .IsUnique()
                 .HasFilter("\"IsCompleted\" = false AND \"IsLegacyImport\" = false")
                 .HasDatabaseName(Constraints.SingleActiveQuiz);
 
-            modelBuilder.Entity<Round>()
+            modelBuilder.Entity<Core.Models.Event.Round>()
                 .HasMany(r => r.Answers)
                 .WithOne()
                 .HasForeignKey(a => a.RoundId)
@@ -105,6 +105,14 @@ namespace PubQuizMaster.Data
                 .HasConversion(
                     v => JsonSerializer.Serialize(v, jsonOptions),
                     v => JsonSerializer.Deserialize<AnswerBase>(v, jsonOptions)!);
+
+            // Nullable: EF does not pass null through the converter, so a missing upload stays SQL NULL
+            modelBuilder.Entity<Core.Models.Event.Quiz>()
+                .Property(q => q.Content)
+                .HasColumnType("jsonb")
+                .HasConversion(
+                    v => JsonSerializer.Serialize(v, jsonOptions),
+                    v => JsonSerializer.Deserialize<Core.Models.Content.Quiz>(v, jsonOptions));
         }
 
         #endregion Protected Methods

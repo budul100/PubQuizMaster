@@ -10,6 +10,7 @@ namespace PubQuizMaster.Web.Components.Event
         #region Private Fields
 
         private List<ScorerAssignment> assignments = [];
+        private int? contentPosition;
         private bool isFinalRound;
         private bool isSubmitting;
         private int questionCount = 20;
@@ -98,6 +99,11 @@ namespace PubQuizMaster.Web.Components.Event
 
         private async Task Cancel() => await OnCanceled.InvokeAsync();
 
+        private void HandleContentRoundChanged(ChangeEventArgs e)
+        {
+            SelectContentRound(int.TryParse(e.Value?.ToString(), out var position) ? position : null);
+        }
+
         private void InitializeRoundDefaults()
         {
             if (Quiz == null) return;
@@ -119,6 +125,17 @@ namespace PubQuizMaster.Web.Components.Event
 
             questionCount = lastRound?.Length ?? 20;
             isFinalRound = false;
+
+            // Suggest the first round of the uploaded questions that no round has used yet
+            var usedPositions = Quiz.Rounds
+                .Select(r => r.Position)
+                .OfType<int>()
+                .ToHashSet();
+
+            var nextContentRound = Quiz.Content?.Rounds
+                .FirstOrDefault(r => !usedPositions.Contains(r.Position));
+
+            SelectContentRound(nextContentRound?.Position);
 
             if (lastRound != null)
             {
@@ -175,6 +192,23 @@ namespace PubQuizMaster.Web.Components.Event
             }
         }
 
+        /// <summary>
+        /// Links the round to a round of the uploaded questions. The question count follows the content;
+        /// the last content round is suggested as final round, the checkbox stays editable.
+        /// </summary>
+        private void SelectContentRound(int? position)
+        {
+            var content = Quiz?.Content;
+            var contentRound = content?.GetRound(position);
+
+            contentPosition = contentRound?.Position;
+
+            if (content == null || contentRound == null) return;
+
+            questionCount = contentRound.Questions.Count;
+            isFinalRound = content.Rounds.Count > 1 && contentRound == content.Rounds[^1];
+        }
+
         private async Task SubmitAsync()
         {
             if (Quiz == null || isSubmitting) return;
@@ -190,7 +224,8 @@ namespace PubQuizMaster.Web.Components.Event
                     RoundName: roundName,
                     Length: questionCount,
                     IsFinal: isFinalRound,
-                    Assignments: roundAssignements);
+                    Assignments: roundAssignements,
+                    ContentPosition: contentPosition);
 
                 await OnStartRound.InvokeAsync(request);
             }

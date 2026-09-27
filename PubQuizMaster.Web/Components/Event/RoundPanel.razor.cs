@@ -17,6 +17,9 @@ namespace PubQuizMaster.Web.Components.Event
 
         [Parameter] public Round? ActiveRound { get; set; }
 
+        /// <summary>Uploaded questions of the quiz night, null if none were uploaded.</summary>
+        [Parameter] public Core.Models.Content.Quiz? Content { get; set; }
+
         [Parameter] public bool IsExporting { get; set; }
 
         [Parameter] public EventCallback<Round> OnDeleteRound { get; set; }
@@ -28,6 +31,15 @@ namespace PubQuizMaster.Web.Components.Event
         [Parameter] public List<Round> Rounds { get; set; } = [];
 
         #endregion Public Properties
+
+        #region Private Properties
+
+        /// <summary>Uploaded rounds that no live round is linked to yet, in position order.</summary>
+        private Core.Models.Content.Round[] PlannedRounds => Content?.Rounds
+            .Where(c => !Rounds.Any(r => r.Position == c.Position))
+            .ToArray() ?? [];
+
+        #endregion Private Properties
 
         #region Private Methods
 

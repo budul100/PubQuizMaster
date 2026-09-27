@@ -6,6 +6,8 @@ namespace PubQuizMaster.Core.Models.Event
     {
         #region Public Properties
 
+        public Content.Quiz? Content { get; set; }
+
         public DateOnly Date { get; set; } = DateOnly.FromDateTime(DateTime.Today);
 
         public string? Description { get; set; }

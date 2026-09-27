@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 using PubQuizMaster.Core.Enums;
+using PubQuizMaster.Core.Models.Content;
 using PubQuizMaster.Core.Models.Event;
 using PubQuizMaster.Core.Models.Standings;
 using PubQuizMaster.Services.Common;
@@ -15,6 +16,9 @@ namespace PubQuizMaster.Web.Pages.Event
         #region Private Fields
 
         private readonly CancellationTokenSource heartbeatCts = new();
+
+        // Identifies this page among other open pages of the same scorer station
+        private readonly Guid instanceId = Guid.NewGuid();
         private readonly Dictionary<(Guid TeamId, int QuestionIndex), bool?> recordedAnswers = [];
 
         private List<Team> assignedTeams = [];
@@ -31,7 +35,10 @@ namespace PubQuizMaster.Web.Pages.Event
         private bool isRegistered;
         private string? newTeamsHint;
         private int questionCount = 20;
-        private Round? round;
+        private Core.Models.Event.Round? round;
+
+        // Imported questions of the open round, null if the round is not linked to any
+        private Core.Models.Content.Round? roundContent;
 
         #endregion Private Fields
 
@@ -59,6 +66,8 @@ namespace PubQuizMaster.Web.Pages.Event
             }
         }
 
+        private Question? CurrentQuestion => roundContent?.GetQuestion(currentQuestionIndex);
+
         private Team? CurrentTeam => assignedTeams.Count > currentTeamIndex
             ? assignedTeams[currentTeamIndex]
             : null;
@@ -82,7 +91,7 @@ namespace PubQuizMaster.Web.Pages.Event
 
             if (isRegistered)
             {
-                SessionService.Disconnect(currentScorerId);
+                SessionService.Disconnect(currentScorerId, instanceId);
             }
 
             GC.SuppressFinalize(this);
@@ -156,11 +165,12 @@ namespace PubQuizMaster.Web.Pages.Event
         {
             if (isRegistered)
             {
-                SessionService.Disconnect(currentScorerId);
+                SessionService.Disconnect(currentScorerId, instanceId);
             }
 
             isRegistered = false;
             round = null;
+            roundContent = null;
             assignment = null;
             assignedTeams = [];
             recordedAnswers.Clear();
@@ -299,6 +309,7 @@ namespace PubQuizMaster.Web.Pages.Event
             if (state.Round == null || state.Assignment == null || state.AssignedTeams.Count == 0)
             {
                 round = null;
+                roundContent = null;
                 assignment = null;
                 assignedTeams = [];
                 newTeamsHint = null;
@@ -311,6 +322,7 @@ namespace PubQuizMaster.Web.Pages.Event
             var previousTeamIds = assignedTeams.Select(t => t.Id).ToHashSet();
 
             round = state.Round;
+            roundContent = state.Content;
             assignment = state.Assignment;
             assignedTeams = state.AssignedTeams;
             questionCount = round.Length;
@@ -327,9 +339,15 @@ namespace PubQuizMaster.Web.Pages.Event
                 currentTeamIndex = 0;
                 currentQuestionIndex = 0;
 
+                // A reopened or reloaded page of a finished station starts at the overview,
+                // otherwise it would count as still scoring on the dashboard
+                var isComplete = assignedTeams.Count * questionCount <= recordedAnswers.Count;
+
                 var phase = state.ExistingAnswers.Count == 0
                     ? ScoringPhase.SortSheets
-                    : ScoringPhase.Scoring;
+                    : isComplete
+                        ? ScoringPhase.Overview
+                        : ScoringPhase.Scoring;
 
                 SetPhase(phase);
             }
@@ -432,6 +450,7 @@ namespace PubQuizMaster.Web.Pages.Event
 
             SessionService.ReportProgress(
                 scorerId: currentScorerId,
+                instanceId: instanceId,
                 phase: MapPhase(currentPhase),
                 roundId: round?.Id,
                 questionIndex: currentQuestionIndex,
@@ -458,8 +477,8 @@ namespace PubQuizMaster.Web.Pages.Event
                 {
                     while (await timer.WaitForNextTickAsync(token))
                     {
-                        // Resend the full status so the dashboard can recover it after a Disconnect
-                        // triggered by another tab of the same scorer.
+                        // Keeps this page online; an unchanged position does not outrank
+                        // a newer page of the same scorer, see ScorerService.GetStatus
                         await InvokeAsync(ReportProgress);
                     }
                 }

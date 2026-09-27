@@ -14,20 +14,34 @@
         <span class="pqm-card-title">
             <span class="mif-calendar" aria-hidden="true"></span> Quizzes (@QuizNights.Count)
         </span>
-        <button class="btn btn-sm btn-primary py-0 px-2"
-                title="New quiz night"
-                aria-label="New quiz night"
-                disabled="@isSubmitting"
-                @onclick="CreateQuizNightAsync">
-            @if (isSubmitting)
-            {
-                <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
-            }
-            else
-            {
-                <span class="mif-plus" aria-hidden="true"></span>
-            }
-        </button>
+        <div class="d-flex gap-2">
+            @* A label, not a button: clicking it opens the file dialog of the hidden input.
+            The changing @key recreates the input, otherwise the same file cannot be picked twice. *@
+            <label class="btn btn-sm btn-primary py-0 px-2 mb-0 @(isSubmitting ? "disabled" : null)"
+                   title="New quiz night from question file (JSON)"
+                   aria-label="New quiz night from question file">
+                <span class="mif-upload" aria-hidden="true"></span>
+                <InputFile @key="@($"create-content-{inputVersion}")"
+                           class="d-none"
+                           accept=".json,application/json"
+                           disabled="@isSubmitting"
+                           OnChange="CreateQuizNightFromFileAsync" />
+            </label>
+            <button class="btn btn-sm btn-outline-primary py-0 px-2"
+                    title="New quiz night"
+                    aria-label="New quiz night"
+                    disabled="@isSubmitting"
+                    @onclick="CreateQuizNightAsync">
+                @if (isSubmitting)
+                {
+                    <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                }
+                else
+                {
+                    <span class="mif-plus" aria-hidden="true"></span>
+                }
+            </button>
+        </div>
     </div>
     <div class="table-responsive">
         <table class="table table-sm table-hover align-middle mb-0">
@@ -108,3 +122,5 @@
     HeaderClass="bg-warning"
     OnConfirmed="HandleReopenConfirmedAsync"
     OnCanceled="() => showReopenModal = false" />
+
+

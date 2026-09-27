@@ -17,6 +17,7 @@ namespace PubQuizMaster.Data.Migrations
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "uuid", nullable: false),
+                    Content = table.Column<string>(type: "jsonb", nullable: true),
                     Date = table.Column<DateOnly>(type: "date", nullable: false),
                     Description = table.Column<string>(type: "text", nullable: true),
                     IsCompleted = table.Column<bool>(type: "boolean", nullable: false),
@@ -52,6 +53,7 @@ namespace PubQuizMaster.Data.Migrations
                     IsFinalized = table.Column<bool>(type: "boolean", nullable: false),
                     Length = table.Column<int>(type: "integer", nullable: false),
                     Name = table.Column<string>(type: "text", nullable: false),
+                    Position = table.Column<int>(type: "integer", nullable: true),
                     QuizId = table.Column<Guid>(type: "uuid", nullable: false)
                 },
                 constraints: table =>

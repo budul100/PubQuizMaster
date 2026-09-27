@@ -17,6 +17,7 @@ namespace PubQuizMaster.Web.Pages
         private Quiz? activeNight;
         private Round? activeRound;
         private List<Quiz> allQuizzes = [];
+        private string finalizeWarningMessage = string.Empty;
         private bool isExporting;
         private bool isLoading = true;
         private bool isProcessing;
@@ -28,6 +29,7 @@ namespace PubQuizMaster.Web.Pages
         private bool showDeleteRoundModal;
         private bool showDeleteTeamModal;
         private bool showEditModal;
+        private bool showFinalizeWarningModal;
         private bool showSetupModal;
         private string? startRoundError;
         private bool suppressOwnNotification;
@@ -226,23 +228,9 @@ namespace PubQuizMaster.Web.Pages
         {
             if (activeRound == null) return;
 
-            // Second barrier next to the disabled button: the button state of another browser
-            // can be older than the current scorer positions
-            var scorerIds = activeRound.Assignments
-                .Select(a => a.ScorerId).ToArray();
-
-            if (SessionService.IsScoringActive(
-                roundId: activeRound.Id,
-                scorerIds: scorerIds))
-            {
-                ToastService.ShowError("Scoring is still running. Wait until every scorer station reaches the overview.");
-                return;
-            }
-
             isProcessing = true;
             try
             {
-                var wasFinal = activeRound.IsFinal;
                 var roundName = activeRound.Name;
 
                 await QuizService.FinalizeRoundAsync(activeRound.Id);
@@ -251,12 +239,6 @@ namespace PubQuizMaster.Web.Pages
                 ToastService.ShowSuccess($"{roundName} finalized.");
 
                 await LoadDashboardStateAsync();
-
-                // A finalized final round usually ends the night, so offer to complete it right away
-                if (wasFinal)
-                {
-                    showCompleteModal = true;
-                }
             }
             catch (Exception ex)
             {
@@ -269,11 +251,21 @@ namespace PubQuizMaster.Web.Pages
             }
         }
 
+        private async Task HandleFinalizeWarningConfirmedAsync()
+        {
+            showFinalizeWarningModal = false;
+            await FinalizeRoundAsync();
+        }
+
         private async Task HandleActiveQuizDetailsSavedAsync(QuizDetails update)
         {
             try
             {
                 await QuizService.UpdateQuizAsync(update);
+
+                // Scorers of an open round reload their state and pick up changed questions
+                NotifyRoundChanged();
+
                 ToastService.ShowSuccess("Quiz details updated.");
                 showEditModal = false;
                 await LoadDashboardStateAsync();
@@ -434,6 +426,61 @@ namespace PubQuizMaster.Web.Pages
             }
         }
 
+        /// <summary>
+        /// Finalizes the open round right away if it is complete, otherwise asks first.
+        /// Incomplete means: answers are missing, or a station is still sorting or scoring.
+        /// Checked at click time: the button state of another browser can be outdated.
+        /// </summary>
+        private async Task RequestFinalizeRoundAsync()
+        {
+            if (activeRound is not { } round) return;
+
+            var expected = round.GetTeamIds().Length * round.Length;
+            var missing = Math.Max(0, expected - round.Answers.Count);
+            var pendingScorerIds = round.GetPendingScorerIds();
+
+            var stationNotes = round.Assignments
+                .Select(a => new
+                {
+                    Label = string.IsNullOrWhiteSpace(a.Label) ? a.ScorerId : a.Label,
+                    IsPending = pendingScorerIds.Contains(a.ScorerId),
+                    IsScoring = SessionService.IsScoringActive(round.Id, [a.ScorerId]),
+                })
+                .Where(s => s.IsPending || s.IsScoring)
+                .OrderBy(s => s.Label, StringComparer.OrdinalIgnoreCase)
+                .Select(s => s switch
+                {
+                    { IsPending: true, IsScoring: true } => $"{s.Label} (still scoring)",
+                    { IsPending: true } => $"{s.Label} (sheets incomplete)",
+                    _ => $"{s.Label} (not at the overview yet)",
+                })
+                .ToArray();
+
+            if (missing == 0 && stationNotes.Length == 0)
+            {
+                await FinalizeRoundAsync();
+                return;
+            }
+
+            var message = new List<string>();
+
+            if (missing > 0)
+            {
+                message.Add($"{missing} of {expected} answers are not recorded yet.");
+            }
+
+            if (stationNotes.Length > 0)
+            {
+                message.Add($"Stations not finished: {string.Join(", ", stationNotes)}.");
+                message.Add("Answers recorded there after finalizing are rejected.");
+            }
+
+            message.Add($"Finalize \"{round.Name}\" anyway?");
+
+            finalizeWarningMessage = string.Join(" ", message);
+            showFinalizeWarningModal = true;
+        }
+
         private Task PromptDeleteRound(Round round)
         {
             roundToDelete = round;
@@ -508,3 +555,4 @@ namespace PubQuizMaster.Web.Pages
         #endregion Private Methods
     }
 }
+

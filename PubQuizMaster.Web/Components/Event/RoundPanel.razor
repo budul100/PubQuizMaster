@@ -7,7 +7,7 @@
 <div class="card shadow-sm border-0 h-100">
     <div class="card-header pqm-card-header">
         <span class="pqm-card-title">
-            <span class="mif-target" aria-hidden="true"></span> Rounds (@Rounds.Count)
+            <span class="mif-target" aria-hidden="true"></span> Rounds (@(Content == null ? Rounds.Count.ToString() : $"{Rounds.Count} / {Rounds.Count + PlannedRounds.Length}"))
         </span>
         @if (ActiveRound == null)
         {
@@ -30,7 +30,7 @@
                 </tr>
             </thead>
             <tbody>
-                @if (Rounds.Count == 0)
+                @if (Rounds.Count == 0 && PlannedRounds.Length == 0)
                 {
                     <tr>
                         <td colspan="3" class="text-center py-4 text-muted small">
@@ -92,8 +92,22 @@
                             </td>
                         </tr>
                     }
+
+                    @* Uploaded rounds not started yet: read-only, they are started via the play button *@
+                    @foreach (var planned in PlannedRounds)
+                    {
+                        <tr class="text-muted">
+                            <td class="ps-3 small">
+                                Round @planned.Position
+                                <span class="badge bg-secondary-subtle text-secondary-emphasis ms-1">Planned</span>
+                            </td>
+                            <td class="text-end small">@planned.Questions.Count</td>
+                            <td class="pe-3"></td>
+                        </tr>
+                    }
                 }
             </tbody>
         </table>
     </div>
 </div>
+

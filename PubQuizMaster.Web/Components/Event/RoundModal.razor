@@ -17,6 +17,24 @@
                         <div class="alert alert-danger py-2 small mb-3">@ErrorMessage</div>
                     }
 
+                    @if (Quiz.Content != null)
+                    {
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold" for="selContentRound">Questions</label>
+                            <select id="selContentRound" class="form-select" @onchange="HandleContentRoundChanged">
+                                <option value="" selected="@(contentPosition == null)">None (scorers see question numbers only)</option>
+                                @foreach (var contentRound in Quiz.Content.Rounds)
+                                {
+                                    var isUsed = Quiz.Rounds.Any(r => r.Position == contentRound.Position);
+
+                                    <option value="@contentRound.Position" selected="@(contentRound.Position == contentPosition)">
+                                        Round @contentRound.Position (@contentRound.Questions.Count questions)@(isUsed ? ", already used" : null)
+                                    </option>
+                                }
+                            </select>
+                        </div>
+                    }
+
                     <div class="row g-3 mb-3">
                         <div class="col-md-5">
                             <label class="form-label small fw-bold">Round Name</label>
@@ -24,7 +42,9 @@
                         </div>
                         <div class="col-md-3">
                             <label class="form-label small fw-bold">Question Count</label>
-                            <input type="number" class="form-control" min="1" max="@QuizService.MaxQuestionCount" @bind="questionCount" />
+                            <input type="number" class="form-control" min="1" max="@QuizService.MaxQuestionCount" @bind="questionCount"
+                                   disabled="@(contentPosition != null)"
+                                   title="@(contentPosition != null ? "Set by the uploaded questions" : null)" />
                         </div>
                         <div class="col-md-4 d-flex align-items-end pb-1">
                             <div class="form-check">
@@ -134,3 +154,4 @@
         </div>
     </div>
 }
+

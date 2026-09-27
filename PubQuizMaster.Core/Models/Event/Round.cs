@@ -27,6 +27,8 @@ namespace PubQuizMaster.Core.Models.Event
 
         public string Name { get; set; } = string.Empty;
 
+        public int? Position { get; set; }
+
         public Guid QuizId { get; set; }
 
         #endregion Public Properties
@@ -43,6 +45,23 @@ namespace PubQuizMaster.Core.Models.Event
             var answerTeamIds = Answers.Select(a => a.TeamId);
 
             return assignmentTeamIds.Union(answerTeamIds).ToArray();
+        }
+
+        /// <summary>
+        /// Scorer stations with at least one assigned sheet that is not fully recorded yet.
+        /// Stations whose sheets are complete (e.g. finished via the matrix) are done, whatever their phase.
+        /// Requires Assignments and Answers to be loaded.
+        /// </summary>
+        public string[] GetPendingScorerIds()
+        {
+            var answerCounts = Answers
+                .GroupBy(a => a.TeamId)
+                .ToDictionary(g => g.Key, g => g.Count());
+
+            return Assignments
+                .Where(a => a.TeamIds.Any(teamId => answerCounts.GetValueOrDefault(teamId) < Length))
+                .Select(a => a.ScorerId)
+                .ToArray();
         }
 
         #endregion Public Methods

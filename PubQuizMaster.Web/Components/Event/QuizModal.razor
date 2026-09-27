@@ -29,6 +29,41 @@
                         <label class="form-label small fw-bold">Description (Optional)</label>
                         <textarea class="form-control" rows="3" @bind="editDescription" placeholder="Notes, theme, special rules..."></textarea>
                     </div>
+
+                    <div class="mb-1">
+                        <label class="form-label small fw-bold">Questions (Optional)</label>
+                        <div class="d-flex align-items-center gap-2">
+                            <span class="small flex-grow-1 @(editContent == null ? "text-muted" : null)">
+                                @(editContent == null
+                                    ? "No questions uploaded."
+                                    : $"{editContent.Rounds.Count} rounds, {editContent.Rounds.Sum(r => r.Questions.Count)} questions")
+                            </span>
+                            @* Same pattern as the quiz list: the label opens the file dialog, the @key allows picking the same file again *@
+                            <label class="btn btn-sm btn-outline-primary py-0 px-2 mb-0 @(isReading ? "disabled" : null)"
+                                   title="Upload question file (JSON)"
+                                   aria-label="Upload question file">
+                                <span class="mif-upload" aria-hidden="true"></span>
+                                <InputFile @key="@($"edit-content-{inputVersion}")"
+                                           class="d-none"
+                                           accept=".json,application/json"
+                                           disabled="@isReading"
+                                           OnChange="HandleContentSelectedAsync" />
+                            </label>
+                            @if (editContent != null)
+                            {
+                                <button type="button" class="btn btn-sm btn-outline-danger py-0 px-2"
+                                        title="Remove questions"
+                                        aria-label="Remove questions"
+                                        @onclick="() => editContent = null">
+                                    <span class="mif-bin" aria-hidden="true"></span>
+                                </button>
+                            }
+                        </div>
+                        <div class="form-text">
+                            Scorers see question and answer while scoring. Uploading fills title and date from the file.
+                            The questions are discarded when the quiz night is completed.
+                        </div>
+                    </div>
                 </div>
                 <div class="modal-footer py-2">
                     <button type="button" class="btn btn-secondary btn-sm" @onclick="Cancel">Cancel</button>

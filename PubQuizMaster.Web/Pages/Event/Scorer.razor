@@ -132,8 +132,23 @@
         @if (CurrentTeam != null)
         {
             <div class="card bg-dark text-light border-secondary text-center p-4 my-auto shadow">
-                <div class="text-secondary text-uppercase fw-bold small mb-2">Question</div>
-                <div class="display-3 fw-bold text-light mb-3">@(currentQuestionIndex + 1)</div>
+                @if (CurrentQuestion is { } question)
+                {
+                    <div class="text-secondary text-uppercase fw-bold small mb-2">
+                        Question @(currentQuestionIndex + 1)@(string.IsNullOrEmpty(question.Category) ? null : $" \u00B7 {question.Category}")
+                    </div>
+                    <div class="text-light mb-2">@question.Text</div>
+                    @if (!string.IsNullOrEmpty(question.Description))
+                    {
+                        <div class="text-secondary small fst-italic mb-2">@question.Description</div>
+                    }
+                    <div class="fs-3 fw-bold text-warning mb-3">@question.Answer</div>
+                }
+                else
+                {
+                    <div class="text-secondary text-uppercase fw-bold small mb-2">Question</div>
+                    <div class="display-3 fw-bold text-light mb-3">@(currentQuestionIndex + 1)</div>
+                }
 
                 <div class="fs-2 fw-bold text-danger mb-2 text-truncate">@CurrentTeam.Name</div>
                 <div class="text-secondary small mb-3">Sheet #@(currentTeamIndex + 1)</div>
@@ -215,6 +230,7 @@
                                 var answer = GetAnswer(team.Id, qIdx);
                                 <button type="button"
                                         class="btn btn-sm p-0 rounded-circle @GetDotClass(answer)"
+                                        title="@(roundContent?.GetQuestion(qIdx)?.Answer)"
                                         style="width: 26px; height: 26px; font-size: 0.75rem; font-weight: bold;"
                                         @onclick="() => JumpToCell(teamIdx, qIdx)">
                                     @(qIdx + 1)
