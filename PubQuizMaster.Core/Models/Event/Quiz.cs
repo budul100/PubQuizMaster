@@ -15,6 +15,12 @@ namespace PubQuizMaster.Core.Models.Event
 
         public Guid Id { get; set; } = Guid.NewGuid();
 
+        /// <summary>Number of questions of an imported night, null if unknown. Live nights count their rounds.</summary>
+        public int? ImportedQuestionCount { get; set; }
+
+        /// <summary>Number of rounds of an imported night, null if unknown.</summary>
+        public int? ImportedRoundCount { get; set; }
+
         public bool IsLegacyImport { get; set; }
 
         public List<Participant> ParticipatingTeams { get; set; } = [];

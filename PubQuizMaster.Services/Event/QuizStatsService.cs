@@ -8,21 +8,22 @@ namespace PubQuizMaster.Services.Event
 {
     /// <summary>
     /// Difficulty statistics across quiz nights: how many questions were answered correctly.
-    /// Legacy imports only carry totals and are left out.
+    /// Imported nights take part when their question count is known.
     /// </summary>
     public class QuizStatsService(IDbContextFactory<AppDbContext> dbFactory)
     {
         #region Public Methods
 
         /// <summary>
-        /// Correct share of every live or completed night with recorded rounds, in date order.
-        /// Answer values are jsonb, so the rounds are loaded and counted in memory.
+        /// Correct share of every played night in date order. Live nights count their recorded rounds
+        /// (answer values are jsonb, so the rounds are loaded and counted in memory). Imported nights
+        /// need their question count: average points per team divided by the questions.
         /// </summary>
         public async Task<QuizDifficulty[]> GetDifficultiesAsync(CancellationToken ct = default)
         {
             await using var db = await dbFactory.CreateDbContextAsync(ct);
 
-            var quizzes = await db.Quizzes
+            var liveQuizzes = await db.Quizzes
                 .AsNoTracking()
                 .Where(q => !q.IsLegacyImport && q.Status != QuizStatus.Planned && q.Rounds.Any())
                 .Include(q => q.Rounds)
@@ -32,16 +33,30 @@ namespace PubQuizMaster.Services.Event
                 .AsSplitQuery()
                 .ToArrayAsync(ct);
 
-            return [.. quizzes
+            var liveDifficulties = liveQuizzes
                 .Select(q => (Quiz: q, Rate: q.Rounds.GetCorrectRate()))
                 .Where(x => x.Rate.HasValue)
-                .OrderBy(x => x.Quiz.Date)
                 .Select(x => new QuizDifficulty(
                     QuizId: x.Quiz.Id,
                     Date: x.Quiz.Date,
                     Title: x.Quiz.Title,
                     Status: x.Quiz.Status,
-                    CorrectRate: x.Rate!.Value))];
+                    CorrectRate: x.Rate!.Value));
+
+            var importedDifficulties = await db.Quizzes
+                .AsNoTracking()
+                .Where(q => q.IsLegacyImport && q.ImportedQuestionCount > 0 && q.Results.Any())
+                .Select(q => new QuizDifficulty(
+                    q.Id,
+                    q.Date,
+                    q.Title,
+                    q.Status,
+                    q.Results.Average(r => r.TotalScore) / q.ImportedQuestionCount!.Value))
+                .ToArrayAsync(ct);
+
+            return [.. liveDifficulties
+                .Concat(importedDifficulties)
+                .OrderBy(d => d.Date)];
         }
 
         #endregion Public Methods

@@ -4,7 +4,7 @@ namespace PubQuizMaster.Core.Records.Event
 {
     /// <summary>
     /// Difficulty of a played quiz night: share of correct answers over all its rounds (0 to 1).
-    /// Only live nights with recorded rounds, legacy imports carry no question counts.
+    /// Live nights count their recorded rounds, imported nights need their question count.
     /// </summary>
     public record QuizDifficulty(
         Guid QuizId,

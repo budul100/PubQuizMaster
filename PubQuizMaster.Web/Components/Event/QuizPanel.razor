@@ -23,14 +23,17 @@
                 <span class="small text-muted">Average @average.ToString("0%")</span>
             }
         </div>
-        <div class="card-body py-2">
+        @* Wide and flat: a large view width keeps the chart low across the full page width *@
+        <div class="card-body py-1 px-2">
             <BarChart 
                 Points="DifficultyPoints"
                 Max="1"
                 ValueFormat="0%"
                 ReferenceValue="AverageRate"
                 ReferenceLabel="Average of completed nights"
-                Height="180"
+                Height="130"
+                ViewWidth="1400"
+                ShowValues="false"
                 AriaLabel="Share of correct answers per quiz night" />
         </div>
     </div>
@@ -122,7 +125,7 @@
                                 }
                             </td>
                             <td class="text-end small">@(quiz.IsLegacyImport ? quiz.Results.Count : quiz.ParticipatingTeams.Count)</td>
-                            <td class="text-end small">@(quiz.IsLegacyImport ? "–" : quiz.Rounds.Count.ToString())</td>
+                            <td class="text-end small">@(quiz.IsLegacyImport ? quiz.ImportedRoundCount?.ToString() ?? "–" : quiz.Rounds.Count.ToString())</td>
                             <td class="text-end small">@(RateOf(quiz)?.ToString("0%") ?? "–")</td>
                             <td class="pqm-actions-cell pe-3">
                                 <div class="pqm-row-actions">

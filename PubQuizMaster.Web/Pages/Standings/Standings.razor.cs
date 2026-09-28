@@ -13,6 +13,8 @@ namespace PubQuizMaster.Web.Pages.Standings
         private bool isLoading = true;
         private LeaderboardRow[] rankedRows = [];
         private string searchTerm = string.Empty;
+        private Guid? selectedTeamId;
+        private string selectedTeamName = string.Empty;
         private StandingsSort sort = StandingsSort.Total;
 
         #endregion Private Fields
@@ -157,6 +159,12 @@ namespace PubQuizMaster.Web.Pages.Standings
             {
                 ToastService.ShowError(ex.Message);
             }
+        }
+
+        private void SelectTeam(LeaderboardTeam team)
+        {
+            selectedTeamId = team.TeamId;
+            selectedTeamName = team.TeamName;
         }
 
         private void SetSort(StandingsSort newSort)

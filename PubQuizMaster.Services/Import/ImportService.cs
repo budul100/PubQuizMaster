@@ -1,6 +1,6 @@
 using System.Globalization;
-using Microsoft.EntityFrameworkCore;
 using ClosedXML.Excel;
+using Microsoft.EntityFrameworkCore;
 using PubQuizMaster.Core.Enums;
 using PubQuizMaster.Core.Models.Event;
 using PubQuizMaster.Core.Models.Standings;
@@ -14,6 +14,7 @@ namespace PubQuizMaster.Services.Import
     /// is created once and updated on later imports.
     /// Rows without team name import the quiz night only (e.g. with a remark).
     /// A team's creation date is the date of the first quiz night it appears in.
+    /// Optional columns G (questions) and H (rounds) describe the night, they may appear on any of its rows.
     /// </summary>
     public class ImportService(IDbContextFactory<AppDbContext> dbFactory)
     {
@@ -36,6 +37,7 @@ namespace PubQuizMaster.Services.Import
 
             var warnings = new List<string>();
             var quizzesCreated = 0;
+            var updatedQuizIds = new HashSet<Guid>();
             var teamsCreated = 0;
             var resultsCreated = 0;
             var resultsUpdated = 0;
@@ -54,6 +56,9 @@ namespace PubQuizMaster.Services.Import
             // Guards against the same team appearing twice for one night within the file
             var processedEntries = new HashSet<(string QuizKey, string TeamKey)>();
 
+            // First question and round count per night in the file, later rows must agree
+            var fileCounts = new Dictionary<string, (int? Questions, int? Rounds)>();
+
             foreach (var row in worksheet.RowsUsed().Skip(1)) // Skip header row
             {
                 var rowNumber = row.RowNumber();
@@ -64,6 +69,8 @@ namespace PubQuizMaster.Services.Import
                 var rankCell = row.Cell("D");
                 var teamCell = row.Cell("E");
                 var scoreCell = row.Cell("F");
+                var questionsCell = row.Cell("G");
+                var roundsCell = row.Cell("H");
 
                 if (dateCell.IsEmpty() && teamCell.IsEmpty()) continue;
 
@@ -94,13 +101,23 @@ namespace PubQuizMaster.Services.Import
                     continue;
                 }
 
+                var questionCount = ParseCount(questionsCell);
+                var roundCount = ParseCount(roundsCell);
+
+                if (questionCount == null && !questionsCell.IsEmpty()
+                    || roundCount == null && !roundsCell.IsEmpty())
+                {
+                    warnings.Add($"Row {rowNumber}: Invalid question or round count. Ignored.");
+                }
+
                 // 3. Team
                 var rawTeamName = teamCell.GetString().Trim();
 
                 if (string.IsNullOrEmpty(rawTeamName))
                 {
                     // Quiz night without results, kept in the list with its remark
-                    GetOrCreateQuiz(quizKey, title, description, quizDate);
+                    var emptyNight = GetOrCreateQuiz(quizKey, title, description, quizDate);
+                    ApplyCounts(emptyNight, quizKey, questionCount, roundCount, rowNumber);
 
                     if (!rankCell.IsEmpty() || !scoreCell.IsEmpty())
                     {
@@ -161,6 +178,7 @@ namespace PubQuizMaster.Services.Import
                 }
 
                 var quizNight = GetOrCreateQuiz(quizKey, title, description, quizDate);
+                ApplyCounts(quizNight, quizKey, questionCount, roundCount, rowNumber);
 
                 // 6. Create or update result
                 if (resultLookup.TryGetValue((quizNight.Id, team.Id), out var existing))
@@ -192,8 +210,50 @@ namespace PubQuizMaster.Services.Import
 
             await db.SaveChangesAsync(ct);
 
-            return new ImportSummary(quizzesCreated, teamsCreated, backdatedTeamIds.Count, resultsCreated,
-                resultsUpdated, resultsUnchanged, [.. warnings]);
+            return new ImportSummary(
+                QuizzesCreated: quizzesCreated,
+                QuizzesUpdated: updatedQuizIds.Count,
+                TeamsCreated: teamsCreated,
+                TeamsBackdated: backdatedTeamIds.Count,
+                ResultsCreated: resultsCreated,
+                ResultsUpdated: resultsUpdated,
+                ResultsUnchanged: resultsUnchanged,
+                Warnings: [.. warnings]);
+
+            // The first value per night in the file wins, the file overrides earlier imports
+            void ApplyCounts(Quiz quiz, string quizKey, int? questions, int? rounds, int rowNumber)
+            {
+                if (questions == null && rounds == null) return;
+
+                if (fileCounts.TryGetValue(quizKey, out var first))
+                {
+                    if (questions != null && first.Questions != null && questions != first.Questions
+                        || rounds != null && first.Rounds != null && rounds != first.Rounds)
+                    {
+                        warnings.Add($"Row {rowNumber}: Question or round count differs from an earlier row " +
+                            $"of '{quiz.Title}' on {quiz.Date:dd.MM.yyyy}. The earlier value is kept.");
+                    }
+
+                    questions = first.Questions ?? questions;
+                    rounds = first.Rounds ?? rounds;
+                }
+
+                fileCounts[quizKey] = (questions, rounds);
+
+                var isChanged = questions != null && quiz.ImportedQuestionCount != questions
+                    || rounds != null && quiz.ImportedRoundCount != rounds;
+
+                if (!isChanged) return;
+
+                quiz.ImportedQuestionCount = questions ?? quiz.ImportedQuestionCount;
+                quiz.ImportedRoundCount = rounds ?? quiz.ImportedRoundCount;
+
+                // Only existing nights count as updated, new ones are counted as created
+                if (db.Entry(quiz).State != EntityState.Added)
+                {
+                    updatedQuizIds.Add(quiz.Id);
+                }
+            }
 
             Quiz GetOrCreateQuiz(string quizKey, string title, string? description, DateOnly date)
             {
@@ -213,7 +273,7 @@ namespace PubQuizMaster.Services.Import
                     Description = description,
                     Date = date,
                     Status = QuizStatus.Completed,
-                    IsLegacyImport = true,
+                    IsLegacyImport = true
                 };
 
                 db.Quizzes.Add(quiz);
@@ -292,6 +352,25 @@ namespace PubQuizMaster.Services.Import
             return lookup;
         }
 
+        /// <summary>Positive whole number, null if the cell is empty or holds anything else.</summary>
+        private static int? ParseCount(IXLCell cell)
+        {
+            if (cell.IsEmpty()) return null;
+
+            int value;
+
+            if (cell.DataType == XLDataType.Number)
+            {
+                value = (int)Math.Round(cell.GetDouble());
+            }
+            else if (!int.TryParse(cell.GetString().Trim(), out value))
+            {
+                return null;
+            }
+
+            return value > 0 ? value : null;
+        }
+
         private static int? ParseRank(IXLCell cell)
         {
             if (cell.IsEmpty()) return null;
@@ -339,3 +418,5 @@ namespace PubQuizMaster.Services.Import
         #endregion Private Methods
     }
 }
+
+

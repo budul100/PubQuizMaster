@@ -40,6 +40,15 @@ namespace PubQuizMaster.Web.Components.Charts
         /// <summary>.NET format string for axis and values, e.g. "0%" or "0.#".</summary>
         [Parameter] public string ValueFormat { get; set; } = "0.#";
 
+        /// <summary>Prints the value above every bar. Only for a handful of bars.</summary>
+        [Parameter] public bool ShowValues { get; set; } = true;
+
+        /// <summary>
+        /// Width of the drawing in viewBox units. The chart always fills its container, a larger value
+        /// keeps a wide chart flat: the rendered height is Height scaled by container width / ViewWidth.
+        /// </summary>
+        [Parameter] public double ViewWidth { get; set; } = ChartLayout.Width;
+
         #endregion Public Properties
 
         #region Private Properties

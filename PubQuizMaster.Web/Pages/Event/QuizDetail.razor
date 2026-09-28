@@ -48,6 +48,17 @@ else
                 {
                     @($" \u2022 {content.Rounds.Count} rounds, {content.Rounds.Sum(r => r.Questions.Count)} questions")
                 }
+                @if (quiz.IsLegacyImport && quiz.ImportedRoundCount is { } importedRounds)
+                {
+                    @($" \u2022 {importedRounds} rounds")
+                }
+                @if (quiz.IsLegacyImport && quiz.ImportedQuestionCount is { } importedQuestions)
+                {
+                    var correctText = quiz.Results.Count > 0
+                        ? $" \u2022 {quiz.Results.Average(r => r.TotalScore) / importedQuestions:0%} correct"
+                        : string.Empty;
+                    @($" \u2022 {importedQuestions} questions{correctText}")
+                }
             </span>
         </div>
         <div class="d-flex gap-2">

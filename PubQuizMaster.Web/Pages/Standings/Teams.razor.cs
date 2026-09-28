@@ -1,21 +1,19 @@
 using Microsoft.AspNetCore.Components;
 using PubQuizMaster.Core.Models.Standings;
 using PubQuizMaster.Core.Records.Standings;
-using PubQuizMaster.Web.Records;
 
 namespace PubQuizMaster.Web.Pages.Standings
 {
     /// <summary>
-    /// Team registry: register, rename inline in the list, see a team's quiz nights and merge duplicates.
+    /// Team registry: register, rename inline in the list, merge duplicates and see a team's quiz nights.
     /// </summary>
     public partial class Teams
     {
         #region Private Fields
 
         private string filterQuery = string.Empty;
-        private TeamHistoryEntry[] history = [];
+        private int historyVersion;
         private bool isBusy;
-        private bool isLoadingHistory;
         private string newTeamName = string.Empty;
         private Team? selectedTeam;
         private bool showMergeModal;
@@ -40,23 +38,6 @@ namespace PubQuizMaster.Web.Pages.Standings
                 comparisonType: StringComparison.OrdinalIgnoreCase))
             : teams;
 
-        private string[] HistoryLabels => [.. history.Select(h => h.Date.ToString("dd.MM.yy"))];
-
-        /// <summary>The team's points against the average of the same night.</summary>
-        private ChartSeries[] HistorySeries =>
-        [
-            new ChartSeries(
-                Name: "Points",
-                Values: [.. history.Select(h => (decimal?)h.Score)],
-                Color: "var(--bs-primary)",
-                Tooltips: [.. history.Select(h => $"{h.Title}: {h.Score:0.#} points"
-                    + (h.Rank is { } rank ? $", place {rank} of {h.TeamCount}" : string.Empty))]),
-            new ChartSeries(
-                Name: "Night average",
-                Values: [.. history.Select(h => (decimal?)h.AverageScore)],
-                Color: "var(--bs-secondary)")
-        ];
-
         private string MergeTargetName => teams.FirstOrDefault(t => t.Id == targetMergeTeamId)?.Name
             ?? string.Empty;
 
@@ -70,7 +51,7 @@ namespace PubQuizMaster.Web.Pages.Standings
 
             if (TeamId is { } teamId)
             {
-                await SelectTeamByIdAsync(teamId);
+                SelectTeamById(teamId);
             }
         }
 
@@ -105,7 +86,7 @@ namespace PubQuizMaster.Web.Pages.Standings
                 ToastService.ShowSuccess($"Team '{team.Name}' registered.");
 
                 await LoadTeamsAsync();
-                await SelectTeamByIdAsync(team.Id);
+                SelectTeamById(team.Id);
             }
             catch (Exception ex)
             {
@@ -126,49 +107,20 @@ namespace PubQuizMaster.Web.Pages.Standings
 
             if (target != null)
             {
-                await SelectTeamByIdAsync(target.Id);
+                SelectTeamById(target.Id);
             }
             else
             {
                 selectedTeam = null;
             }
+
+            historyVersion++;
         }
 
         private async Task HandleRenamedAsync(Team team)
         {
             await LoadTeamsAsync();
-            await SelectTeamByIdAsync(team.Id);
-        }
-
-        private async Task LoadHistoryAsync()
-        {
-            if (selectedTeam == null)
-            {
-                history = [];
-                return;
-            }
-
-            var teamId = selectedTeam.Id;
-            isLoadingHistory = true;
-
-            try
-            {
-                var loaded = await TeamService.GetHistoryAsync(teamId);
-
-                // Another team may have been selected meanwhile
-                if (selectedTeam?.Id == teamId)
-                {
-                    history = loaded;
-                }
-            }
-            catch (Exception ex)
-            {
-                ToastService.ShowError(ex.Message);
-            }
-            finally
-            {
-                isLoadingHistory = false;
-            }
+            SelectTeamById(team.Id);
         }
 
         private async Task LoadTeamsAsync()
@@ -193,7 +145,9 @@ namespace PubQuizMaster.Web.Pages.Standings
 
                 var targetId = targetMergeTeamId;
                 await LoadTeamsAsync();
-                await SelectTeamByIdAsync(targetId);
+                SelectTeamById(targetId);
+
+                historyVersion++;
             }
             catch (Exception ex)
             {
@@ -205,40 +159,25 @@ namespace PubQuizMaster.Web.Pages.Standings
             }
         }
 
-        private async Task SelectExistingTeamAsync(Team team)
+        private void SelectExistingTeam(Team team)
         {
             newTeamName = string.Empty;
-            await SelectTeamAsync(team);
+            SelectTeam(team);
         }
 
-        private async Task SelectTeamAsync(Team team)
+        private void SelectTeam(Team team)
         {
-            // Clicks into the inline editor of the selected row bubble up here, nothing to reload then
+            // Clicks into the inline editor of the selected row bubble up here, keep the merge target then
             if (selectedTeam?.Id == team.Id) return;
 
             selectedTeam = team;
             targetMergeTeamId = Guid.Empty;
-            history = [];
-
-            await LoadHistoryAsync();
         }
 
-        private async Task SelectTeamByIdAsync(Guid teamId)
+        private void SelectTeamById(Guid teamId)
         {
-            var team = teams.FirstOrDefault(t => t.Id == teamId);
-
-            if (team == null)
-            {
-                selectedTeam = null;
-                history = [];
-                return;
-            }
-
-            // Reload even if already selected: the name or the merged history may have changed
-            selectedTeam = team;
+            selectedTeam = teams.FirstOrDefault(t => t.Id == teamId);
             targetMergeTeamId = Guid.Empty;
-
-            await LoadHistoryAsync();
         }
 
         #endregion Private Methods

@@ -6,12 +6,12 @@
 }
 else
 {
-    var plotWidth = ChartLayout.Width - ChartLayout.Left - ChartLayout.Right;
+    var plotWidth = ViewWidth - ChartLayout.Left - ChartLayout.Right;
     var plotHeight = Height - ChartLayout.Top - ChartLayout.Bottom;
     var max = AxisMax;
     var labelStep = ChartLayout.LabelStep(Labels.Length);
 
-    <svg viewBox="0 0 @ChartLayout.Width.ToString(Inv) @Height.ToString(Inv)"
+    <svg viewBox="0 0 @ViewWidth.ToString(Inv) @Height.ToString(Inv)"
          style="width: 100%; height: auto; display: block;"
          role="img"
          aria-label="@AriaLabel">
@@ -19,7 +19,7 @@ else
         @foreach (var fraction in new[] { 0d, 0.5d, 1d })
         {
             var y = ChartLayout.Top + plotHeight * (1 - fraction);
-            <line x1="@ChartLayout.Left.ToString(Inv)" x2="@((ChartLayout.Width - ChartLayout.Right).ToString(Inv))"
+            <line x1="@ChartLayout.Left.ToString(Inv)" x2="@((ViewWidth - ChartLayout.Right).ToString(Inv))"
                   y1="@y.ToString(Inv)" y2="@y.ToString(Inv)"
                   stroke="var(--bs-border-color)" stroke-width="1" />
             <SvgText X="@(ChartLayout.Left - 6)" Y="@(y + 4)" Anchor="end" FontSize="11" Text="@((max * (decimal)fraction).ToString(ValueFormat))" />
