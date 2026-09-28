@@ -357,7 +357,11 @@ namespace PubQuizMaster.Services.Event
         private static RankedTeam[] CalculateRanks((Team Team, decimal Score, bool IsNonCompetitive)[] scores)
         {
             // Tie order within a rank, same comparer as dashboard and matrix
-            var ordered = scores.OrderBy(x => x.Team.Name, StringComparer.CurrentCultureIgnoreCase).ToArray();
+            var ordered = scores
+                .OrderBy(
+                    keySelector: x => x.Team.Name,
+                    comparer: TeamNameComparer.Instance).ToArray();
+
             return [.. ordered.Rank(x => x.Score, x => x.IsNonCompetitive)
                 .Select(r => new RankedTeam(r.Item.Team, r.Item.Score, r.Rank))];
         }

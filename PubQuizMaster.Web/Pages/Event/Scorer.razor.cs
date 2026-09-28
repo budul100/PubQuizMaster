@@ -19,6 +19,7 @@ namespace PubQuizMaster.Web.Pages.Event
 
         // Identifies this page among other open pages of the same scorer station
         private readonly Guid instanceId = Guid.NewGuid();
+
         private readonly Dictionary<(Guid TeamId, int QuestionIndex), bool?> recordedAnswers = [];
 
         private List<Team> assignedTeams = [];
@@ -320,6 +321,7 @@ namespace PubQuizMaster.Web.Pages.Event
 
             var isNewRound = round?.Id != state.Round.Id;
             var previousTeamIds = assignedTeams.Select(t => t.Id).ToHashSet();
+            var previousCurrentTeamId = CurrentTeam?.Id;
 
             round = state.Round;
             roundContent = state.Content;
@@ -353,16 +355,26 @@ namespace PubQuizMaster.Web.Pages.Event
             }
             else
             {
-                // Teams registered during the round are appended, the sheet stack needs to follow
+                // Teams registered during the round are inserted alphabetically, the scorer needs the neighbor sheet
                 var addedTeamNames = assignedTeams
-                    .Where(t => !previousTeamIds.Contains(t.Id))
-                    .Select(t => t.Name)
+                    .Select((team, index) => (Team: team, Index: index))
+                    .Where(x => !previousTeamIds.Contains(x.Team.Id))
+                    .Select(x => x.Index == 0
+                        ? $"{x.Team.Name} (on top)"
+                        : $"{x.Team.Name} (after {assignedTeams[x.Index - 1].Name})")
                     .ToArray();
 
                 if (addedTeamNames.Length > 0)
                 {
                     var added = string.Join(", ", addedTeamNames);
                     newTeamsHint = newTeamsHint == null ? added : $"{newTeamsHint}, {added}";
+                }
+
+                // Keep the scorer on the sheet in hand, insertions above it shift the index
+                if (previousCurrentTeamId is { } currentTeamId)
+                {
+                    var index = assignedTeams.FindIndex(t => t.Id == currentTeamId);
+                    if (index >= 0) currentTeamIndex = index;
                 }
 
                 ReportProgress();

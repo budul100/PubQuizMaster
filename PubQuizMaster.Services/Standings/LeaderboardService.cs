@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using PubQuizMaster.Core.Enums;
 using PubQuizMaster.Core.Extensions;
 using PubQuizMaster.Core.Records.Standings;
 using PubQuizMaster.Data;
@@ -26,7 +27,7 @@ namespace PubQuizMaster.Services.Standings
             // Legacy nights are imported as results, live nights are materialized on completion
             var completedResults = db.Scores
                 .AsNoTracking()
-                .Where(s => s.Quiz.IsCompleted);
+                .Where(s => s.Quiz.Status == QuizStatus.Completed);
 
             var totals = await completedResults
                 .GroupBy(s => new { s.TeamId, s.Team.Name, s.Team.IsNonCompetitive })

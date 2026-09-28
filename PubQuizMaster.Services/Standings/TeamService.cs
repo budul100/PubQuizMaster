@@ -269,8 +269,7 @@ namespace PubQuizMaster.Services.Standings
                     db.Participants.Add(new Participant
                     {
                         QuizId = participation.QuizId,
-                        TeamId = targetTeamId,
-                        SheetOrder = participation.SheetOrder
+                        TeamId = targetTeamId
                     });
                 }
 

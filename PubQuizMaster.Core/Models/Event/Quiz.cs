@@ -1,3 +1,4 @@
+using PubQuizMaster.Core.Enums;
 using PubQuizMaster.Core.Models.Standings;
 
 namespace PubQuizMaster.Core.Models.Event
@@ -14,8 +15,6 @@ namespace PubQuizMaster.Core.Models.Event
 
         public Guid Id { get; set; } = Guid.NewGuid();
 
-        public bool IsCompleted { get; set; }
-
         public bool IsLegacyImport { get; set; }
 
         public List<Participant> ParticipatingTeams { get; set; } = [];
@@ -25,6 +24,11 @@ namespace PubQuizMaster.Core.Models.Event
 
         // Live quiz structure (empty if IsLegacyImport is true)
         public List<Round> Rounds { get; set; } = [];
+
+        public QuizStatus Status { get; set; } = QuizStatus.Planned;
+
+        // Scorer stations of the night, available before the first round
+        public List<ScorerStation> Stations { get; set; } = [];
 
         public string Title { get; set; } = string.Empty;
 

@@ -1,4 +1,5 @@
 @namespace PubQuizMaster.Web.Components.Event
+@using PubQuizMaster.Core.Extensions
 @using PubQuizMaster.Web.Components.Standings
 @using PubQuizMaster.Web.Helpers
 
@@ -60,11 +61,11 @@
                         <h6 class="fw-bold mb-0">Scorer Assignments (@assignments.Count Scorers)</h6>
                         <div class="d-flex gap-2">
                             <button type="button" class="btn btn-sm btn-outline-secondary"
-                                    title="Distribute teams evenly across scorers"
-                                    aria-label="Distribute teams evenly across scorers"
+                                    title="Distribute teams alphabetically"
+                                    aria-label="Distribute teams alphabetically"
                                     @onclick="AutoDistributeTeams">
-                                <span class="mif-shuffle" aria-hidden="true"></span>
-                            </button>
+                                <span class="mif-sort-asc" aria-hidden="true"></span>
+s                            </button>
                             <button type="button" class="btn btn-sm btn-outline-primary"
                                     title="Add scorer"
                                     aria-label="Add scorer"
@@ -111,11 +112,11 @@
                                 @if (sc.TeamIds.Count == 0)
                                 {
                                     <div class="small text-warning-emphasis mb-1">
-                                        No teams yet. The station waits and receives late registrations first.
+                                        No teams yet.
                                     </div>
                                 }
                                 <div class="d-flex flex-wrap gap-2">
-                                    @foreach (var pt in Quiz.ParticipatingTeams.Where(p => p.IsActive).OrderBy(p => p.SheetOrder))
+                                    @foreach (var pt in Quiz.ParticipatingTeams.Where(p => p.IsActive).OrderBy(p => p.Team.Name, TeamNameComparer.Instance))
                                     {
                                         var isAssignedToThis = sc.TeamIds.Contains(pt.TeamId);
                                         var isAssignedToOther = !isAssignedToThis && assignments.Any(other => other != sc && other.TeamIds.Contains(pt.TeamId));

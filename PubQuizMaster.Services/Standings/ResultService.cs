@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using PubQuizMaster.Core.Enums;
 using PubQuizMaster.Core.Extensions;
 using PubQuizMaster.Core.Models.Standings;
 using PubQuizMaster.Data;
@@ -28,7 +29,7 @@ namespace PubQuizMaster.Services.Standings
                 .Select(q => new
                 {
                     q.Id,
-                    q.IsCompleted,
+                    IsCompleted = q.Status == QuizStatus.Completed,
                     TeamIds = q.ParticipatingTeams.Select(p => p.TeamId).ToArray()
                 })
                 .ToArrayAsync(ct);

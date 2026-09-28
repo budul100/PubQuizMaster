@@ -41,6 +41,37 @@ namespace PubQuizMaster.Web.Components.Event
 
         private static string GetDefaultTitle(DateOnly date) => $"Pub Quiz ({date:dd.MM.yyyy})";
 
+        private async Task CreateQuizNightAsync()
+        {
+            if (isSubmitting) return;
+
+            isSubmitting = true;
+            try
+            {
+                // Defaults only, everything is edited in the live dashboard afterwards
+                var today = DateOnly.FromDateTime(DateTime.Today);
+                var created = await LiveQuizService.CreateQuizAsync(
+                    title: GetDefaultTitle(today),
+                    date: today,
+                    description: null);
+
+                // Interim until the quiz detail page exists: a new night goes live right away
+                await LiveQuizService.ActivateQuizAsync(created.Id);
+
+                ToastService.ShowSuccess($"Quiz night '{created.Title}' created.");
+
+                await OnDataChanged.InvokeAsync();
+            }
+            catch (Exception ex)
+            {
+                ToastService.ShowError(ex.Message);
+            }
+            finally
+            {
+                isSubmitting = false;
+            }
+        }
+
         private async Task CreateQuizNightFromFileAsync(InputFileChangeEventArgs e)
         {
             if (isSubmitting) return;
@@ -63,6 +94,9 @@ namespace PubQuizMaster.Web.Components.Event
                     description: null,
                     content: import.ToContent());
 
+                // Interim until the quiz detail page exists: a new night goes live right away
+                await LiveQuizService.ActivateQuizAsync(created.Id);
+
                 ToastService.ShowSuccess(
                     $"Quiz night '{created.Title}' created with {import.Rounds.Count} rounds of questions.");
 
@@ -76,33 +110,6 @@ namespace PubQuizMaster.Web.Components.Event
             {
                 isSubmitting = false;
                 inputVersion++;
-            }
-        }
-
-        private async Task CreateQuizNightAsync()
-        {
-            if (isSubmitting) return;
-
-            isSubmitting = true;
-            try
-            {
-                // Defaults only, everything is edited in the live dashboard afterwards
-                var today = DateOnly.FromDateTime(DateTime.Today);
-                var created = await LiveQuizService.CreateQuizAsync(
-                    title: GetDefaultTitle(today),
-                    date: today,
-                    description: null);
-                ToastService.ShowSuccess($"Quiz night '{created.Title}' created.");
-
-                await OnDataChanged.InvokeAsync();
-            }
-            catch (Exception ex)
-            {
-                ToastService.ShowError(ex.Message);
-            }
-            finally
-            {
-                isSubmitting = false;
             }
         }
 
@@ -134,7 +141,7 @@ namespace PubQuizMaster.Web.Components.Event
 
             try
             {
-                await LiveQuizService.ReopenQuizAsync(quizToReopen.Id);
+                await LiveQuizService.ActivateQuizAsync(quizToReopen.Id);
 
                 ToastService.ShowSuccess($"Quiz night '{title}' reopened.");
                 quizToReopen = null;

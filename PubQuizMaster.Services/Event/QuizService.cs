@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using PubQuizMaster.Core.Enums;
 using PubQuizMaster.Core.Extensions;
 using PubQuizMaster.Core.Models.Content;
 using PubQuizMaster.Core.Models.Event;
@@ -20,6 +21,59 @@ namespace PubQuizMaster.Services.Event
 
         #region Public Methods
 
+        /// <summary>
+        /// Makes a planned or completed quiz night the live one. Reopening a completed night
+        /// removes its results from the standings until it is completed again.
+        /// </summary>
+        public async Task ActivateQuizAsync(Guid quizId, CancellationToken ct = default)
+        {
+            await using var db = await dbFactory.CreateDbContextAsync(ct);
+
+            var quiz = await db.Quizzes.FirstOrDefaultAsync(q => q.Id == quizId, ct)
+                ?? throw new InvalidOperationException("Quiz night not found.");
+
+            if (quiz.IsLegacyImport)
+            {
+                throw new InvalidOperationException("Legacy imports cannot be activated.");
+            }
+
+            if (quiz.Status == QuizStatus.Live) return;
+
+            var otherLive = await db.Quizzes
+                .Where(q => q.Id != quizId && q.Status == QuizStatus.Live)
+                .Select(q => q.Title)
+                .FirstOrDefaultAsync(ct);
+
+            if (otherLive != null)
+            {
+                throw new InvalidOperationException(
+                    $"Quiz night '{otherLive}' is still live. Complete it before activating another one.");
+            }
+
+            var wasCompleted = quiz.Status == QuizStatus.Completed;
+
+            await using var transaction = await db.Database.BeginTransactionAsync(ct);
+
+            quiz.Status = QuizStatus.Live;
+
+            try
+            {
+                await db.SaveChangesAsync(ct);
+            }
+            catch (DbUpdateException ex) when (ex.IsUniqueViolation(Constraints.SingleActiveQuiz))
+            {
+                throw new InvalidOperationException(
+                    "Another quiz night is live. Complete it before activating this one.", ex);
+            }
+
+            if (wasCompleted)
+            {
+                await ResultService.RebuildAsync(db, [quizId], ct);
+            }
+
+            await transaction.CommitAsync(ct);
+        }
+
         public async Task<TeamRegistration> AddTeamAsync(Guid quizNightId, string teamName,
             CancellationToken ct = default)
         {
@@ -27,11 +81,17 @@ namespace PubQuizMaster.Services.Event
 
             var quiz = await db.Quizzes
                 .Include(q => q.ParticipatingTeams)
+                    .ThenInclude(pt => pt.Team)
                 .Include(q => q.Rounds)
                     .ThenInclude(r => r.Assignments)
                 .AsSplitQuery()
                 .FirstOrDefaultAsync(q => q.Id == quizNightId, ct)
-                ?? throw new InvalidOperationException("Active quiz night not found.");
+                ?? throw new InvalidOperationException("Quiz night not found.");
+
+            if (quiz.Status == QuizStatus.Completed)
+            {
+                throw new InvalidOperationException($"Quiz night '{quiz.Title}' is already completed.");
+            }
 
             var team = await teamService.GetOrCreateTeamAsync(teamName, ct);
 
@@ -49,22 +109,17 @@ namespace PubQuizMaster.Services.Event
             }
             else
             {
-                var nextSheetOrder = quiz.ParticipatingTeams.Count > 0
-                    ? quiz.ParticipatingTeams.Max(pt => pt.SheetOrder) + 1
-                    : 1;
-
                 db.Participants.Add(new Participant
                 {
                     QuizId = quizNightId,
                     TeamId = team.Id,
-                    SheetOrder = nextSheetOrder,
                     IsActive = true,
                     IsNonCompetitive = false
                 });
             }
 
             // Reactivated and newly registered teams join a running round the same way
-            var (hasOpenRound, scorerLabel) = AssignToOpenRound(quiz, team.Id);
+            var (hasOpenRound, scorerLabel) = AssignToOpenRound(quiz, team.Id, team.Name);
 
             await db.SaveChangesAsync(ct);
 
@@ -85,7 +140,12 @@ namespace PubQuizMaster.Services.Event
                 throw new InvalidOperationException("Legacy imports cannot be completed.");
             }
 
-            if (quiz.IsCompleted) return;
+            if (quiz.Status == QuizStatus.Completed) return;
+
+            if (quiz.Status != QuizStatus.Live)
+            {
+                throw new InvalidOperationException($"Quiz night '{quiz.Title}' has not been started yet.");
+            }
 
             var openRound = quiz.Rounds.FirstOrDefault(r => !r.IsFinalized);
             if (openRound != null)
@@ -96,10 +156,8 @@ namespace PubQuizMaster.Services.Event
 
             await using var transaction = await db.Database.BeginTransactionAsync(ct);
 
-            quiz.IsCompleted = true;
-
-            // The question editor owns the content, it is only needed while the night is live
-            quiz.Content = null;
+            // The content is kept: the read-only view and the statistics need the questions
+            quiz.Status = QuizStatus.Completed;
 
             await db.SaveChangesAsync(ct);
 
@@ -107,18 +165,14 @@ namespace PubQuizMaster.Services.Event
             await transaction.CommitAsync(ct);
         }
 
+        /// <summary>
+        /// Creates a planned quiz night. Any number of nights can be planned,
+        /// ActivateQuizAsync turns one of them into the live night.
+        /// </summary>
         public async Task<Core.Models.Event.Quiz> CreateQuizAsync(string title, DateOnly date,
             string? description, Core.Models.Content.Quiz? content = null, CancellationToken ct = default)
         {
             await using var db = await dbFactory.CreateDbContextAsync(ct);
-
-            var hasActive = await db.Quizzes.AnyAsync(q => !q.IsCompleted && !q.IsLegacyImport, ct);
-            if (hasActive)
-            {
-                throw new InvalidOperationException(
-                    "An active quiz night is already in progress. " +
-                    "Complete or delete it before creating a new one.");
-            }
 
             var quiz = new Core.Models.Event.Quiz
             {
@@ -126,22 +180,12 @@ namespace PubQuizMaster.Services.Event
                 Date = date,
                 Description = string.IsNullOrWhiteSpace(description) ? null : description.Trim(),
                 Content = content,
-                IsCompleted = false,
+                Status = QuizStatus.Planned,
                 IsLegacyImport = false
             };
 
             db.Quizzes.Add(quiz);
-
-            try
-            {
-                await db.SaveChangesAsync(ct);
-            }
-            catch (DbUpdateException ex) when (ex.IsUniqueViolation(Constraints.SingleActiveQuiz))
-            {
-                throw new InvalidOperationException(
-                    "An active quiz night is already in progress. " +
-                    "Complete or delete it before creating a new one.", ex);
-            }
+            await db.SaveChangesAsync(ct);
 
             return quiz;
         }
@@ -220,8 +264,8 @@ namespace PubQuizMaster.Services.Event
         }
 
         /// <summary>
-        /// Name and scorer stations of the open round of the active quiz night, for the header badges.
-        /// Null when no quiz night is active or no round is open.
+        /// Name and scorer stations of the open round of the live quiz night, for the header badges.
+        /// Null when no quiz night is live or no round is open.
         /// </summary>
         public async Task<ActiveRound?> GetActiveRoundInfoAsync(CancellationToken ct = default)
         {
@@ -270,13 +314,17 @@ namespace PubQuizMaster.Services.Event
                 .Distinct()
                 .ToArray();
 
-            var teams = await db.Participants
+            var participants = await db.Participants
                 .AsNoTracking()
                 .Where(p => p.QuizId == round.QuizId
                     && (p.IsActive || answeringTeamIds.Contains(p.TeamId)))
-                .OrderBy(p => p.SheetOrder)
                 .Select(p => new MatrixTeam(p.TeamId, p.Team.Name, p.IsNonCompetitive))
                 .ToArrayAsync(ct);
+
+            // Sorted in memory: the database collation does not match the sheet order
+            var teams = participants
+                .OrderBy(t => t.Name, TeamNameComparer.Instance)
+                .ToArray();
 
             var previousAnswers = await db.Rounds
                 .AsNoTracking()
@@ -337,9 +385,9 @@ namespace PubQuizMaster.Services.Event
                 .Where(t => teamIds.Contains(t.Id))
                 .ToArrayAsync(ct);
 
-            var orderedTeams = teamIds
-                .Select(id => teams.FirstOrDefault(t => t.Id == id))
-                .OfType<Team>()
+            // The sheet stack is strictly alphabetical, whatever order the assignment was stored in
+            var orderedTeams = teams
+                .OrderBy(t => t.Name, TeamNameComparer.Instance)
                 .ToList();
 
             var answers = await db.Answers
@@ -427,10 +475,10 @@ namespace PubQuizMaster.Services.Event
             var quiz = await db.Quizzes
                 .AsNoTracking()
                 .Where(q => q.Id == round.QuizId)
-                .Select(q => new { q.Title, q.IsCompleted })
+                .Select(q => new { q.Title, q.Status })
                 .FirstAsync(ct);
 
-            if (quiz.IsCompleted)
+            if (quiz.Status == QuizStatus.Completed)
             {
                 throw new InvalidOperationException($"Quiz night '{quiz.Title}' is already completed.");
             }
@@ -449,49 +497,6 @@ namespace PubQuizMaster.Services.Event
             }
 
             return roundName;
-        }
-
-        public async Task ReopenQuizAsync(Guid quizId, CancellationToken ct = default)
-        {
-            await using var db = await dbFactory.CreateDbContextAsync(ct);
-
-            var quiz = await db.Quizzes.FirstOrDefaultAsync(q => q.Id == quizId, ct)
-                ?? throw new InvalidOperationException("Quiz night not found.");
-
-            if (quiz.IsLegacyImport)
-            {
-                throw new InvalidOperationException("Legacy imports cannot be reopened.");
-            }
-
-            if (!quiz.IsCompleted) return;
-
-            var otherActive = await db.Quizzes
-                .Where(q => q.Id != quizId && !q.IsCompleted && !q.IsLegacyImport)
-                .Select(q => q.Title)
-                .FirstOrDefaultAsync(ct);
-
-            if (otherActive != null)
-            {
-                throw new InvalidOperationException(
-                    $"Quiz night '{otherActive}' is still active. Complete it before reopening another one.");
-            }
-
-            await using var transaction = await db.Database.BeginTransactionAsync(ct);
-
-            quiz.IsCompleted = false;
-
-            try
-            {
-                await db.SaveChangesAsync(ct);
-            }
-            catch (DbUpdateException ex) when (ex.IsUniqueViolation(Constraints.SingleActiveQuiz))
-            {
-                throw new InvalidOperationException(
-                    "Another quiz night is active. Complete it before reopening this one.", ex);
-            }
-
-            await ResultService.RebuildAsync(db, [quizId], ct);
-            await transaction.CommitAsync(ct);
         }
 
         public async Task SetFinalRoundAsync(Guid roundId, bool isFinal, CancellationToken ct = default)
@@ -549,9 +554,11 @@ namespace PubQuizMaster.Services.Event
             var quiz = await db.Quizzes
                 .AsNoTracking()
                 .Include(q => q.ParticipatingTeams)
+                    .ThenInclude(pt => pt.Team)
                 .Include(q => q.Rounds)
+                .AsSplitQuery()
                 .FirstOrDefaultAsync(q => q.Id == request.QuizId, ct)
-                ?? throw new InvalidOperationException("Active quiz night not found.");
+                ?? throw new InvalidOperationException("Quiz night not found.");
 
             ValidateRoundRequest(request, quiz);
 
@@ -574,6 +581,8 @@ namespace PubQuizMaster.Services.Event
                 CreatedAt = DateTime.UtcNow
             };
 
+            var teamNames = quiz.ParticipatingTeams.ToDictionary(p => p.TeamId, p => p.Team.Name);
+
             foreach (var assign in request.Assignments)
             {
                 newRound.Assignments.Add(new Scorer
@@ -582,11 +591,13 @@ namespace PubQuizMaster.Services.Event
                     RoundId = roundId,
                     ScorerId = assign.ScorerId.Trim(),
                     Label = assign.Label.Trim(),
-                    TeamIds = assign.TeamIds
+                    TeamIds = OrderTeamIds(assign.TeamIds, teamNames)
                 });
             }
 
             db.Rounds.Add(newRound);
+
+            await SyncStationsAsync(db, request, ct);
             await db.SaveChangesAsync(ct);
 
             return newRound;
@@ -628,17 +639,19 @@ namespace PubQuizMaster.Services.Event
         private static IQueryable<Core.Models.Event.Quiz> ActiveQuizzes(AppDbContext db)
         {
             return db.Quizzes
-                .Where(q => !q.IsCompleted && !q.IsLegacyImport)
+                .Where(q => q.Status == QuizStatus.Live)
                 .OrderByDescending(q => q.Date)
                 .ThenByDescending(q => q.Id);
         }
 
         /// <summary>
-        /// Adds the team to the scorer with the fewest sheets of the open round, if there is one.
-        /// A team that is already assigned keeps its station. Requires a tracked quiz graph
-        /// with Rounds and Assignments loaded.
+        /// Adds the team to the open round, if there is one: to the station whose alphabetical range
+        /// covers the name, at its alphabetical position in the stack. A team that is already assigned
+        /// keeps its station. Requires a tracked quiz graph with Participants (incl. Team), Rounds and
+        /// Assignments loaded.
         /// </summary>
-        private static (bool HasOpenRound, string? ScorerLabel) AssignToOpenRound(Core.Models.Event.Quiz quiz, Guid teamId)
+        private static (bool HasOpenRound, string? ScorerLabel) AssignToOpenRound(Core.Models.Event.Quiz quiz,
+            Guid teamId, string teamName)
         {
             var openRound = quiz.Rounds
                 .OrderBy(r => r.CreatedAt)
@@ -650,14 +663,28 @@ namespace PubQuizMaster.Services.Event
 
             if (scorer == null)
             {
-                scorer = openRound.Assignments
-                    .OrderBy(a => a.TeamIds.Count)
-                    .ThenBy(a => a.Label)
-                    .FirstOrDefault();
+                var stations = openRound.Assignments
+                    .OrderBy(a => a.Label, TeamNameComparer.Instance)
+                    .ToArray();
 
-                if (scorer == null) return (true, null);
+                if (stations.Length == 0) return (true, null);
 
-                scorer.TeamIds = [.. scorer.TeamIds, teamId];
+                // A participant added in this context is fixed up into the list without its team
+                var teamNames = quiz.ParticipatingTeams
+                    .Where(p => p.Team != null)
+                    .ToDictionary(p => p.TeamId, p => p.Team.Name);
+
+                teamNames[teamId] = teamName;
+
+                var stationNames = stations
+                    .Select(s => s.TeamIds
+                        .Select(id => teamNames.GetValueOrDefault(id))
+                        .OfType<string>()
+                        .ToArray())
+                    .ToArray();
+
+                scorer = stations[TeamDistribution.FindStation(stationNames, teamName)];
+                scorer.TeamIds = OrderTeamIds([.. scorer.TeamIds, teamId], teamNames);
             }
 
             return (true, string.IsNullOrWhiteSpace(scorer.Label) ? scorer.ScorerId : scorer.Label);
@@ -678,6 +705,14 @@ namespace PubQuizMaster.Services.Event
             {
                 other.IsFinal = false;
             }
+        }
+
+        /// <summary>Team ids in sheet order, i.e. alphabetical by team name.</summary>
+        private static List<Guid> OrderTeamIds(IEnumerable<Guid> teamIds, IReadOnlyDictionary<Guid, string> teamNames)
+        {
+            return [.. teamIds
+                .Distinct()
+                .OrderBy(id => teamNames.GetValueOrDefault(id, string.Empty), TeamNameComparer.Instance)];
         }
 
         private static async Task RetryOnAnswerCellConflictAsync(Func<Task> action)
@@ -710,9 +745,50 @@ namespace PubQuizMaster.Services.Event
             if (quiz != null)
             {
                 quiz.Rounds = [.. quiz.Rounds.OrderBy(r => r.CreatedAt)];
+                quiz.Stations = [.. quiz.Stations.OrderBy(s => s.Label, TeamNameComparer.Instance)];
             }
 
             return quiz;
+        }
+
+        /// <summary>
+        /// The stations of the night follow the round just started: labels are updated,
+        /// stations added in the start dialog are created, removed ones are deleted.
+        /// Changes are tracked; the caller saves them together with the round.
+        /// </summary>
+        private static async Task SyncStationsAsync(AppDbContext db, RoundRequest request, CancellationToken ct)
+        {
+            var stations = await db.ScorerStations
+                .Where(s => s.QuizId == request.QuizId)
+                .ToArrayAsync(ct);
+
+            // Duplicate tokens are rejected by ValidateRoundRequest
+            var requested = request.Assignments.ToDictionary(
+                keySelector: a => a.ScorerId.Trim(),
+                elementSelector: a => a.Label.Trim(),
+                comparer: StringComparer.OrdinalIgnoreCase);
+
+            foreach (var station in stations)
+            {
+                if (requested.Remove(station.ScorerId, out var label))
+                {
+                    station.Label = label;
+                }
+                else
+                {
+                    db.ScorerStations.Remove(station);
+                }
+            }
+
+            foreach (var (scorerId, label) in requested)
+            {
+                db.ScorerStations.Add(new ScorerStation
+                {
+                    QuizId = request.QuizId,
+                    ScorerId = scorerId,
+                    Label = label
+                });
+            }
         }
 
         /// <summary>
@@ -737,9 +813,14 @@ namespace PubQuizMaster.Services.Event
 
         private static void ValidateRoundRequest(RoundRequest request, Core.Models.Event.Quiz quiz)
         {
-            if (quiz.IsCompleted)
+            if (quiz.Status == QuizStatus.Completed)
             {
                 throw new InvalidOperationException($"Quiz night '{quiz.Title}' is already completed.");
+            }
+
+            if (quiz.Status != QuizStatus.Live)
+            {
+                throw new InvalidOperationException($"Activate quiz night '{quiz.Title}' before starting a round.");
             }
 
             var openRound = quiz.Rounds.FirstOrDefault(r => !r.IsFinalized);
@@ -812,6 +893,7 @@ namespace PubQuizMaster.Services.Event
                     .ThenInclude(r => r.Assignments)
                 .Include(q => q.Rounds)
                     .ThenInclude(r => r.Answers)
+                .Include(q => q.Stations)
                 .AsSplitQuery();
         }
 
@@ -868,11 +950,13 @@ namespace PubQuizMaster.Services.Event
             var quiz = await db.Quizzes
                 .AsNoTracking()
                 .Where(q => q.Rounds.Any(r => r.Id == roundId))
-                .Select(q => new { q.Id, q.IsCompleted })
+                .Select(q => new { q.Id, q.Status })
                 .FirstOrDefaultAsync(ct)
                 ?? throw new InvalidOperationException("Round not found.");
 
-            await using var transaction = quiz.IsCompleted
+            var isCompleted = quiz.Status == QuizStatus.Completed;
+
+            await using var transaction = isCompleted
                 ? await db.Database.BeginTransactionAsync(ct)
                 : null;
 

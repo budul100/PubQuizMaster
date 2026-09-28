@@ -3,7 +3,8 @@ using PubQuizMaster.Core.Models.Standings;
 namespace PubQuizMaster.Core.Models.Event
 {
     /// <summary>
-    /// Join entity linking teams to a live quiz night with sheet ordering and night-specific status.
+    /// Join entity linking teams to a quiz night with night-specific status.
+    /// Scoring sheets are always ordered by team name, see TeamNameComparer.
     /// </summary>
     public class Participant
     {
@@ -18,8 +19,6 @@ namespace PubQuizMaster.Core.Models.Event
         public Quiz Quiz { get; set; } = null!;
 
         public Guid QuizId { get; set; }
-
-        public int SheetOrder { get; set; }
 
         public Team Team { get; set; } = null!;
 

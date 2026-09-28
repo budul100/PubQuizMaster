@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
+using PubQuizMaster.Core.Enums;
 using PubQuizMaster.Core.Models.Content;
 using PubQuizMaster.Core.Models.Event;
 using PubQuizMaster.Core.Models.Standings;
@@ -20,6 +21,8 @@ namespace PubQuizMaster.Data
 
         public DbSet<Scorer> Scorers => Set<Scorer>();
 
+        public DbSet<ScorerStation> ScorerStations => Set<ScorerStation>();
+
         public DbSet<Result> Scores => Set<Result>();
 
         public DbSet<Team> Teams => Set<Team>();
@@ -39,15 +42,28 @@ namespace PubQuizMaster.Data
             modelBuilder.Entity<Result>().Property(r => r.Id).ValueGeneratedNever();
             modelBuilder.Entity<Core.Models.Event.Round>().Property(r => r.Id).ValueGeneratedNever();
             modelBuilder.Entity<Scorer>().Property(s => s.Id).ValueGeneratedNever();
+            modelBuilder.Entity<ScorerStation>().Property(s => s.Id).ValueGeneratedNever();
             modelBuilder.Entity<Team>().Property(t => t.Id).ValueGeneratedNever();
 
             // At most one live quiz night. All rows matching the filter share the same
-            // column values, so the unique index admits a single row only.
+            // column value, so the unique index admits a single row only.
             modelBuilder.Entity<Core.Models.Event.Quiz>()
-                .HasIndex(q => new { q.IsCompleted, q.IsLegacyImport })
+                .HasIndex(q => q.Status)
                 .IsUnique()
-                .HasFilter("\"IsCompleted\" = false AND \"IsLegacyImport\" = false")
+                .HasFilter($"\"Status\" = {(int)QuizStatus.Live}")
                 .HasDatabaseName(Constraints.SingleActiveQuiz);
+
+            modelBuilder.Entity<Core.Models.Event.Quiz>()
+                .HasMany(q => q.Stations)
+                .WithOne()
+                .HasForeignKey(s => s.QuizId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // A token identifies one station per quiz night
+            modelBuilder.Entity<ScorerStation>()
+                .HasIndex(s => new { s.QuizId, s.ScorerId })
+                .IsUnique()
+                .HasDatabaseName(Constraints.ScorerStation);
 
             modelBuilder.Entity<Core.Models.Event.Round>()
                 .HasMany(r => r.Answers)

@@ -181,8 +181,9 @@ namespace PubQuizMaster.Web.Pages
                         .Sum(a => a.Value.GetScore())
                 })
                 // Tie order within a rank, same comparer as the display order below and the matrix
-                .OrderBy(x => x.Name, StringComparer.CurrentCultureIgnoreCase)
-                .ToArray();
+                .OrderBy(
+                    keySelector: x => x.Name,
+                    comparer: TeamNameComparer.Instance).ToArray();
 
             // The round column carries its own badge, so the latest round needs a ranking of its own
             var roundRanks = entries
@@ -193,7 +194,7 @@ namespace PubQuizMaster.Web.Pages
                 .ToDictionary(x => x.Item.TeamId, x => x.Rank);
 
             // Ranks come from the ranking, the list itself is alphabetical so teams are easy to find
-            teamStandings = [.. entries.Rank(x => x.TotalScore, x => x.IsNonCompetitive)
+            teamStandings = entries.Rank(x => x.TotalScore, x => x.IsNonCompetitive)
                 .Select(r => new TeamStanding(
                     TeamId: r.Item.TeamId,
                     TeamName: r.Item.Name,
@@ -204,7 +205,9 @@ namespace PubQuizMaster.Web.Pages
                     IsActive: r.Item.IsActive,
                     IsNonCompetitive: r.Item.IsNonCompetitive,
                     CanDelete: r.Item.CanDelete))
-                .OrderBy(s => s.TeamName, StringComparer.CurrentCultureIgnoreCase)];
+                .OrderBy(
+                    keySelector: x => x.TeamName,
+                    comparer: TeamNameComparer.Instance).ToArray();
         }
 
         private async Task ExportRoundPresentationAsync(ExportRequest request)
@@ -249,12 +252,6 @@ namespace PubQuizMaster.Web.Pages
                 isProcessing = false;
                 StateHasChanged();
             }
-        }
-
-        private async Task HandleFinalizeWarningConfirmedAsync()
-        {
-            showFinalizeWarningModal = false;
-            await FinalizeRoundAsync();
         }
 
         private async Task HandleActiveQuizDetailsSavedAsync(QuizDetails update)
@@ -327,6 +324,12 @@ namespace PubQuizMaster.Web.Pages
             {
                 ToastService.ShowError(ex.Message);
             }
+        }
+
+        private async Task HandleFinalizeWarningConfirmedAsync()
+        {
+            showFinalizeWarningModal = false;
+            await FinalizeRoundAsync();
         }
 
         private async Task HandleQuizReopenedAsync()
@@ -426,6 +429,39 @@ namespace PubQuizMaster.Web.Pages
             }
         }
 
+        private Task PromptDeleteRound(Round round)
+        {
+            roundToDelete = round;
+            showDeleteRoundModal = true;
+            return Task.CompletedTask;
+        }
+
+        private void PromptDeleteTeam(Guid teamId)
+        {
+            teamToDelete = teamStandings.FirstOrDefault(s => s.TeamId == teamId);
+            showDeleteTeamModal = teamToDelete != null;
+        }
+
+        private Task ReloadAsync() => InvokeAsync(async () =>
+                {
+                    if (isReloading) return;
+                    isReloading = true;
+
+                    try
+                    {
+                        await LoadDashboardStateAsync();
+                        StateHasChanged();
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.LogWarning(ex, "Dashboard reload failed.");
+                    }
+                    finally
+                    {
+                        isReloading = false;
+                    }
+                });
+
         /// <summary>
         /// Finalizes the open round right away if it is complete, otherwise asks first.
         /// Incomplete means: answers are missing, or a station is still sorting or scoring.
@@ -481,39 +517,6 @@ namespace PubQuizMaster.Web.Pages
             showFinalizeWarningModal = true;
         }
 
-        private Task PromptDeleteRound(Round round)
-        {
-            roundToDelete = round;
-            showDeleteRoundModal = true;
-            return Task.CompletedTask;
-        }
-
-        private void PromptDeleteTeam(Guid teamId)
-        {
-            teamToDelete = teamStandings.FirstOrDefault(s => s.TeamId == teamId);
-            showDeleteTeamModal = teamToDelete != null;
-        }
-
-        private Task ReloadAsync() => InvokeAsync(async () =>
-        {
-            if (isReloading) return;
-            isReloading = true;
-
-            try
-            {
-                await LoadDashboardStateAsync();
-                StateHasChanged();
-            }
-            catch (Exception ex)
-            {
-                Logger.LogWarning(ex, "Dashboard reload failed.");
-            }
-            finally
-            {
-                isReloading = false;
-            }
-        });
-
         private async Task StartRoundConfirmedAsync(RoundRequest request)
         {
             isProcessing = true;
@@ -555,4 +558,3 @@ namespace PubQuizMaster.Web.Pages
         #endregion Private Methods
     }
 }
-

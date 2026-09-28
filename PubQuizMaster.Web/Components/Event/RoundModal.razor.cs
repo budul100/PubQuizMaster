@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Components;
+using PubQuizMaster.Core.Extensions;
 using PubQuizMaster.Core.Models.Event;
 using PubQuizMaster.Core.Records.Event;
 using PubQuizMaster.Web.Helpers;
@@ -32,6 +33,19 @@ namespace PubQuizMaster.Web.Components.Event
 
         #endregion Public Properties
 
+        #region Private Properties
+
+        /// <summary>Active teams of the night in sheet order, i.e. alphabetical.</summary>
+        private Participant[] ActiveParticipants => Quiz?.ParticipatingTeams
+            .Where(p => p.IsActive)
+            .OrderBy(p => p.Team.Name, TeamNameComparer.Instance)
+            .ToArray() ?? [];
+
+        private Dictionary<Guid, string> TeamNames => Quiz?.ParticipatingTeams
+            .ToDictionary(p => p.TeamId, p => p.Team.Name) ?? new();
+
+        #endregion Private Properties
+
         #region Protected Methods
 
         protected override void OnParametersSet()
@@ -50,18 +64,6 @@ namespace PubQuizMaster.Web.Components.Event
 
         #region Private Methods
 
-        private static void ToggleTeam(ScorerAssignment scorer, Guid teamId, bool isAssigned)
-        {
-            if (isAssigned)
-            {
-                if (!scorer.TeamIds.Contains(teamId)) scorer.TeamIds.Add(teamId);
-            }
-            else
-            {
-                scorer.TeamIds.Remove(teamId);
-            }
-        }
-
         private void AddScorer()
         {
             var usedLabels = assignments
@@ -79,21 +81,27 @@ namespace PubQuizMaster.Web.Components.Event
                     ? $"Scorer {assignments.Count + 1}"
                     : $"Scorer {letter}"
             });
+
+            AutoDistributeTeams();
         }
 
+        /// <summary>
+        /// Strictly alphabetical: stations in label order, each gets a contiguous block of team names.
+        /// </summary>
         private void AutoDistributeTeams()
         {
             if (Quiz == null || assignments.Count == 0) return;
 
-            foreach (var a in assignments) a.TeamIds.Clear();
+            assignments = [.. assignments.OrderBy(a => a.Label, TeamNameComparer.Instance)];
 
-            var activeTeams = Quiz.ParticipatingTeams
-                .Where(pt => pt.IsActive)
-                .OrderBy(pt => pt.SheetOrder).ToList();
+            var blocks = TeamDistribution.Split(
+                items: ActiveParticipants,
+                name: p => p.Team.Name,
+                stationCount: assignments.Count);
 
-            for (int i = 0; i < activeTeams.Count; i++)
+            for (var i = 0; i < assignments.Count; i++)
             {
-                assignments[i % assignments.Count].TeamIds.Add(activeTeams[i].TeamId);
+                assignments[i].TeamIds = [.. blocks[i].Select(p => p.TeamId)];
             }
         }
 
@@ -137,45 +145,76 @@ namespace PubQuizMaster.Web.Components.Event
 
             SelectContentRound(nextContentRound?.Position);
 
-            if (lastRound != null)
+            if (lastRound != null && HasSameStations(lastRound))
             {
-                var activeTeamIds = Quiz.ParticipatingTeams
-                    .Where(pt => pt.IsActive)
-                    .Select(pt => pt.TeamId)
-                    .ToHashSet();
-
-                assignments = lastRound.Assignments
-                    .OrderBy(a => a.Label, StringComparer.OrdinalIgnoreCase)
-                    .Select(a => new ScorerAssignment
-                    {
-                        ScorerId = a.ScorerId,
-                        Label = a.Label,
-                        TeamIds = a.TeamIds.Where(tid => activeTeamIds.Contains(tid)).ToList()
-                    }).ToList();
-
-                var assignedTeamIds = assignments.SelectMany(s => s.TeamIds).ToHashSet();
-                var unassigned = Quiz.ParticipatingTeams
-                    .Where(pt => pt.IsActive && !assignedTeamIds.Contains(pt.TeamId))
-                    .OrderBy(pt => pt.SheetOrder)
-                    .ToList();
-
-                for (int i = 0; i < unassigned.Count; i++)
-                {
-                    assignments[i % assignments.Count].TeamIds.Add(unassigned[i].TeamId);
-                }
+                KeepPreviousBlocks(lastRound);
             }
             else
             {
-                assignments =
-                [
-                    new ScorerAssignment
-                    {
-                        ScorerId = ScorerTokens.Create(),
-                        Label = "Scorer A"
-                    }
-                ];
+                StartFromStations();
+            }
+        }
 
-                AutoDistributeTeams();
+        /// <summary>
+        /// Whether the stations of the night are still the ones of the given round.
+        /// Nights from before stations existed have none and count as unchanged.
+        /// </summary>
+        private bool HasSameStations(Round round)
+        {
+            if (Quiz == null || Quiz.Stations.Count == 0) return true;
+
+            var stationIds = Quiz.Stations
+                .Select(s => s.ScorerId)
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+            return stationIds.SetEquals(round.Assignments.Select(a => a.ScorerId));
+        }
+
+        /// <summary>
+        /// Scorers keep their block of the previous round. Teams without a station are inserted
+        /// into the station whose alphabetical range covers them.
+        /// </summary>
+        private void KeepPreviousBlocks(Round lastRound)
+        {
+            var activeTeamIds = ActiveParticipants
+                .Select(p => p.TeamId)
+                .ToHashSet();
+
+            assignments = [.. lastRound.Assignments
+                .OrderBy(a => a.Label, TeamNameComparer.Instance)
+                .Select(a => new ScorerAssignment
+                {
+                    ScorerId = a.ScorerId,
+                    Label = a.Label,
+                    TeamIds = [.. a.TeamIds.Where(activeTeamIds.Contains)]
+                })];
+
+            var teamNames = TeamNames;
+
+            var assignedTeamIds = assignments
+                .SelectMany(s => s.TeamIds)
+                .ToHashSet();
+
+            var unassigned = ActiveParticipants
+                .Where(p => !assignedTeamIds.Contains(p.TeamId))
+                .ToArray();
+
+            foreach (var participant in unassigned)
+            {
+                var stationNames = assignments
+                    .Select(a => a.TeamIds
+                        .Select(id => teamNames.GetValueOrDefault(id))
+                        .OfType<string>()
+                        .ToArray())
+                    .ToArray();
+
+                var index = TeamDistribution.FindStation(stationNames, participant.Team.Name);
+                assignments[index].TeamIds.Add(participant.TeamId);
+            }
+
+            foreach (var assignment in assignments)
+            {
+                SortTeamIds(assignment);
             }
         }
 
@@ -183,13 +222,8 @@ namespace PubQuizMaster.Web.Components.Event
         {
             if (assignments.Count <= 1 || index >= assignments.Count) return;
 
-            var orphanedTeamIds = assignments[index].TeamIds;
             assignments.RemoveAt(index);
-
-            foreach (var teamId in orphanedTeamIds)
-            {
-                assignments.MinBy(a => a.TeamIds.Count)!.TeamIds.Add(teamId);
-            }
+            AutoDistributeTeams();
         }
 
         /// <summary>
@@ -209,14 +243,49 @@ namespace PubQuizMaster.Web.Components.Event
             isFinalRound = content.Rounds.Count > 1 && contentRound == content.Rounds[^1];
         }
 
+        private void SortTeamIds(ScorerAssignment assignment)
+        {
+            var teamNames = TeamNames;
+
+            assignment.TeamIds = [.. assignment.TeamIds
+                .OrderBy(id => teamNames.GetValueOrDefault(id, string.Empty), TeamNameComparer.Instance)];
+        }
+
+        /// <summary>
+        /// First round or changed stations: the stations of the night, or a single default station,
+        /// with a fresh alphabetical distribution.
+        /// </summary>
+        private void StartFromStations()
+        {
+            if (Quiz == null) return;
+
+            assignments = [.. Quiz.Stations.Select(s => new ScorerAssignment
+            {
+                ScorerId = s.ScorerId,
+                Label = s.Label
+            })];
+
+            if (assignments.Count == 0)
+            {
+                assignments.Add(new ScorerAssignment
+                {
+                    ScorerId = ScorerTokens.Create(),
+                    Label = "Scorer A"
+                });
+            }
+
+            AutoDistributeTeams();
+        }
+
         private async Task SubmitAsync()
         {
             if (Quiz == null || isSubmitting) return;
 
             isSubmitting = true;
+
             try
             {
-                var roundAssignements = assignments
+                var roundAssignments = assignments
                     .Select(a => a.ToRequest()).ToList();
 
                 var request = new RoundRequest(
@@ -224,7 +293,7 @@ namespace PubQuizMaster.Web.Components.Event
                     RoundName: roundName,
                     Length: questionCount,
                     IsFinal: isFinalRound,
-                    Assignments: roundAssignements,
+                    Assignments: roundAssignments,
                     ContentPosition: contentPosition);
 
                 await OnStartRound.InvokeAsync(request);
@@ -232,6 +301,22 @@ namespace PubQuizMaster.Web.Components.Event
             finally
             {
                 isSubmitting = false;
+            }
+        }
+
+        private void ToggleTeam(ScorerAssignment scorer, Guid teamId, bool isAssigned)
+        {
+            if (isAssigned)
+            {
+                if (!scorer.TeamIds.Contains(teamId))
+                {
+                    scorer.TeamIds.Add(teamId);
+                    SortTeamIds(scorer);
+                }
+            }
+            else
+            {
+                scorer.TeamIds.Remove(teamId);
             }
         }
 

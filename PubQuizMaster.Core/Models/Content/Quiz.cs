@@ -5,7 +5,8 @@ namespace PubQuizMaster.Core.Models.Content
     /// Stored as jsonb on the quiz while it is live and dropped on completion.
     /// Title and date of the export live on the quiz itself, see QuizImport.
     /// Always replace the instance, never mutate it: EF detects changes by reference.
-    /// </summary>
+    /// Stored as jsonb on the quiz and kept after completion for the read-only view and statistics.
+    /// /// </summary>
     public class Quiz
     {
         #region Public Properties

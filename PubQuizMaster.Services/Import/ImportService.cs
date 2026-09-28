@@ -1,6 +1,7 @@
 using System.Globalization;
-using ClosedXML.Excel;
 using Microsoft.EntityFrameworkCore;
+using ClosedXML.Excel;
+using PubQuizMaster.Core.Enums;
 using PubQuizMaster.Core.Models.Event;
 using PubQuizMaster.Core.Models.Standings;
 using PubQuizMaster.Core.Records.Import;
@@ -211,8 +212,8 @@ namespace PubQuizMaster.Services.Import
                     Title = title,
                     Description = description,
                     Date = date,
-                    IsCompleted = true,
-                    IsLegacyImport = true
+                    Status = QuizStatus.Completed,
+                    IsLegacyImport = true,
                 };
 
                 db.Quizzes.Add(quiz);
@@ -338,4 +339,3 @@ namespace PubQuizMaster.Services.Import
         #endregion Private Methods
     }
 }
-

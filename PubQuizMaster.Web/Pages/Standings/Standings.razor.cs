@@ -75,7 +75,7 @@ namespace PubQuizMaster.Web.Pages.Standings
             var teams = data.Teams
                 .OrderBy(
                     keySelector: t => t.TeamName,
-                    comparer: StringComparer.CurrentCultureIgnoreCase).ToArray();
+                    comparer: TeamNameComparer.Instance).ToArray();
 
             var rankedByAverage = teams
                 .Where(t => t.QuizzesPlayed >= data.MinQuizzesForAverage).ToArray();

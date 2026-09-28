@@ -11,6 +11,8 @@ namespace PubQuizMaster.Data
 
         public const string ResultPerTeam = "IX_Scores_QuizId_TeamId";
 
+        public const string ScorerStation = "IX_ScorerStations_QuizId_ScorerId";
+
         public const string SingleActiveQuiz = "IX_Quizzes_SingleActive";
 
         public const string TeamName = "IX_Teams_NormalizedName";

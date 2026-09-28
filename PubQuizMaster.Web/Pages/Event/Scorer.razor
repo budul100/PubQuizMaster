@@ -40,7 +40,7 @@
     @if (newTeamsHint != null && (currentPhase == ScoringPhase.Scoring || currentPhase == ScoringPhase.Overview))
     {
         <div class="alert alert-warning py-2 small mb-3 d-flex justify-content-between align-items-center gap-2 flex-shrink-0">
-            <span>New team added at the end of your sheet stack: <strong>@newTeamsHint</strong></span>
+            <span>New team, insert its sheet into your stack: <strong>@newTeamsHint</strong></span>
             <button type="button" class="btn-close" aria-label="Dismiss" @onclick="() => newTeamsHint = null"></button>
         </div>
     }

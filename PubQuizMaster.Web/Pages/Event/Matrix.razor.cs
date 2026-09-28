@@ -76,7 +76,7 @@ namespace PubQuizMaster.Web.Pages.Event
                 })
                 .OrderBy(
                     keySelector: r => r.TeamName,
-                    comparer: StringComparer.CurrentCultureIgnoreCase).ToArray();
+                    comparer: TeamNameComparer.Instance).ToArray();
         }
 
         private void CancelRename()
