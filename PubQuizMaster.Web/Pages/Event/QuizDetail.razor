@@ -7,7 +7,7 @@
 @inject ToastService ToastService
 @implements IDisposable
 
-<PageTitle>@(quiz?.Title ?? "Quiz") – PubQuizMaster</PageTitle>
+<PageTitle>Pub Quiz Master - @(quiz?.Title ?? "Quiz")</PageTitle>
 <SectionContent SectionName="@Constants.PageTitle">@PageHeading</SectionContent>
 
 @if (isLoading)

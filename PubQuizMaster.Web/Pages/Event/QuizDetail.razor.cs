@@ -287,8 +287,9 @@ namespace PubQuizMaster.Web.Pages.Event
                     isNonCompetitive: x => x.IsNonCompetitive)
                 .ToDictionary(x => x.Item.TeamId, x => x.Rank);
 
-            // Ranks come from the ranking, the list itself is alphabetical so teams are easy to find
-            teamStandings = [.. entries.Rank(x => x.TotalScore, x => x.IsNonCompetitive)
+            // Ranks come from the ranking. While the night runs the list is alphabetical, so teams are
+            // easy to find; a completed night reads as its final result, best first.
+            var standings = entries.Rank(x => x.TotalScore, x => x.IsNonCompetitive)
                 .Select(r => new TeamStanding(
                     TeamId: r.Item.TeamId,
                     TeamName: r.Item.Name,
@@ -299,7 +300,15 @@ namespace PubQuizMaster.Web.Pages.Event
                     IsActive: r.Item.IsActive,
                     IsNonCompetitive: r.Item.IsNonCompetitive,
                     CanDelete: r.Item.CanDelete))
-                .OrderBy(s => s.TeamName, TeamNameComparer.Instance)];
+                .ToArray();
+
+            // Same order as the standings page: by points, on equal points the regular team first,
+            // then by name (the stable sort keeps the alphabetical input order)
+            teamStandings = IsCompleted
+                ? [.. standings
+                    .OrderByDescending(s => s.TotalScore)
+                    .ThenBy(s => s.IsNonCompetitive)]
+                : [.. standings.OrderBy(s => s.TeamName, TeamNameComparer.Instance)];
         }
 
         private async Task ExportRoundPresentationAsync(ExportRequest request)
