@@ -1,6 +1,7 @@
 @page "/"
 @namespace PubQuizMaster.Web.Pages
 @inject QuizService QuizService
+@inject QuizStatsService QuizStatsService
 @inject ScorerService SessionService
 @implements IDisposable
 
@@ -18,5 +19,6 @@ else
 {
     <QuizPanel 
         QuizNights="@allQuizzes"
+        Difficulties="@difficulties"
         OnDataChanged="HandleQuizDeletedAsync" />
 }

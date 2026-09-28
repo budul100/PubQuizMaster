@@ -1,0 +1,26 @@
+@namespace PubQuizMaster.Web.Components.Common
+
+<div class="input-group input-group-sm" style="@Style">
+    <span class="input-group-text bg-transparent" aria-hidden="true">
+        <span class="mif-search"></span>
+    </span>
+    @* type="text" instead of "search": the browsers' own clear button differs per browser,
+    this component brings its own *@
+    <input type="text"
+           class="form-control"
+           placeholder="@Placeholder"
+           aria-label="@(AriaLabel ?? Placeholder)"
+           value="@Value"
+           @oninput="HandleInputAsync"
+           @onkeydown="HandleKeyDownAsync" />
+    @if (!string.IsNullOrEmpty(Value))
+    {
+        <button type="button"
+                class="btn btn-outline-secondary"
+                title="Clear"
+                aria-label="Clear"
+                @onclick="ClearAsync">
+            <span class="mif-cross" aria-hidden="true"></span>
+        </button>
+    }
+</div>

@@ -4,11 +4,37 @@
 @using PubQuizMaster.Core.Models.Standings
 @using PubQuizMaster.Services.Common
 @using PubQuizMaster.Services.Event
+@using PubQuizMaster.Web.Components.Charts
 @using PubQuizMaster.Web.Components.Common
 @using PubQuizMaster.Web.Components.Standings
 @inject QuizService LiveQuizService
 @inject ToastService ToastService
 @inject NavigationManager Nav
+
+@if (Difficulties.Length > 0)
+{
+    <div class="card shadow-sm border-0 mb-3">
+        <div class="card-header pqm-card-header">
+            <span class="pqm-card-title">
+                <span class="mif-bar-chart" aria-hidden="true"></span> Correct Answers per Quiz Night
+            </span>
+            @if (AverageRate is { } average)
+            {
+                <span class="small text-muted">Average @average.ToString("0%")</span>
+            }
+        </div>
+        <div class="card-body py-2">
+            <BarChart 
+                Points="DifficultyPoints"
+                Max="1"
+                ValueFormat="0%"
+                ReferenceValue="AverageRate"
+                ReferenceLabel="Average of completed nights"
+                Height="180"
+                AriaLabel="Share of correct answers per quiz night" />
+        </div>
+    </div>
+}
 
 <div class="card shadow-sm border-0">
     <div class="card-header pqm-card-header">
@@ -53,6 +79,7 @@
                     <th>Title</th>
                     <th class="text-end" style="width: 80px;">Teams</th>
                     <th class="text-end" style="width: 80px;">Rounds</th>
+                    <th class="text-end" style="width: 90px;" title="Share of correct answers, lower means harder">Correct</th>
                     <th class="text-end pe-3" style="width: 60px;"></th>
                 </tr>
             </thead>
@@ -60,7 +87,7 @@
                 @if (QuizNights.Count == 0)
                 {
                     <tr>
-                        <td colspan="5" class="text-center py-4 text-muted">No quiz nights yet.</td>
+                        <td colspan="6" class="text-center py-4 text-muted">No quiz nights yet.</td>
                     </tr>
                 }
                 else
@@ -96,6 +123,7 @@
                             </td>
                             <td class="text-end small">@(quiz.IsLegacyImport ? quiz.Results.Count : quiz.ParticipatingTeams.Count)</td>
                             <td class="text-end small">@(quiz.IsLegacyImport ? "–" : quiz.Rounds.Count.ToString())</td>
+                            <td class="text-end small">@(RateOf(quiz)?.ToString("0%") ?? "–")</td>
                             <td class="pqm-actions-cell pe-3">
                                 <div class="pqm-row-actions">
                                     @* stopPropagation: the row itself opens the quiz *@

@@ -87,8 +87,9 @@ builder.Services.AddSingleton<QrCodeService>();
 builder.Services.AddScoped<MatchingService>();
 builder.Services.AddScoped<LeaderboardService>();
 builder.Services.AddScoped<QuizService>();
-builder.Services.AddScoped<TeamService>();
+builder.Services.AddScoped<QuizStatsService>();
 builder.Services.AddScoped<StationService>();
+builder.Services.AddScoped<TeamService>();
 
 builder.Services.AddScoped<ImportService>();
 builder.Services.AddScoped<DownloadService>();

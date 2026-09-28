@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using PubQuizMaster.Core.Enums;
 using PubQuizMaster.Core.Extensions;
 using PubQuizMaster.Core.Models.Event;
 using PubQuizMaster.Core.Models.Standings;
@@ -96,6 +97,29 @@ namespace PubQuizMaster.Services.Standings
                     .AsNoTracking()
                     .FirstAsync(t => t.Normalized == normalized, ct);
             }
+        }
+
+        /// <summary>
+        /// Completed quiz nights of the team in date order, legacy imports included,
+        /// each with the night's team count and average for comparison.
+        /// </summary>
+        public async Task<TeamHistoryEntry[]> GetHistoryAsync(Guid teamId, CancellationToken ct = default)
+        {
+            await using var db = await dbFactory.CreateDbContextAsync(ct);
+
+            return await db.Scores
+                .AsNoTracking()
+                .Where(s => s.TeamId == teamId && s.Quiz.Status == QuizStatus.Completed)
+                .OrderBy(s => s.Quiz.Date)
+                .Select(s => new TeamHistoryEntry(
+                    s.QuizId,
+                    s.Quiz.Date,
+                    s.Quiz.Title,
+                    s.TotalScore,
+                    s.Rank,
+                    s.Quiz.Results.Count,
+                    s.Quiz.Results.Average(r => r.TotalScore)))
+                .ToArrayAsync(ct);
         }
 
         public async Task<Team[]> GetTeamsAsync(CancellationToken ct = default)

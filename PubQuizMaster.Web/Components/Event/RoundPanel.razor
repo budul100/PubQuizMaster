@@ -2,6 +2,7 @@
 @using Microsoft.AspNetCore.Components.Forms
 @using PubQuizMaster.Core.Models.Standings
 @using PubQuizMaster.Web.Components.Standings
+@using PubQuizMaster.Core.Extensions
 @using PubQuizMaster.Web.Records
 
 <div class="card shadow-sm border-0 h-100">
@@ -9,6 +10,20 @@
         <span class="pqm-card-title">
             <span class="mif-target" aria-hidden="true"></span> Rounds (@(Content == null ? Rounds.Count.ToString() : $"{Rounds.Count} / {Rounds.Count + PlannedRounds.Length}"))
         </span>
+        @if (Rounds.GetCorrectRate() is { } nightRate)
+        {
+            @* Difficulty of tonight against the completed nights, lower means harder *@
+            <span class="small text-muted ms-auto me-2"
+                  title="@RateTitle">
+                @nightRate.ToString("0%") correct
+                @if (AverageRate is { } average)
+                {
+                    <span class="@(nightRate < average ? "text-danger" : "text-success")">
+                        (Ø @average.ToString("0%"))
+                    </span>
+                }
+            </span>
+        }
         @if (!IsReadOnly && ActiveRound == null)
         {
             @* Disabled with a hint instead of hidden, so a planned night shows why no round can start *@
@@ -28,6 +43,7 @@
                 <tr>
                     <th class="ps-3">Round</th>
                     <th class="text-end" style="width: 50px;" title="Number of questions">Questions</th>
+                    <th class="text-end" style="width: 70px;" title="Share of correct answers">Correct</th>
                     <th class="text-end pe-3" style="width: 130px;"></th>
                 </tr>
             </thead>
@@ -35,7 +51,7 @@
                 @if (Rounds.Count == 0 && PlannedRounds.Length == 0)
                 {
                     <tr>
-                        <td colspan="3" class="text-center py-4 text-muted small">
+                        <td colspan="4" class="text-center py-4 text-muted small">
                             @(IsReadOnly ? "No rounds were played." : "No rounds started yet. Use the play button above to start the first round.")
                         </td>
                     </tr>
@@ -54,6 +70,7 @@
                                 }
                             </td>
                             <td class="text-end small text-muted">@round.Length</td>
+                            <td class="text-end small text-muted">@(round.GetCorrectRate()?.ToString("0%") ?? "–")</td>
                             <td class="pqm-actions-cell pe-3">
                                 <div class="pqm-row-actions">
                                     <a class="btn btn-sm btn-outline-secondary py-0 px-2"
@@ -104,6 +121,7 @@
                                 <span class="badge bg-secondary-subtle text-secondary-emphasis ms-1">Planned</span>
                             </td>
                             <td class="text-end small">@planned.Questions.Count</td>
+                            <td></td>
                             <td class="pe-3"></td>
                         </tr>
                     }

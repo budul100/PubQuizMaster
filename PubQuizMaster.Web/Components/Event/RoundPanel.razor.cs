@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Forms;
+using PubQuizMaster.Core.Extensions;
 using PubQuizMaster.Core.Models.Event;
 using PubQuizMaster.Web.Records;
 
@@ -16,6 +17,9 @@ namespace PubQuizMaster.Web.Components.Event
         #region Public Properties
 
         [Parameter] public Round? ActiveRound { get; set; }
+
+        /// <summary>Average correct share of the completed nights, for the comparison with tonight.</summary>
+        [Parameter] public decimal? AverageRate { get; set; }
 
         /// <summary>Whether a new round can be started now, i.e. the night is live and no round is open.</summary>
         [Parameter] public bool CanStartRound { get; set; }
@@ -42,6 +46,10 @@ namespace PubQuizMaster.Web.Components.Event
         #endregion Public Properties
 
         #region Private Properties
+
+        private string RateTitle => AverageRate is { } average
+            ? $"Share of correct answers tonight, average of completed nights {average:0%}"
+            : "Share of correct answers tonight";
 
         /// <summary>Uploaded rounds that no live round is linked to yet, in position order.</summary>
         private Core.Models.Content.Round[] PlannedRounds => Content?.Rounds

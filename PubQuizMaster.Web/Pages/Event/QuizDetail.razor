@@ -2,6 +2,7 @@
 @using PubQuizMaster.Core.Enums
 @using PubQuizMaster.Core.Extensions
 @inject QuizService QuizService
+@inject QuizStatsService QuizStatsService
 @inject ScorerService SessionService
 @inject ToastService ToastService
 @implements IDisposable
@@ -149,6 +150,7 @@ else
                     Rounds="quiz.Rounds"
                     Content="quiz.Content"
                     ActiveRound="activeRound"
+                    AverageRate="averageRate"
                     CanStartRound="@(quiz.Status == QuizStatus.Live)"
                     StartRoundHint="Activate the quiz night to start a round"
                     IsReadOnly="IsCompleted"

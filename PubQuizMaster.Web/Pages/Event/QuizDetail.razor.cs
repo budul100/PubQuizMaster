@@ -22,6 +22,7 @@ namespace PubQuizMaster.Web.Pages.Event
 
         private readonly CancellationTokenSource cts = new();
         private Round? activeRound;
+        private decimal? averageRate;
         private string finalizeWarningMessage = string.Empty;
         private bool isExporting;
         private bool isLoading = true;
@@ -131,6 +132,7 @@ namespace PubQuizMaster.Web.Pages.Event
             CloseAllModals();
 
             await LoadStateAsync();
+            await LoadAverageRateAsync();
         }
 
         #endregion Protected Methods
@@ -151,6 +153,7 @@ namespace PubQuizMaster.Web.Pages.Event
                 ToastService.ShowSuccess($"Quiz night '{quiz.Title}' is live.");
 
                 await LoadStateAsync();
+                await LoadAverageRateAsync();
             }
             catch (Exception ex)
             {
@@ -231,6 +234,7 @@ namespace PubQuizMaster.Web.Pages.Event
                 ToastService.ShowSuccess($"Quiz night '{title}' completed.");
 
                 await LoadStateAsync();
+                await LoadAverageRateAsync();
             }
             catch (Exception ex)
             {
@@ -438,6 +442,28 @@ namespace PubQuizMaster.Web.Pages.Event
         private void HandleStatusChanged()
         {
             _ = InvokeAsync(StateHasChanged);
+        }
+
+        /// <summary>
+        /// Average correct share of the other completed nights. Loaded once per night and after
+        /// status changes, tonight's own share is computed from the loaded rounds on every reload.
+        /// </summary>
+        private async Task LoadAverageRateAsync()
+        {
+            try
+            {
+                var difficulties = await QuizStatsService.GetDifficultiesAsync();
+
+                averageRate = difficulties
+                    .Where(d => d.Status == QuizStatus.Completed && d.QuizId != QuizId)
+                    .Select(d => (decimal?)d.CorrectRate)
+                    .DefaultIfEmpty()
+                    .Average();
+            }
+            catch (Exception ex)
+            {
+                Logger.LogWarning(ex, "Loading the quiz statistics failed.");
+            }
         }
 
         private async Task LoadStateAsync()

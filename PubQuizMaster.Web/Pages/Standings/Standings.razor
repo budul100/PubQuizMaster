@@ -39,13 +39,10 @@
                     Quizzes
                 </button>
             </div>
-            <input type="search"
-                   class="form-control form-control-sm"
-                   style="width: 200px;"
-                   placeholder="Search team…"
-                   aria-label="Search team"
-                   @bind="searchTerm"
-                   @bind:event="oninput" />
+            <SearchBox 
+                @bind-Value="searchTerm"
+                Placeholder="Search team…"
+                Style="width: 220px;" />
         </div>
     </div>
 

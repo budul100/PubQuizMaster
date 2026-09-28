@@ -357,11 +357,7 @@ namespace PubQuizMaster.Services.Event
         private static RankedTeam[] CalculateRanks((Team Team, decimal Score, bool IsNonCompetitive)[] scores)
         {
             // Tie order within a rank, same comparer as dashboard and matrix
-            var ordered = scores
-                .OrderBy(
-                    keySelector: x => x.Team.Name,
-                    comparer: TeamNameComparer.Instance).ToArray();
-
+            var ordered = scores.OrderBy(x => x.Team.Name, TeamNameComparer.Instance).ToArray();
             return [.. ordered.Rank(x => x.Score, x => x.IsNonCompetitive)
                 .Select(r => new RankedTeam(r.Item.Team, r.Item.Score, r.Rank))];
         }
@@ -472,6 +468,8 @@ namespace PubQuizMaster.Services.Event
         /// Fills the Team1..TeamN shapes and the Points shape of a winners or podium slide.
         /// Entries arrive in ranking order, regular teams first. The slide shows their score;
         /// a non-competitive team sharing the rank with a different score gets its own score behind the name.
+        /// The entries are centered on the shapes (5 shapes: one team on 3, two on 2 and 3, three on 2 to 4),
+        /// unused shapes are hidden.
         /// </summary>
         private static void FillWinnersSlide(SlidePart sp, string slideName, RankedTeam[] entries,
             IssueService issues)
@@ -497,18 +495,26 @@ namespace PubQuizMaster.Services.Event
                     $"Not shown: {dropped}.");
             }
 
+            var offset = GetCenterOffset(
+                capacity: capacity,
+                count: entries.Length);
+
             for (var index = 1; index <= capacity; index++)
             {
-                var text = index <= entries.Length
-                    ? FormatWinnerName(entries[index - 1], slideScore)
-                    : string.Empty;
+                var entryIndex = index - 1 - offset;
+                var isUsed = entryIndex >= 0 && entryIndex < entries.Length;
 
                 SetShapeText(
                     sp: sp,
                     slideName: slideName,
                     shapeName: $"{ShapePrefixTeam}{index}",
-                    text: text,
+                    text: isUsed ? FormatWinnerName(entries[entryIndex], slideScore) : string.Empty,
                     issues: issues);
+
+                SetNamedShapeVisibility(
+                    sp: sp,
+                    name: $"{ShapePrefixTeam}{index}",
+                    visible: isUsed);
             }
 
             SetShapeText(
@@ -578,6 +584,17 @@ namespace PubQuizMaster.Services.Event
         /// Question slides in deck order, recognized by their Question shape.
         /// Standings and podium slides never carry one, so the two sets cannot overlap.
         /// </summary>
+        /// <summary>
+        /// Number of shapes to skip so the entries sit in the middle. With an odd remainder the
+        /// entries lean to the top: 5 shapes and 2 teams use shapes 2 and 3.
+        /// </summary>
+        private static int GetCenterOffset(int capacity, int count)
+        {
+            return count < capacity
+                ? (capacity - count) / 2
+                : 0;
+        }
+
         private static SlidePart[] GetQuestionSlides(SlidePart[] slides)
         {
             return [.. slides.Where(sp => HasShape(
@@ -702,6 +719,25 @@ namespace PubQuizMaster.Services.Event
         }
 
         /// <summary>Shows or hides all shapes whose name starts with the prefix.</summary>
+        /// <summary>
+        /// Shows or hides the one shape with exactly this name. A prefix match would also catch
+        /// Team10 when asking for Team1.
+        /// </summary>
+        private static void SetNamedShapeVisibility(SlidePart sp, string name, bool visible)
+        {
+            var properties = sp.Slide?.Descendants<Shape>()
+                .Select(s => s.NonVisualShapeProperties?.NonVisualDrawingProperties)
+                .FirstOrDefault(p => p?.Name?.Value == name);
+
+            if (properties != null)
+            {
+                // Removing the attribute is the default state "visible", only hiding writes it
+                properties.Hidden = visible
+                    ? null
+                    : true;
+            }
+        }
+
         private static void SetShapeVisibility(SlidePart sp, string prefix, bool visible)
         {
             var shapes = sp.Slide?.Descendants<Shape>()

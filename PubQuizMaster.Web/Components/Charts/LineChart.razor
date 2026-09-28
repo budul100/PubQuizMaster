@@ -1,0 +1,65 @@
+@namespace PubQuizMaster.Web.Components.Charts
+
+@if (Labels.Length == 0 || Series.Length == 0)
+{
+    <div class="text-muted small text-center py-3">@EmptyText</div>
+}
+else
+{
+    var plotWidth = ChartLayout.Width - ChartLayout.Left - ChartLayout.Right;
+    var plotHeight = Height - ChartLayout.Top - ChartLayout.Bottom;
+    var max = AxisMax;
+    var labelStep = ChartLayout.LabelStep(Labels.Length);
+
+    <svg viewBox="0 0 @ChartLayout.Width.ToString(Inv) @Height.ToString(Inv)"
+         style="width: 100%; height: auto; display: block;"
+         role="img"
+         aria-label="@AriaLabel">
+
+        @foreach (var fraction in new[] { 0d, 0.5d, 1d })
+        {
+            var y = ChartLayout.Top + plotHeight * (1 - fraction);
+            <line x1="@ChartLayout.Left.ToString(Inv)" x2="@((ChartLayout.Width - ChartLayout.Right).ToString(Inv))"
+                  y1="@y.ToString(Inv)" y2="@y.ToString(Inv)"
+                  stroke="var(--bs-border-color)" stroke-width="1" />
+            <SvgText X="@(ChartLayout.Left - 6)" Y="@(y + 4)" Anchor="end" FontSize="11" Text="@((max * (decimal)fraction).ToString(ValueFormat))" />
+        }
+
+        @for (int i = 0; i < Labels.Length; i += labelStep)
+        {
+            <SvgText X="@(X(i, plotWidth))" Y="@(Height - 8)" Anchor="middle" FontSize="11" Text="@Labels[i]" />
+        }
+
+        @foreach (var series in Series)
+        {
+            <polyline points="@PolylinePoints(series, plotWidth, plotHeight, max)"
+                      fill="none"
+                      stroke="@series.Color"
+                      stroke-width="2"
+                      stroke-linejoin="round" />
+
+            @for (int i = 0; i < Labels.Length && i < series.Values.Length; i++)
+            {
+                if (series.Values[i] is not { } value) continue;
+
+                <circle cx="@X(i, plotWidth).ToString(Inv)" cy="@Y(value, plotHeight, max).ToString(Inv)"
+                        r="4" fill="@series.Color">
+                    <title>@(series.Tooltips?.ElementAtOrDefault(i) ?? $"{series.Name}, {Labels[i]}: {value.ToString(ValueFormat)}")</title>
+                </circle>
+            }
+        }
+    </svg>
+
+    @if (Series.Length > 1)
+    {
+        <div class="d-flex justify-content-center gap-3 small text-secondary mt-1">
+            @foreach (var series in Series)
+            {
+                <span class="d-inline-flex align-items-center gap-1">
+                    <span style="display: inline-block; width: 12px; height: 3px; background: @series.Color;"></span>
+                    @series.Name
+                </span>
+            }
+        </div>
+    }
+}

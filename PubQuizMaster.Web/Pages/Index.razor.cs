@@ -1,4 +1,5 @@
 using PubQuizMaster.Core.Models.Event;
+using PubQuizMaster.Core.Records.Event;
 
 namespace PubQuizMaster.Web.Pages
 {
@@ -10,6 +11,7 @@ namespace PubQuizMaster.Web.Pages
         #region Private Fields
 
         private List<Quiz> allQuizzes = [];
+        private QuizDifficulty[] difficulties = [];
         private bool isLoading = true;
 
         #endregion Private Fields
@@ -59,6 +61,7 @@ namespace PubQuizMaster.Web.Pages
         private async Task LoadAsync()
         {
             allQuizzes = await QuizService.GetAllQuizzesAsync();
+            difficulties = await QuizStatsService.GetDifficultiesAsync();
             isLoading = false;
         }
 
