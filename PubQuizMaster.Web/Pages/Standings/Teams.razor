@@ -75,21 +75,16 @@
                     </span>
                 </div>
                 <div class="card-body">
-                    <!-- Rename Form -->
+                    <!-- Rename -->
                     <div class="mb-4">
-                        <label class="form-label small fw-bold">Edit Team Name</label>
-                        <div class="input-group mb-2">
-                            <input type="text" class="form-control" @bind="renameInput" />
-                            <button class="btn btn-outline-primary"
-                                    disabled="@isBusy"
-                                    @onclick="RenameSelectedTeamAsync"
-                                    title="Save Team Name"
-                                    aria-label="Save Team Name">
-                                <span class="mif-pencil" aria-hidden="true"></span>
-                            </button>
-                        </div>
+                        <label class="form-label small fw-bold d-block">Team Name</label>
+                        <TeamNameEditor 
+                            @key="selectedTeam.Id"
+                            TeamId="selectedTeam.Id"
+                            Name="@selectedTeam.Name"
+                            OnRenamed="HandleRenamedAsync"
+                            OnMerged="HandleMergedAsync" />
                     </div>
-
                     <hr />
 
                     <!-- Merge Tool -->
@@ -101,7 +96,7 @@
                         </p>
                         <select class="form-select mb-3" @bind="targetMergeTeamId">
                             <option value="@Guid.Empty">— Select target destination team —</option>
-                            @foreach (var t in teams.Where(t => t.Id != selectedTeam.Id).OrderBy(t => t.Name))
+                            @foreach (var t in teams.Where(t => t.Id != selectedTeam.Id))
                             {
                                 <option value="@t.Id">@t.Name</option>
                             }
@@ -125,3 +120,4 @@
     ConfirmText="Merge"
     OnConfirmed="MergeTeamsAsync"
     OnCanceled="() => showMergeModal = false" />
+

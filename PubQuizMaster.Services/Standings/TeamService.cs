@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using PubQuizMaster.Core.Extensions;
 using PubQuizMaster.Core.Models.Event;
 using PubQuizMaster.Core.Models.Standings;
 using PubQuizMaster.Core.Records.Standings;
@@ -47,6 +48,21 @@ namespace PubQuizMaster.Services.Standings
             return team;
         }
 
+        /// <summary>
+        /// The other team that already carries the given name (by its normalized form),
+        /// null if the name is free for the team. Lets the UI offer a merge instead of failing the rename.
+        /// </summary>
+        public async Task<Team?> FindConflictingTeamAsync(Guid teamId, string name, CancellationToken ct = default)
+        {
+            var (_, normalized) = PrepareName(name);
+
+            await using var db = await dbFactory.CreateDbContextAsync(ct);
+
+            return await db.Teams
+                .AsNoTracking()
+                .FirstOrDefaultAsync(t => t.Normalized == normalized && t.Id != teamId, ct);
+        }
+
         public async Task<Team> GetOrCreateTeamAsync(string name, CancellationToken ct = default)
         {
             var (trimmed, normalized) = PrepareName(name);
@@ -86,10 +102,11 @@ namespace PubQuizMaster.Services.Standings
         {
             await using var db = await dbFactory.CreateDbContextAsync(ct);
 
-            return await db.Teams
+            var teams = await db.Teams
                 .AsNoTracking()
-                .OrderBy(t => t.Name)
                 .ToArrayAsync(ct);
+
+            return [.. teams.OrderBy(t => t.Name, TeamNameComparer.Instance)];
         }
 
         /// <summary>
@@ -269,7 +286,9 @@ namespace PubQuizMaster.Services.Standings
                     db.Participants.Add(new Participant
                     {
                         QuizId = participation.QuizId,
-                        TeamId = targetTeamId
+                        TeamId = targetTeamId,
+                        IsActive = participation.IsActive,
+                        IsNonCompetitive = participation.IsNonCompetitive
                     });
                 }
 
@@ -353,3 +372,4 @@ namespace PubQuizMaster.Services.Standings
         #endregion Private Methods
     }
 }
+

@@ -1,0 +1,70 @@
+@namespace PubQuizMaster.Web.Components.Common
+
+@if (conflict != null)
+{
+    @* Renaming to an existing name is almost always a duplicate from a typo: offer the merge *@
+    <div class="d-flex flex-column gap-1">
+        <div class="small text-warning-emphasis">
+            <span class="mif-warning" aria-hidden="true"></span>
+            <strong>@conflict.Name</strong> already exists. Merge <strong>@Name</strong> into it?
+        </div>
+        <div class="d-flex gap-1">
+            <button type="button"
+                    class="btn btn-warning btn-sm py-0 px-2"
+                    disabled="@isBusy"
+                    @onclick="MergeAsync">
+                Merge
+            </button>
+            <button type="button"
+                    class="btn btn-outline-secondary btn-sm py-0 px-2"
+                    disabled="@isBusy"
+                    @onclick="CancelMerge">
+                Cancel
+            </button>
+        </div>
+    </div>
+}
+else if (isEditing)
+{
+    <div class="input-group input-group-sm" style="max-width: 320px;">
+        <input type="text"
+               class="form-control"
+               aria-label="Team name"
+               @ref="inputRef"
+               @bind="editValue"
+               @bind:event="oninput"
+               @onkeydown="HandleKeyDownAsync" />
+        <button type="button"
+                class="btn btn-primary"
+                title="Save name"
+                aria-label="Save name"
+                disabled="@isBusy"
+                @onclick="SaveAsync">
+            <span class="mif-checkmark" aria-hidden="true"></span>
+        </button>
+        <button type="button"
+                class="btn btn-outline-secondary"
+                title="Cancel"
+                aria-label="Cancel"
+                disabled="@isBusy"
+                @onclick="CancelEdit">
+            <span class="mif-cross" aria-hidden="true"></span>
+        </button>
+    </div>
+}
+else
+{
+    <span class="d-inline-flex align-items-center gap-1" style="max-width: 100%;">
+        <span class="text-truncate @NameClass">@Name</span>
+        @if (!IsReadOnly)
+        {
+            <button type="button"
+                    class="btn btn-link btn-sm p-0 text-secondary flex-shrink-0"
+                    title="Rename team"
+                    aria-label="Rename team"
+                    @onclick="StartEditAsync">
+                <span class="mif-pencil" aria-hidden="true"></span>
+            </button>
+        }
+    </span>
+}

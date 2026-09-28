@@ -118,6 +118,14 @@ namespace PubQuizMaster.Web.Pages.Standings
                 AverageRank: averageRanks.GetValueOrDefault(t.TeamId)))];
         }
 
+        /// <summary>Place of the row in the selected ranking, 0 if the row is not ranked by it.</summary>
+        private int ActiveRank(LeaderboardRow row) => sort switch
+        {
+            StandingsSort.Average => row.AverageRank,
+            StandingsSort.Quizzes => row.QuizzesRank,
+            _ => row.TotalRank
+        };
+
         /// <summary>Highlights the cells of the column the ranking is based on.</summary>
         private string CellClass(StandingsSort column) => sort == column
             ? "fw-bold text-primary"
@@ -162,3 +170,4 @@ namespace PubQuizMaster.Web.Pages.Standings
         #endregion Private Methods
     }
 }
+

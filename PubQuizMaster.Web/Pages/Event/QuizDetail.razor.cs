@@ -428,6 +428,13 @@ namespace PubQuizMaster.Web.Pages.Event
             await LoadStateAsync();
         }
 
+        private async Task HandleTeamChangedAsync()
+        {
+            // Renames and merges change the sheet names on the scorer pages
+            NotifyRoundChanged();
+            await LoadStateAsync();
+        }
+
         private void HandleStatusChanged()
         {
             _ = InvokeAsync(StateHasChanged);

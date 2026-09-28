@@ -1,0 +1,12 @@
+@namespace PubQuizMaster.Web.Components.Standings
+
+@if (Rank > 0)
+{
+    @* Teams out of competition show the place they would have, faded, so it can still be told *@
+    <span class="@(IsNonCompetitive ? "opacity-50 fst-italic fw-normal" : null)"
+          title="@(IsNonCompetitive ? "Out of competition, would be place " + Rank : null)">@Rank</span>
+}
+else
+{
+    <span class="text-muted">–</span>
+}

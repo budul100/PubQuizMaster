@@ -1,4 +1,5 @@
-@namespace PubQuizMaster.Web.Components.Standings
+@namespace PubQuizMaster.Web.Components.Event
+@using PubQuizMaster.Web.Components.Standings
 
 <div class="card shadow-sm border-0 h-100">
     <div class="card-header pqm-card-header">
@@ -57,9 +58,13 @@
                         @foreach (var entry in Standings)
                         {
                             @* Unchecked teams are removed when the first round starts *@
-                            <tr class="@(!entry.IsActive ? "text-muted" : null)">
-                                <td class="ps-3 fw-semibold text-truncate small" style="max-width: 200px;">
-                                    @entry.TeamName
+                            <tr class="@(!entry.IsActive ? "text-muted" : null)" @key="entry.TeamId">
+                                <td class="ps-3 fw-semibold small" style="max-width: 220px;">
+                                    <TeamNameEditor 
+                                        TeamId="entry.TeamId"
+                                        Name="@entry.TeamName"
+                                        OnRenamed="_ => OnTeamChanged.InvokeAsync()"
+                                        OnMerged="_ => OnTeamChanged.InvokeAsync()" />
                                     @if (entry.IsNonCompetitive)
                                     {
                                         <span class="badge bg-secondary ms-1" title="Out of competition">OOC</span>
@@ -121,14 +126,20 @@
                     {
                         @foreach (var entry in Standings)
                         {
-                            <tr class="@(!entry.IsActive ? "opacity-50 bg-light" : "")">
+                            <tr class="@(!entry.IsActive ? "opacity-50 bg-light" : "")" @key="entry.TeamId">
                                 <td class="text-end fw-bold text-secondary small">
-                                    @(entry.IsActive ? entry.OverallRank.ToString() : "—")
+                                    <RankNumber 
+                                        Rank="@(entry.IsActive ? entry.OverallRank : 0)"
+                                        IsNonCompetitive="entry.IsNonCompetitive" />
                                 </td>
-                                <td class="fw-semibold text-truncate small" style="max-width: 160px;">
-                                    <span class="@(!entry.IsActive ? "text-decoration-line-through text-muted" : "")">
-                                        @entry.TeamName
-                                    </span>
+                                <td class="fw-semibold small" style="max-width: 200px;">
+                                    <TeamNameEditor 
+                                        TeamId="entry.TeamId"
+                                        Name="@entry.TeamName"
+                                        NameClass="@(!entry.IsActive ? "text-decoration-line-through text-muted" : null)"
+                                        IsReadOnly="IsReadOnly"
+                                        OnRenamed="_ => OnTeamChanged.InvokeAsync()"
+                                        OnMerged="_ => OnTeamChanged.InvokeAsync()" />
                                     @if (entry.IsNonCompetitive)
                                     {
                                         <span class="badge bg-secondary ms-1" title="Out of competition">OOC</span>

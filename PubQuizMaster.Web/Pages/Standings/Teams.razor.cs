@@ -11,7 +11,6 @@ namespace PubQuizMaster.Web.Pages.Standings
         private string filterQuery = string.Empty;
         private bool isBusy;
         private string newTeamName = string.Empty;
-        private string renameInput = string.Empty;
         private Team? selectedTeam;
         private bool showMergeModal;
         private Guid targetMergeTeamId = Guid.Empty;
@@ -126,29 +125,27 @@ namespace PubQuizMaster.Web.Pages.Standings
             }
         }
 
-        private async Task RenameSelectedTeamAsync()
+        private async Task HandleMergedAsync(TeamMerge result)
         {
-            if (selectedTeam == null || string.IsNullOrWhiteSpace(renameInput) || isBusy) return;
+            // The selected team no longer exists, continue with the team it was merged into
+            var target = teams.FirstOrDefault(t => t.Name == result.TargetName);
 
-            isBusy = true;
-            try
-            {
-                var team = await TeamService.RenameTeamAsync(
-                    teamId: selectedTeam.Id,
-                    newName: renameInput);
-                ToastService.ShowSuccess($"Team renamed to '{team.Name}'.");
+            await LoadTeamsAsync();
 
-                await LoadTeamsAsync();
-                SelectTeamById(team.Id);
-            }
-            catch (Exception ex)
+            if (target != null)
             {
-                ToastService.ShowError(ex.Message);
+                SelectTeamById(target.Id);
             }
-            finally
+            else
             {
-                isBusy = false;
+                selectedTeam = null;
             }
+        }
+
+        private async Task HandleRenamedAsync(Team team)
+        {
+            await LoadTeamsAsync();
+            SelectTeamById(team.Id);
         }
 
         private void SelectExistingTeam(Team team)
@@ -160,7 +157,6 @@ namespace PubQuizMaster.Web.Pages.Standings
         private void SelectTeam(Team team)
         {
             selectedTeam = team;
-            renameInput = team.Name;
             targetMergeTeamId = Guid.Empty;
         }
 

@@ -2,7 +2,7 @@ using Microsoft.AspNetCore.Components;
 using PubQuizMaster.Web.Components.Common;
 using PubQuizMaster.Web.Records;
 
-namespace PubQuizMaster.Web.Components.Standings
+namespace PubQuizMaster.Web.Components.Event
 {
     public partial class TeamPanel
     {
@@ -28,6 +28,9 @@ namespace PubQuizMaster.Web.Components.Standings
         [Parameter] public EventCallback<string> OnRegisterTeam { get; set; }
 
         [Parameter] public EventCallback<Guid> OnRemoveTeam { get; set; }
+
+        /// <summary>Raised after a team was renamed or merged. The page reloads and notifies the scorers.</summary>
+        [Parameter] public EventCallback OnTeamChanged { get; set; }
 
         [Parameter] public EventCallback<(Guid TeamId, bool IsActive, bool IsNonCompetitive)> OnUpdateStatus { get; set; }
 

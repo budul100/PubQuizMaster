@@ -141,6 +141,7 @@ else
                     IsCheckInPhase="@(quiz.Rounds.Count == 0)"
                     OnRegisterTeam="AddTeamAsync"
                     OnRemoveTeam="PromptDeleteTeam"
+                    OnTeamChanged="HandleTeamChangedAsync"
                     OnUpdateStatus="UpdateParticipantStatusAsync" />
             </div>
             <div class="col-12 col-lg-6">

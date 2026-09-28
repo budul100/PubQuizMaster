@@ -75,6 +75,7 @@
             <table class="table table-sm table-hover align-middle mb-0">
                 <thead class="small text-secondary">
                     <tr>
+                        <th class="text-end" style="width: 50px;" title="Place by the selected ranking">#</th>
                         <th>Team</th>
                         <th class="text-center" style="width: 50px;" title="Out of competition">OOC</th>
                         <th style="width: 130px;" class="text-center @HeaderClass(StandingsSort.Total)">Total</th>
@@ -88,6 +89,11 @@
                         var entry = row.Team;
 
                         <tr>
+                            <td class="text-end fw-bold text-secondary">
+                                <RankNumber 
+                                    Rank="ActiveRank(row)"
+                                    IsNonCompetitive="entry.IsNonCompetitive" />
+                            </td>
                             <td class="fw-semibold">
                                 <a class="text-decoration-none text-dark" href="/teams?teamId=@entry.TeamId">
                                     @entry.TeamName
@@ -136,5 +142,6 @@
         </div>
     }
 </div>
+
 
 
