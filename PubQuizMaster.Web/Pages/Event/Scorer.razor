@@ -18,8 +18,12 @@
         <div>
             <h5 class="mb-0 fw-bold text-danger d-flex align-items-center gap-1">
                 <span class="mif-target" aria-hidden="true"></span> @(round?.Name ?? "Scorer")
+                @if (isPractice)
+                {
+                    <span class="badge bg-warning text-dark ms-1">Practice</span>
+                }
             </h5>
-            <small class="text-secondary">@(assignment?.Label ?? currentScorerId)</small>
+            <small class="text-secondary">@(assignment?.Label ?? preview?.Label ?? currentScorerId)</small>
         </div>
         <div class="d-flex align-items-center gap-2">
             @if (currentPhase == ScoringPhase.Scoring)
@@ -32,6 +36,12 @@
             {
                 <button class="btn btn-outline-light btn-sm d-flex align-items-center gap-1" @onclick="() => SetPhase(ScoringPhase.Scoring)">
                     <span class="mif-arrow-left" aria-hidden="true"></span> Back
+                </button>
+            }
+            @if (isPractice)
+            {
+                <button class="btn btn-outline-warning btn-sm d-flex align-items-center gap-1" @onclick="StopPractice">
+                    <span class="mif-stop" aria-hidden="true"></span> End
                 </button>
             }
         </div>
@@ -65,7 +75,6 @@
                        @bind="inputScorerId"
                        @bind:event="oninput" />
             </div>
-
             <button class="btn btn-danger w-100 py-2 fw-bold" @onclick="ConnectAsync" disabled="@isLoading">
                 @(isLoading ? "Connecting…" : "Join Session")
             </button>
@@ -73,17 +82,77 @@
     }
     else if (currentPhase == ScoringPhase.Waiting)
     {
-        <div class="card bg-dark text-light border-secondary my-auto p-4 shadow text-center">
-            <div class="spinner-border text-danger mx-auto mb-3" role="status"></div>
-            <h5 class="fw-bold mb-2">Waiting for the next round</h5>
-            <p class="text-secondary small mb-4">
-                No active assignment for <code>@currentScorerId</code>.
-                This page updates automatically as soon as the host starts a round.
-            </p>
-
+        <div class="card bg-dark text-light border-secondary my-auto p-4 shadow">
             @if (!string.IsNullOrEmpty(errorMessage))
             {
                 <div class="alert alert-danger py-2 small mb-3">@errorMessage</div>
+            }
+
+            @if (preview != null)
+            {
+                <div class="text-center mb-3">
+                    <div class="spinner-border spinner-border-sm text-danger mb-2" role="status"></div>
+                    <h5 class="fw-bold mb-1">@preview.Label</h5>
+                    <div class="text-secondary small">
+                        @preview.QuizTitle · @(preview.IsQuizLive ? "waiting for the next round" : "the quiz night has not started yet")
+                    </div>
+                </div>
+
+                <div class="text-secondary text-uppercase fw-bold small mb-2">Your sheets (preliminary)</div>
+                @if (preview.Teams.Length == 0)
+                {
+                    <div class="small text-secondary fst-italic mb-3">No teams assigned yet.</div>
+                }
+                else
+                {
+                    <div class="d-flex flex-wrap gap-1 mb-3">
+                        @for (int i = 0; i < preview.Teams.Length; i++)
+                        {
+                            <span class="badge bg-secondary fw-normal">@(i + 1). @preview.Teams[i].Name</span>
+                        }
+                    </div>
+                }
+
+                <div class="text-secondary text-uppercase fw-bold small mb-2">How it works</div>
+                <div class="d-flex align-items-stretch gap-1 mb-2 text-center small">
+                    <div class="flex-fill border border-secondary rounded p-2">
+                        <span class="mif-list-numbered mif-2x text-danger d-block mb-1" aria-hidden="true"></span>
+                        <strong>1. Sort</strong>
+                        <div class="text-secondary">Stack the sheets in the order shown</div>
+                    </div>
+                    <span class="mif-chevron-right align-self-center text-secondary" aria-hidden="true"></span>
+                    <div class="flex-fill border border-secondary rounded p-2">
+                        <span class="mif-checkmark mif-2x text-danger d-block mb-1" aria-hidden="true"></span>
+                        <strong>2. Score</strong>
+                        <div class="text-secondary">Question by question through all sheets</div>
+                    </div>
+                    <span class="mif-chevron-right align-self-center text-secondary" aria-hidden="true"></span>
+                    <div class="flex-fill border border-secondary rounded p-2">
+                        <span class="mif-eye mif-2x text-danger d-block mb-1" aria-hidden="true"></span>
+                        <strong>3. Check</strong>
+                        <div class="text-secondary">Review the overview, fix by tapping</div>
+                    </div>
+                </div>
+                <div class="text-secondary small mb-4">
+                    <span class="mif-keyboard" aria-hidden="true"></span>
+                    With a keyboard: J or 1 correct, N or 0 incorrect, arrows to move, O for the overview.
+                </div>
+
+                <button class="btn btn-warning w-100 py-2 fw-bold mb-2 d-flex align-items-center justify-content-center gap-2"
+                        @onclick="StartPractice">
+                    <span class="mif-school" aria-hidden="true"></span> Practice
+                </button>
+            }
+            else
+            {
+                <div class="text-center">
+                    <div class="spinner-border text-danger mx-auto mb-3" role="status"></div>
+                    <h5 class="fw-bold mb-2">Waiting for the next round</h5>
+                    <p class="text-secondary small mb-4">
+                        No active assignment for <code>@currentScorerId</code>.
+                        This page updates automatically as soon as the host starts a round.
+                    </p>
+                </div>
             }
 
             <button class="btn btn-outline-light btn-sm" @onclick="ChangeScorerId">
@@ -111,7 +180,6 @@
                     }
                 </div>
             </div>
-
             <button class="btn btn-success w-100 py-3 fs-5 fw-bold mb-2 shadow d-flex align-items-center justify-content-center gap-2" @onclick="StartScoring">
                 <span class="mif-play" aria-hidden="true"></span> Start Scoring
             </button>
@@ -128,6 +196,32 @@
                 <div class="progress-bar bg-danger" style="width: @CompletionPercentage%"></div>
             </div>
         </div>
+
+        @if (PreviousCell is { } previous)
+        {
+            @* The entry just made, to catch a mistyped tap without opening the overview *@
+            <button type="button"
+                    class="btn btn-sm btn-outline-secondary text-light d-flex justify-content-between align-items-center gap-2 mb-2 flex-shrink-0"
+                    title="Go back to the previous sheet"
+                    @onclick="NavigatePrevious">
+                <span class="text-truncate">
+                    <span class="mif-arrow-left" aria-hidden="true"></span>
+                    Previous: @previous.Team.Name · Q@(previous.QuestionIndex + 1)
+                </span>
+                @if (previous.Answer == true)
+                {
+                    <span class="badge bg-success"><span class="mif-checkmark" aria-hidden="true"></span> Correct</span>
+                }
+                else if (previous.Answer == false)
+                {
+                    <span class="badge bg-danger"><span class="mif-cross" aria-hidden="true"></span> Incorrect</span>
+                }
+                else
+                {
+                    <span class="badge bg-secondary">Unanswered</span>
+                }
+            </button>
+        }
 
         @if (CurrentTeam != null)
         {
@@ -211,6 +305,14 @@
     {
         <div class="d-flex flex-column flex-grow-1 overflow-hidden">
             <h6 class="fw-bold mb-2 text-light">Answer Matrix Overview</h6>
+
+            @if (isPractice)
+            {
+                <div class="alert alert-warning py-2 small mb-2">
+                    Practice only, nothing was saved. The page switches to the real round as soon as it starts.
+                </div>
+            }
+
             <div class="flex-grow-1 overflow-auto pe-1 mb-3">
                 @for (int t = 0; t < assignedTeams.Count; t++)
                 {
@@ -249,7 +351,6 @@
             </button>
         </div>
     }
-
 </div>
 
 <style>

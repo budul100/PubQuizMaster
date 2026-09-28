@@ -1,13 +1,14 @@
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Forms;
+using PubQuizMaster.Core.Enums;
 using PubQuizMaster.Core.Models.Event;
 using PubQuizMaster.Services.Import;
 
 namespace PubQuizMaster.Web.Components.Event
 {
     /// <summary>
-    /// Start page while no quiz is active: list of completed quizzes and imports.
-    /// Title, date and description are edited only in the live dashboard (QuizEditModal).
+    /// Start page: every quiz night, the live one on top. A row opens the quiz detail page,
+    /// where nights are activated, completed and reopened.
     /// </summary>
     public partial class QuizPanel
     {
@@ -16,26 +17,25 @@ namespace PubQuizMaster.Web.Components.Event
         private int inputVersion;
         private bool isSubmitting;
         private Quiz? quizToDelete;
-        private Quiz? quizToReopen;
         private bool showDeleteModal;
-        private bool showReopenModal;
 
         #endregion Private Fields
 
         #region Public Properties
 
-        /// <summary>Raised after a quiz night was created or deleted. The page reloads its state.</summary>
+        /// <summary>Raised after a quiz night was deleted. The page reloads its state.</summary>
         [Parameter] public EventCallback OnDataChanged { get; set; }
-
-        /// <summary>
-        /// Raised after a quiz night was reopened. The page notifies the other circuits and reloads,
-        /// so the round change is announced once and loaded once.
-        /// </summary>
-        [Parameter] public EventCallback OnQuizReopened { get; set; }
 
         [Parameter] public List<Quiz> QuizNights { get; set; } = [];
 
         #endregion Public Properties
+
+        #region Private Properties
+
+        /// <summary>Live night first, then the given order (newest first). OrderBy is stable.</summary>
+        private Quiz[] OrderedQuizNights => [.. QuizNights.OrderByDescending(q => q.Status == QuizStatus.Live)];
+
+        #endregion Private Properties
 
         #region Private Methods
 
@@ -46,21 +46,19 @@ namespace PubQuizMaster.Web.Components.Event
             if (isSubmitting) return;
 
             isSubmitting = true;
+
             try
             {
-                // Defaults only, everything is edited in the live dashboard afterwards
+                // Defaults only, everything is edited on the detail page afterwards
                 var today = DateOnly.FromDateTime(DateTime.Today);
+
                 var created = await LiveQuizService.CreateQuizAsync(
                     title: GetDefaultTitle(today),
                     date: today,
                     description: null);
 
-                // Interim until the quiz detail page exists: a new night goes live right away
-                await LiveQuizService.ActivateQuizAsync(created.Id);
-
                 ToastService.ShowSuccess($"Quiz night '{created.Title}' created.");
-
-                await OnDataChanged.InvokeAsync();
+                OpenQuiz(created);
             }
             catch (Exception ex)
             {
@@ -77,12 +75,13 @@ namespace PubQuizMaster.Web.Components.Event
             if (isSubmitting) return;
 
             isSubmitting = true;
+
             try
             {
                 await using var stream = e.File.OpenReadStream(ContentReader.MaxFileSize);
                 var import = await ContentReader.ReadAsync(stream);
 
-                // Title and date come from the export, rounds are started one by one in the live dashboard
+                // Title and date come from the export, rounds are started one by one on the detail page
                 var date = import.Date ?? DateOnly.FromDateTime(DateTime.Today);
                 var title = string.IsNullOrWhiteSpace(import.Title)
                     ? GetDefaultTitle(date)
@@ -94,13 +93,10 @@ namespace PubQuizMaster.Web.Components.Event
                     description: null,
                     content: import.ToContent());
 
-                // Interim until the quiz detail page exists: a new night goes live right away
-                await LiveQuizService.ActivateQuizAsync(created.Id);
-
                 ToastService.ShowSuccess(
                     $"Quiz night '{created.Title}' created with {import.Rounds.Count} rounds of questions.");
 
-                await OnDataChanged.InvokeAsync();
+                OpenQuiz(created);
             }
             catch (Exception ex)
             {
@@ -121,7 +117,6 @@ namespace PubQuizMaster.Web.Components.Event
             {
                 await LiveQuizService.DeleteQuizAsync(quizToDelete.Id);
                 ToastService.ShowSuccess($"Quiz night '{quizToDelete.Title}' deleted.");
-
                 showDeleteModal = false;
                 quizToDelete = null;
                 await OnDataChanged.InvokeAsync();
@@ -132,37 +127,12 @@ namespace PubQuizMaster.Web.Components.Event
             }
         }
 
-        private async Task HandleReopenConfirmedAsync()
-        {
-            if (quizToReopen == null) return;
-
-            var title = quizToReopen.Title;
-            showReopenModal = false;
-
-            try
-            {
-                await LiveQuizService.ActivateQuizAsync(quizToReopen.Id);
-
-                ToastService.ShowSuccess($"Quiz night '{title}' reopened.");
-                quizToReopen = null;
-                await OnQuizReopened.InvokeAsync();
-            }
-            catch (Exception ex)
-            {
-                ToastService.ShowError($"Failed to reopen quiz night: {ex.Message}");
-            }
-        }
+        private void OpenQuiz(Quiz quiz) => Nav.NavigateTo($"/quiz/{quiz.Id}");
 
         private void PromptDelete(Quiz quiz)
         {
             quizToDelete = quiz;
             showDeleteModal = true;
-        }
-
-        private void PromptReopen(Quiz quiz)
-        {
-            quizToReopen = quiz;
-            showReopenModal = true;
         }
 
         #endregion Private Methods

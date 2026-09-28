@@ -1,8 +1,8 @@
 @if (info != null)
 {
-    <span class="badge header-badge header-badge-info" title="Running round">
+    <a class="badge header-badge header-badge-info text-decoration-none" href="/live" title="Running round, open the live quiz night">
         <span class="mif-play" aria-hidden="true"></span> @info.RoundName
-    </span>
+    </a>
 
     @if (info.ScorerIds.Length > 0)
     {

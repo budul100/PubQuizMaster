@@ -35,6 +35,16 @@ namespace PubQuizMaster.Web.Components.Event
 
         #region Private Properties
 
+        /// <summary>
+        /// Teams not checked in before the first round. Starting it removes them from the night.
+        /// </summary>
+        private string[] AbsentTeamNames => Quiz is { Rounds.Count: 0 }
+            ? [.. Quiz.ParticipatingTeams
+                .Where(p => !p.IsActive)
+                .Select(p => p.Team.Name)
+                .Order(TeamNameComparer.Instance)]
+            : [];
+
         /// <summary>Active teams of the night in sheet order, i.e. alphabetical.</summary>
         private Participant[] ActiveParticipants => Quiz?.ParticipatingTeams
             .Where(p => p.IsActive)
@@ -66,20 +76,10 @@ namespace PubQuizMaster.Web.Components.Event
 
         private void AddScorer()
         {
-            var usedLabels = assignments
-                .Select(a => a.Label.Trim())
-                .ToHashSet(StringComparer.OrdinalIgnoreCase);
-
-            var letter = Enumerable.Range('A', 26)
-                .Select(c => (char)c)
-                .FirstOrDefault(c => !usedLabels.Contains($"Scorer {c}"));
-
             assignments.Add(new ScorerAssignment
             {
                 ScorerId = ScorerTokens.Create(),
-                Label = letter == default
-                    ? $"Scorer {assignments.Count + 1}"
-                    : $"Scorer {letter}"
+                Label = StationLabels.Next(assignments.Select(a => a.Label))
             });
 
             AutoDistributeTeams();

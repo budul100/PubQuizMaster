@@ -46,8 +46,9 @@ namespace PubQuizMaster.Services.Common
                 plainText: text,
                 eccLevel: QRCodeGenerator.ECCLevel.M);
 
+            // 16 px per module: sharp in the full-screen zoom, still a few kB as a monochrome PNG
             var qrCode = new PngByteQRCode(data);
-            var bytes = qrCode.GetGraphic(6);
+            var bytes = qrCode.GetGraphic(16);
 
             return $"data:image/png;base64,{Convert.ToBase64String(bytes)}";
         }

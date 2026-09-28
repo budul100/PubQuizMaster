@@ -4,9 +4,11 @@ using PubQuizMaster.Core.Enums;
 using PubQuizMaster.Core.Models.Content;
 using PubQuizMaster.Core.Models.Event;
 using PubQuizMaster.Core.Models.Standings;
+using PubQuizMaster.Core.Records.Event;
 using PubQuizMaster.Services.Common;
 using PubQuizMaster.Services.Event;
 using PubQuizMaster.Web.Enums;
+using PubQuizMaster.Web.Helpers;
 
 namespace PubQuizMaster.Web.Pages.Event
 {
@@ -19,7 +21,6 @@ namespace PubQuizMaster.Web.Pages.Event
 
         // Identifies this page among other open pages of the same scorer station
         private readonly Guid instanceId = Guid.NewGuid();
-
         private readonly Dictionary<(Guid TeamId, int QuestionIndex), bool?> recordedAnswers = [];
 
         private List<Team> assignedTeams = [];
@@ -33,8 +34,16 @@ namespace PubQuizMaster.Web.Pages.Event
         private PeriodicTimer? heartbeatTimer;
         private string inputScorerId = string.Empty;
         private bool isLoading;
+
+        // Practice mode: sample round in this page only, nothing is recorded
+        private bool isPractice;
+
         private bool isRegistered;
         private string? newTeamsHint;
+
+        // Station, quiz night and preliminary teams while no round assigns this station
+        private StationPreview? preview;
+
         private int questionCount = 20;
         private Core.Models.Event.Round? round;
 
@@ -72,6 +81,27 @@ namespace PubQuizMaster.Web.Pages.Event
         private Team? CurrentTeam => assignedTeams.Count > currentTeamIndex
             ? assignedTeams[currentTeamIndex]
             : null;
+
+        /// <summary>
+        /// The cell before the current one in scoring order: the previous sheet of the same question,
+        /// or the last sheet of the previous question. Null on the very first cell.
+        /// </summary>
+        private (Team Team, int QuestionIndex, bool? Answer)? PreviousCell
+        {
+            get
+            {
+                if (assignedTeams.Count == 0) return null;
+
+                var (teamIndex, questionIndex) = currentTeamIndex > 0
+                    ? (currentTeamIndex - 1, currentQuestionIndex)
+                    : (assignedTeams.Count - 1, currentQuestionIndex - 1);
+
+                if (questionIndex < 0 || teamIndex >= assignedTeams.Count) return null;
+
+                var team = assignedTeams[teamIndex];
+                return (team, questionIndex, GetAnswer(team.Id, questionIndex));
+            }
+        }
 
         [Inject] private QuizService LiveQuizService { get; set; } = null!;
 
@@ -151,7 +181,7 @@ namespace PubQuizMaster.Web.Pages.Event
             null => "btn-outline-secondary"
         };
 
-        private static ScoringType MapPhase(ScoringPhase phase) => phase switch
+        private ScoringType MapPhase(ScoringPhase phase) => isPractice ? ScoringType.Practicing : phase switch
         {
             ScoringPhase.SortSheets => ScoringType.Sorting,
 
@@ -170,6 +200,8 @@ namespace PubQuizMaster.Web.Pages.Event
             }
 
             isRegistered = false;
+            isPractice = false;
+            preview = null;
             round = null;
             roundContent = null;
             assignment = null;
@@ -307,8 +339,13 @@ namespace PubQuizMaster.Web.Pages.Event
         {
             var state = await LiveQuizService.GetStateAsync(currentScorerId);
 
+            preview = state.Preview;
+
             if (state.Round == null || state.Assignment == null || state.AssignedTeams.Count == 0)
             {
+                // Practice goes on until a real round assigns this station
+                if (isPractice) return;
+
                 round = null;
                 roundContent = null;
                 assignment = null;
@@ -317,6 +354,12 @@ namespace PubQuizMaster.Web.Pages.Event
                 recordedAnswers.Clear();
                 SetPhase(ScoringPhase.Waiting);
                 return;
+            }
+
+            if (isPractice)
+            {
+                ResetPractice();
+                ToastService.ShowSuccess($"{state.Round.Name} started, practice ended.");
             }
 
             var isNewRound = round?.Id != state.Round.Id;
@@ -429,6 +472,8 @@ namespace PubQuizMaster.Web.Pages.Event
 
             NavigateNext();
 
+            if (isPractice) return;
+
             try
             {
                 await LiveQuizService.RecordAnswerAsync(
@@ -464,9 +509,22 @@ namespace PubQuizMaster.Web.Pages.Event
                 scorerId: currentScorerId,
                 instanceId: instanceId,
                 phase: MapPhase(currentPhase),
-                roundId: round?.Id,
+                roundId: isPractice ? null : round?.Id,
                 questionIndex: currentQuestionIndex,
                 teamIndex: currentTeamIndex);
+        }
+
+        /// <summary>Drops the practice data without reporting, a real round or the waiting page follows.</summary>
+        private void ResetPractice()
+        {
+            isPractice = false;
+            round = null;
+            roundContent = null;
+            assignedTeams = [];
+            recordedAnswers.Clear();
+            newTeamsHint = null;
+            currentTeamIndex = 0;
+            currentQuestionIndex = 0;
         }
 
         private void SetPhase(ScoringPhase phase)
@@ -503,11 +561,32 @@ namespace PubQuizMaster.Web.Pages.Event
             });
         }
 
+        private void StartPractice()
+        {
+            isPractice = true;
+            round = PracticeRound.CreateRound();
+            roundContent = PracticeRound.Content;
+            assignedTeams = PracticeRound.CreateTeams(preview?.Teams);
+            questionCount = round.Length;
+            recordedAnswers.Clear();
+            newTeamsHint = null;
+            currentTeamIndex = 0;
+            currentQuestionIndex = 0;
+
+            SetPhase(ScoringPhase.SortSheets);
+        }
+
         private void StartScoring()
         {
             currentTeamIndex = 0;
             currentQuestionIndex = 0;
             SetPhase(ScoringPhase.Scoring);
+        }
+
+        private void StopPractice()
+        {
+            ResetPractice();
+            SetPhase(ScoringPhase.Waiting);
         }
 
         #endregion Private Methods

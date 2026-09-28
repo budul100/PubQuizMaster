@@ -1,0 +1,19 @@
+@namespace PubQuizMaster.Web.Components.Common
+
+@if (IsOpen)
+{
+    @* Large enough to scan from across the room, click anywhere to close *@
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.75);" role="dialog"
+         @onclick="Close">
+        <div class="modal-dialog modal-dialog-centered" style="max-width: min(90vw, 90vh);">
+            <div class="modal-content shadow text-center p-3">
+                <h4 class="fw-bold mb-3">@Label</h4>
+                <img src="@QrCodeDataUrl"
+                     alt="QR code for @Label"
+                     class="mx-auto"
+                     style="width: min(75vw, 70vh); height: min(75vw, 70vh); image-rendering: pixelated;" />
+                <div class="small text-muted mt-3 text-break"><code>@Url</code></div>
+            </div>
+        </div>
+    </div>
+}

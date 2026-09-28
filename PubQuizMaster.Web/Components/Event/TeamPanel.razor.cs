@@ -16,6 +16,15 @@ namespace PubQuizMaster.Web.Components.Standings
 
         #region Public Properties
 
+        /// <summary>
+        /// Before the first round: teams are checked in instead of scored. The active flag of a
+        /// participant doubles as check-in, unchecked teams are removed when the first round starts.
+        /// </summary>
+        [Parameter] public bool IsCheckInPhase { get; set; }
+
+        /// <summary>Completed nights: no registration, no status changes, no removal.</summary>
+        [Parameter] public bool IsReadOnly { get; set; }
+
         [Parameter] public EventCallback<string> OnRegisterTeam { get; set; }
 
         [Parameter] public EventCallback<Guid> OnRemoveTeam { get; set; }
@@ -25,6 +34,14 @@ namespace PubQuizMaster.Web.Components.Standings
         [Parameter] public TeamStanding[] Standings { get; set; } = [];
 
         #endregion Public Properties
+
+        #region Private Properties
+
+        private string TeamCountText => IsCheckInPhase && !IsReadOnly
+            ? $"{Standings.Count(s => s.IsActive)} / {Standings.Length} here"
+            : Standings.Length.ToString();
+
+        #endregion Private Properties
 
         #region Private Methods
 

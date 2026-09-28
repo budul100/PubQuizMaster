@@ -1,6 +1,6 @@
 @namespace PubQuizMaster.Web.Components.Event
-@using PubQuizMaster.Core.Extensions
 @using PubQuizMaster.Web.Components.Standings
+@using PubQuizMaster.Core.Extensions
 @using PubQuizMaster.Web.Helpers
 
 @if (IsOpen && Quiz != null)
@@ -16,6 +16,14 @@
                     @if (!string.IsNullOrEmpty(ErrorMessage))
                     {
                         <div class="alert alert-danger py-2 small mb-3">@ErrorMessage</div>
+                    }
+
+                    @if (AbsentTeamNames.Length > 0)
+                    {
+                        <div class="alert alert-warning py-2 small mb-3">
+                            <strong>@AbsentTeamNames.Length @(AbsentTeamNames.Length == 1 ? "team is" : "teams are") not checked in</strong>
+                            and will be removed from this night when the round starts: @string.Join(", ", AbsentTeamNames)
+                        </div>
                     }
 
                     @if (Quiz.Content != null)
@@ -65,7 +73,7 @@
                                     aria-label="Distribute teams alphabetically"
                                     @onclick="AutoDistributeTeams">
                                 <span class="mif-sort-asc" aria-hidden="true"></span>
-s                            </button>
+                            </button>
                             <button type="button" class="btn btn-sm btn-outline-primary"
                                     title="Add scorer"
                                     aria-label="Add scorer"
@@ -155,4 +163,5 @@ s                            </button>
         </div>
     </div>
 }
+
 

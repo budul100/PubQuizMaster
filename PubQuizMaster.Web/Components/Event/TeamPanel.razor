@@ -3,18 +3,21 @@
 <div class="card shadow-sm border-0 h-100">
     <div class="card-header pqm-card-header">
         <span class="pqm-card-title">
-            <span class="mif-group" aria-hidden="true"></span> Teams (@Standings.Length)
+            <span class="mif-group" aria-hidden="true"></span> Teams (@TeamCountText)
         </span>
-        <button class="btn btn-sm @(showAddTeamForm ? "btn-outline-secondary" : "btn-primary") py-0 px-2"
-                title="@(showAddTeamForm ? "Close" : "Register team")"
-                aria-label="@(showAddTeamForm ? "Close" : "Register team")"
-                aria-expanded="@(showAddTeamForm ? "true" : "false")"
-                @onclick="() => showAddTeamForm = !showAddTeamForm">
-            <span class="@(showAddTeamForm ? "mif-cross" : "mif-plus")" aria-hidden="true"></span>
-        </button>
+        @if (!IsReadOnly)
+        {
+            <button class="btn btn-sm @(showAddTeamForm ? "btn-outline-secondary" : "btn-primary") py-0 px-2"
+                    title="@(showAddTeamForm ? "Close" : "Register team")"
+                    aria-label="@(showAddTeamForm ? "Close" : "Register team")"
+                    aria-expanded="@(showAddTeamForm ? "true" : "false")"
+                    @onclick="() => showAddTeamForm = !showAddTeamForm">
+                <span class="@(showAddTeamForm ? "mif-cross" : "mif-plus")" aria-hidden="true"></span>
+            </button>
+        }
     </div>
 
-    @if (showAddTeamForm)
+    @if (showAddTeamForm && !IsReadOnly)
     {
         <div class="p-3 bg-light border-bottom">
             <label class="form-label small fw-bold mb-1">Add Team to Night</label>
@@ -29,97 +32,168 @@
     }
 
     <div class="table-responsive flex-grow-1" style="max-height: 650px; overflow-y: auto;">
-        <table class="table table-sm table-hover align-middle mb-0">
-            <thead class="small text-secondary">
-                <tr>
-                    <th class="text-end" style="width: 40px;">#</th>
-                    <th>Team</th>
-                    <th class="text-center" style="width: 50px;" title="Out of competition">OOC</th>
-                    <th class="text-center" style="width: 95px;" title="Latest active round score">Round</th>
-                    <th class="text-center" style="width: 100px;" title="Total score of the evening">Total</th>
-                    <th class="text-end pe-3" style="width: 60px;"></th>
-                </tr>
-            </thead>
-            <tbody>
-                @if (Standings.Length == 0)
-                {
+        @if (IsCheckInPhase && !IsReadOnly)
+        {
+            <table class="table table-sm table-hover align-middle mb-0">
+                <thead class="small text-secondary">
                     <tr>
-                        <td colspan="6" class="text-center py-4 text-muted small">
-                            No teams registered yet. Use the plus button above to add teams.
-                        </td>
+                        <th class="ps-3">Team</th>
+                        <th class="text-center" style="width: 50px;" title="Out of competition">OOC</th>
+                        <th class="text-center" style="width: 80px;" title="Sheet handed in, the team plays tonight">Here</th>
+                        <th class="text-end pe-3" style="width: 60px;"></th>
                     </tr>
-                }
-                else
-                {
-                    @foreach (var entry in Standings)
+                </thead>
+                <tbody>
+                    @if (Standings.Length == 0)
                     {
-                        <tr class="@(!entry.IsActive ? "opacity-50 bg-light" : "")">
-                            <td class="text-end fw-bold text-secondary small">
-                                @(entry.IsActive ? entry.OverallRank.ToString() : "—")
+                        <tr>
+                            <td colspan="4" class="text-center py-4 text-muted small">
+                                No teams registered yet. Use the plus button above to add teams.
                             </td>
-                            <td class="fw-semibold text-truncate small" style="max-width: 160px;">
-                                <span class="@(!entry.IsActive ? "text-decoration-line-through text-muted" : "")">
+                        </tr>
+                    }
+                    else
+                    {
+                        @foreach (var entry in Standings)
+                        {
+                            @* Unchecked teams are removed when the first round starts *@
+                            <tr class="@(!entry.IsActive ? "text-muted" : null)">
+                                <td class="ps-3 fw-semibold text-truncate small" style="max-width: 200px;">
                                     @entry.TeamName
-                                </span>
-                                @if (entry.IsNonCompetitive)
-                                {
-                                    <span class="badge bg-secondary ms-1" title="Out of competition">OOC</span>
-                                }
-                                @if (!entry.IsActive)
-                                {
-                                    <span class="badge bg-warning text-dark ms-1">Inactive</span>
-                                }
-                            </td>
-                            <td class="text-center">
-                                <input type="checkbox"
-                                       class="form-check-input"
-                                       checked="@entry.IsNonCompetitive"
-                                       title="Out of competition"
-                                       aria-label="Out of competition"
-                                       @onchange="e => ToggleNonCompetitiveAsync(entry.TeamId, (bool)(e.Value ?? false))" />
-                            </td>
-                            <td class="text-center text-muted small">
-                                <span class="pqm-rank-value">
-                                    <span>@(entry.LatestRoundScore.HasValue? entry.LatestRoundScore.Value.ToString("0.#") : "—")</span>
-                                    <RankBadge 
-                                        Rank="entry.LatestRoundRank"
-                                        MaxRank="1"
-                                        IsCompeting="@(entry.IsActive && !entry.IsNonCompetitive)" />
-                                </span>
-                            </td>
-                            <td class="text-center fw-bold text-primary small">
-                                <span class="pqm-rank-value">
-                                    <span>@entry.TotalScore.ToString("0.#")</span>
-                                    <RankBadge 
-                                        Rank="entry.OverallRank"
-                                        IsCompeting="@(entry.IsActive && !entry.IsNonCompetitive)" />
-                                </span>
-                            </td>
-                            <td class="text-end pe-3">
-                                @if (entry.CanDelete)
-                                {
+                                    @if (entry.IsNonCompetitive)
+                                    {
+                                        <span class="badge bg-secondary ms-1" title="Out of competition">OOC</span>
+                                    }
+                                </td>
+                                <td class="text-center">
+                                    <input type="checkbox"
+                                           class="form-check-input"
+                                           checked="@entry.IsNonCompetitive"
+                                           title="Out of competition"
+                                           aria-label="Out of competition"
+                                           @onchange="e => ToggleNonCompetitiveAsync(entry.TeamId, (bool)(e.Value ?? false))" />
+                                </td>
+                                <td class="text-center">
+                                    <input type="checkbox"
+                                           class="form-check-input"
+                                           checked="@entry.IsActive"
+                                           title="Checked in"
+                                           aria-label="Checked in"
+                                           @onchange="e => ToggleActiveAsync(entry.TeamId, (bool)(e.Value ?? false))" />
+                                </td>
+                                <td class="text-end pe-3">
                                     <button class="btn btn-outline-danger btn-sm py-0 px-2"
                                             title="Delete team from night"
                                             aria-label="Delete team from night"
                                             @onclick="() => OnRemoveTeam.InvokeAsync(entry.TeamId)">
                                         <span class="mif-bin" aria-hidden="true"></span>
                                     </button>
-                                }
-                                else
-                                {
-                                    var toggleText = entry.IsActive ? "Deactivate team" : "Reactivate team";
-                                    <button class="btn btn-outline-secondary btn-sm py-0 px-2"
-                                            title="@toggleText"
-                                            aria-label="@toggleText"
-                                            @onclick="() => ToggleActiveAsync(entry.TeamId, !entry.IsActive)">
-                                        <span class="@(entry.IsActive ? "mif-cross" : "mif-checkmark")" aria-hidden="true"></span>
-                                    </button>
-                                }
+                                </td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+            </table>
+        }
+        else
+        {
+            <table class="table table-sm table-hover align-middle mb-0">
+                <thead class="small text-secondary">
+                    <tr>
+                        <th class="text-end" style="width: 40px;">#</th>
+                        <th>Team</th>
+                        <th class="text-center" style="width: 50px;" title="Out of competition">OOC</th>
+                        <th class="text-center" style="width: 95px;" title="Latest active round score">Round</th>
+                        <th class="text-center" style="width: 100px;" title="Total score of the evening">Total</th>
+                        <th class="text-end pe-3" style="width: 60px;"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (Standings.Length == 0)
+                    {
+                        <tr>
+                            <td colspan="6" class="text-center py-4 text-muted small">
+                                No teams registered yet. Use the plus button above to add teams.
                             </td>
                         </tr>
                     }
-                }
-            </tbody>
-        </table>
+                    else
+                    {
+                        @foreach (var entry in Standings)
+                        {
+                            <tr class="@(!entry.IsActive ? "opacity-50 bg-light" : "")">
+                                <td class="text-end fw-bold text-secondary small">
+                                    @(entry.IsActive ? entry.OverallRank.ToString() : "—")
+                                </td>
+                                <td class="fw-semibold text-truncate small" style="max-width: 160px;">
+                                    <span class="@(!entry.IsActive ? "text-decoration-line-through text-muted" : "")">
+                                        @entry.TeamName
+                                    </span>
+                                    @if (entry.IsNonCompetitive)
+                                    {
+                                        <span class="badge bg-secondary ms-1" title="Out of competition">OOC</span>
+                                    }
+                                    @if (!entry.IsActive)
+                                    {
+                                        <span class="badge bg-warning text-dark ms-1">Inactive</span>
+                                    }
+                                </td>
+                                <td class="text-center">
+                                    <input type="checkbox"
+                                           class="form-check-input"
+                                           checked="@entry.IsNonCompetitive"
+                                           title="Out of competition"
+                                           aria-label="Out of competition"
+                                           disabled="@IsReadOnly"
+                                           @onchange="e => ToggleNonCompetitiveAsync(entry.TeamId, (bool)(e.Value ?? false))" />
+                                </td>
+                                <td class="text-center text-muted small">
+                                    <span class="pqm-rank-value">
+                                        <span>@(entry.LatestRoundScore.HasValue? entry.LatestRoundScore.Value.ToString("0.#") : "—")</span>
+                                        <RankBadge 
+                                            Rank="entry.LatestRoundRank"
+                                            MaxRank="1"
+                                            IsCompeting="@(entry.IsActive && !entry.IsNonCompetitive)" />
+                                    </span>
+                                </td>
+                                <td class="text-center fw-bold text-primary small">
+                                    <span class="pqm-rank-value">
+                                        <span>@entry.TotalScore.ToString("0.#")</span>
+                                        <RankBadge 
+                                            Rank="entry.OverallRank"
+                                            IsCompeting="@(entry.IsActive && !entry.IsNonCompetitive)" />
+                                    </span>
+                                </td>
+                                <td class="text-end pe-3">
+                                    @if (IsReadOnly)
+                                    {
+                                        @* Completed nights are read-only, reopen the night to change teams *@
+                                    }
+                                    else if (entry.CanDelete)
+                                    {
+                                        <button class="btn btn-outline-danger btn-sm py-0 px-2"
+                                                title="Delete team from night"
+                                                aria-label="Delete team from night"
+                                                @onclick="() => OnRemoveTeam.InvokeAsync(entry.TeamId)">
+                                            <span class="mif-bin" aria-hidden="true"></span>
+                                        </button>
+                                    }
+                                    else
+                                    {
+                                        var toggleText = entry.IsActive ? "Deactivate team" : "Reactivate team";
+                                        <button class="btn btn-outline-secondary btn-sm py-0 px-2"
+                                                title="@toggleText"
+                                                aria-label="@toggleText"
+                                                @onclick="() => ToggleActiveAsync(entry.TeamId, !entry.IsActive)">
+                                            <span class="@(entry.IsActive ? "mif-cross" : "mif-checkmark")" aria-hidden="true"></span>
+                                        </button>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+            </table>
+        }
     </div>
 </div>

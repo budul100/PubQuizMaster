@@ -60,9 +60,14 @@
                 <div class="col-12 col-md-6 col-xl-4">
                     <div class="card h-100 border p-2 bg-light shadow-sm">
                         <div class="d-flex align-items-center gap-2">
-                            <a href="@scorerUrl" target="_blank" class="flex-shrink-0 bg-white p-1 rounded border" title="Scan or click to open scorer UI">
-                                <img src="@qrCodeDataUrl" alt="QR" style="width: 64px; height: 64px;" />
-                            </a>
+                            <button type="button"
+                                    class="flex-shrink-0 bg-white p-1 rounded border"
+                                    title="Show large QR code"
+                                    @onclick="() => zoomAssignment = assignment">
+                                <img src="@qrCodeDataUrl"
+                                     alt="QR code for @assignment.Label"
+                                     style="width: 112px; height: 112px; image-rendering: pixelated;" />
+                            </button>
                             <div class="flex-grow-1 text-truncate">
                                 <div class="d-flex justify-content-between align-items-center mb-1">
                                     <span class="fw-bold small text-truncate">@assignment.Label</span>
@@ -91,3 +96,11 @@
         </div>
     </div>
 </div>
+
+<QrZoomModal 
+    IsOpen="@(zoomAssignment != null)"
+    Label="@(zoomAssignment?.Label ?? string.Empty)"
+    Url="@(zoomAssignment == null ? string.Empty : GetScorerStationUrl(zoomAssignment.ScorerId))"
+    QrCodeDataUrl="@(zoomAssignment == null ? string.Empty : QrCodeService.GetQrCodeDataUrl(GetScorerStationUrl(zoomAssignment.ScorerId)))"
+    OnClosed="() => zoomAssignment = null" />
+

@@ -7,6 +7,12 @@ namespace PubQuizMaster.Web.Components.Event
 {
     public partial class ScoringBanner
     {
+        #region Private Fields
+
+        private Scorer? zoomAssignment;
+
+        #endregion Private Fields
+
         #region Public Properties
 
         [Parameter] public bool IsProcessing { get; set; }
@@ -73,3 +79,4 @@ namespace PubQuizMaster.Web.Components.Event
         #endregion Private Methods
     }
 }
+

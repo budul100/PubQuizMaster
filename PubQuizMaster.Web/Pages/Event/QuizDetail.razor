@@ -1,0 +1,235 @@
+@page "/quiz/{QuizId:guid}"
+@using PubQuizMaster.Core.Enums
+@using PubQuizMaster.Core.Extensions
+@inject QuizService QuizService
+@inject ScorerService SessionService
+@inject ToastService ToastService
+@implements IDisposable
+
+<PageTitle>@(quiz?.Title ?? "Quiz") – PubQuizMaster</PageTitle>
+<SectionContent SectionName="@Constants.PageTitle">@PageHeading</SectionContent>
+
+@if (isLoading)
+{
+    <div class="d-flex align-items-center gap-2 text-muted py-5 justify-content-center">
+        <div class="spinner-border spinner-border-sm" role="status"></div>
+        <span>Loading…</span>
+    </div>
+}
+else if (quiz == null)
+{
+    <div class="alert alert-danger d-flex justify-content-between align-items-center">
+        <span>Quiz night not found.</span>
+        <a class="btn btn-primary btn-sm" href="/">Back to the overview</a>
+    </div>
+}
+else
+{
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+        <div>
+            <div class="d-flex align-items-center gap-2">
+                <h3 class="mb-0 fw-bold">@quiz.Title</h3>
+                <span class="badge @StatusBadgeClass">@StatusText</span>
+                @if (!quiz.IsLegacyImport)
+                {
+                    <button class="btn btn-outline-secondary btn-sm py-0 px-2"
+                            title="Edit Quiz Details"
+                            aria-label="Edit Quiz Details"
+                            @onclick="() => showEditModal = true">
+                        <span class="mif-pencil" aria-hidden="true"></span>
+                    </button>
+                }
+            </div>
+            <span class="text-muted small">
+                @quiz.Date.ToString("dd.MM.yyyy") • @(quiz.IsLegacyImport ? quiz.Results.Count : teamStandings.Length) teams
+                @if (quiz.Content is { } content)
+                {
+                    @($" \u2022 {content.Rounds.Count} rounds, {content.Rounds.Sum(r => r.Questions.Count)} questions")
+                }
+            </span>
+        </div>
+        <div class="d-flex gap-2">
+            <a class="btn btn-outline-secondary btn-sm"
+               href="/"
+               title="Back to the overview"
+               aria-label="Back to the overview">
+                <span class="mif-arrow-left" aria-hidden="true"></span>
+            </a>
+            @if (quiz.Status == QuizStatus.Planned)
+            {
+                <button class="btn btn-success btn-sm d-flex align-items-center gap-1"
+                        disabled="@isProcessing"
+                        title="Activate quiz night"
+                        aria-label="Activate quiz night"
+                        @onclick="ActivateAsync">
+                    <span class="mif-play" aria-hidden="true"></span> Activate
+                </button>
+            }
+            else if (quiz.Status == QuizStatus.Live)
+            {
+                <button class="btn btn-outline-success btn-sm"
+                        disabled="@(activeRound != null || isProcessing)"
+                        title="@(activeRound != null ? "Finalize the active round first" : "Complete quiz")"
+                        aria-label="Complete quiz"
+                        @onclick="() => showCompleteModal = true">
+                    <span class="mif-flag" aria-hidden="true"></span>
+                </button>
+            }
+            else if (!quiz.IsLegacyImport)
+            {
+                <button class="btn btn-outline-warning btn-sm"
+                        disabled="@isProcessing"
+                        title="Reopen quiz night"
+                        aria-label="Reopen quiz night"
+                        @onclick="() => showReopenModal = true">
+                    <span class="mif-undo" aria-hidden="true"></span>
+                </button>
+            }
+        </div>
+    </div>
+
+    @if (quiz.IsLegacyImport)
+    {
+        <!-- Legacy import: nothing but the imported totals -->
+        <div class="card shadow-sm border-0">
+            <div class="card-header pqm-card-header">
+                <span class="pqm-card-title">
+                    <span class="mif-trophy" aria-hidden="true"></span> Results
+                </span>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-sm table-hover align-middle mb-0">
+                    <thead class="small text-secondary">
+                        <tr>
+                            <th class="text-end" style="width: 50px;">#</th>
+                            <th>Team</th>
+                            <th class="text-end pe-3" style="width: 100px;">Points</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var result in LegacyResults)
+                        {
+                            <tr>
+                                <td class="text-end fw-bold text-secondary small">@(result.Rank?.ToString() ?? "–")</td>
+                                <td class="fw-semibold small">@result.Team.Name</td>
+                                <td class="text-end pe-3 small">@result.TotalScore.ToString("0.#")</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+    else
+    {
+        @if (activeRound != null)
+        {
+            <div class="mb-4">
+                <ScoringBanner 
+                    Round="activeRound"
+                    IsProcessing="isProcessing"
+                    OnFinalizeRound="RequestFinalizeRoundAsync" />
+            </div>
+        }
+
+        <div class="row g-3 align-items-stretch">
+            <div class="col-12 col-lg-6">
+                <TeamPanel 
+                    Standings="teamStandings"
+                    IsReadOnly="IsCompleted"
+                    IsCheckInPhase="@(quiz.Rounds.Count == 0)"
+                    OnRegisterTeam="AddTeamAsync"
+                    OnRemoveTeam="PromptDeleteTeam"
+                    OnUpdateStatus="UpdateParticipantStatusAsync" />
+            </div>
+            <div class="col-12 col-lg-6">
+                <RoundPanel 
+                    Rounds="quiz.Rounds"
+                    Content="quiz.Content"
+                    ActiveRound="activeRound"
+                    CanStartRound="@(quiz.Status == QuizStatus.Live)"
+                    StartRoundHint="Activate the quiz night to start a round"
+                    IsReadOnly="IsCompleted"
+                    IsExporting="isExporting"
+                    OnStartRoundClick="OpenStartRoundModal"
+                    OnExportPptx="ExportRoundPresentationAsync"
+                    OnDeleteRound="PromptDeleteRound" />
+            </div>
+
+            @* While a round is open, the scoring banner shows the stations *@
+            @if (!IsCompleted && activeRound == null)
+            {
+                <div class="col-12">
+                    <StationPanel 
+                        QuizId="quiz.Id"
+                        Stations="quiz.Stations.ToArray()"
+                        OnChanged="HandleStationsChangedAsync" />
+                </div>
+            }
+        </div>
+    }
+}
+
+<RoundModal 
+    IsOpen="@showSetupModal"
+    Quiz="@quiz"
+    ErrorMessage="@startRoundError"
+    OnStartRound="StartRoundConfirmedAsync"
+    OnCanceled="CloseStartRoundModal" />
+
+<QuizModal 
+    IsOpen="@showEditModal"
+    Quiz="@quiz"
+    OnSaved="HandleQuizDetailsSavedAsync"
+    OnCanceled="() => showEditModal = false" />
+
+<ConfirmModal 
+    IsOpen="@showFinalizeWarningModal"
+    Title="Round Not Complete"
+    Message="@finalizeWarningMessage"
+    ConfirmText="Finalize"
+    ConfirmButtonClass="btn-warning"
+    HeaderClass="bg-warning"
+    OnConfirmed="HandleFinalizeWarningConfirmedAsync"
+    OnCanceled="() => showFinalizeWarningModal = false" />
+
+<ConfirmModal 
+    IsOpen="@showCompleteModal"
+    Title="Complete Quiz Night"
+    Message="@($"Complete \"{quiz?.Title}\"? Results will be added to the standings and no further rounds can be started. You can reopen the quiz night here later.")"
+    ConfirmText="Complete"
+    ConfirmButtonClass="btn-success"
+    HeaderClass="bg-success"
+    OnConfirmed="CompleteQuizAsync"
+    OnCanceled="() => showCompleteModal = false" />
+
+<ConfirmModal 
+    IsOpen="@showReopenModal"
+    Title="Reopen Quiz Night"
+    Message="@($"Reopen \"{quiz?.Title}\"? It becomes the live quiz night again and is removed from the standings until it is completed.")"
+    ConfirmText="Reopen"
+    ConfirmButtonClass="btn-warning"
+    HeaderClass="bg-warning"
+    OnConfirmed="ReopenAsync"
+    OnCanceled="() => showReopenModal = false" />
+
+<ConfirmModal 
+    IsOpen="@showDeleteRoundModal"
+    Title="Delete Round"
+    Message="@($"Are you sure you want to delete round \"{roundToDelete?.Name}\"?")"
+    ConfirmText="Delete"
+    ConfirmButtonClass="btn-danger"
+    HeaderClass="bg-danger"
+    OnConfirmed="HandleDeleteRoundConfirmedAsync"
+    OnCanceled="() => showDeleteRoundModal = false" />
+
+<ConfirmModal 
+    IsOpen="@showDeleteTeamModal"
+    Title="Delete Team"
+    Message="@($"Remove \"{teamToDelete?.TeamName}\" from this quiz night? The team has no recorded answers, so nothing is lost.")"
+    ConfirmText="Delete"
+    ConfirmButtonClass="btn-danger"
+    HeaderClass="bg-danger"
+    OnConfirmed="HandleDeleteTeamConfirmedAsync"
+    OnCanceled="() => showDeleteTeamModal = false" />

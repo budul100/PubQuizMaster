@@ -1,4 +1,5 @@
 @namespace PubQuizMaster.Web.Components.Event
+@using PubQuizMaster.Core.Enums
 @using PubQuizMaster.Core.Models.Event
 @using PubQuizMaster.Core.Models.Standings
 @using PubQuizMaster.Services.Common
@@ -7,8 +8,8 @@
 @using PubQuizMaster.Web.Components.Standings
 @inject QuizService LiveQuizService
 @inject ToastService ToastService
+@inject NavigationManager Nav
 
-@* Only rendered while no quiz night is active: every row is completed or a import *@
 <div class="card shadow-sm border-0">
     <div class="card-header pqm-card-header">
         <span class="pqm-card-title">
@@ -43,6 +44,7 @@
             </button>
         </div>
     </div>
+
     <div class="table-responsive">
         <table class="table table-sm table-hover align-middle mb-0">
             <thead class="small text-secondary">
@@ -51,7 +53,7 @@
                     <th>Title</th>
                     <th class="text-end" style="width: 80px;">Teams</th>
                     <th class="text-end" style="width: 80px;">Rounds</th>
-                    <th class="text-end pe-3" style="width: 100px;"></th>
+                    <th class="text-end pe-3" style="width: 60px;"></th>
                 </tr>
             </thead>
             <tbody>
@@ -63,12 +65,28 @@
                 }
                 else
                 {
-                    @foreach (var quiz in QuizNights)
+                    @foreach (var quiz in OrderedQuizNights)
                     {
-                        <tr>
+                        <tr class="@(quiz.Status == QuizStatus.Live ? "table-success" : null)"
+                            style="cursor: pointer;"
+                            @onclick="() => OpenQuiz(quiz)">
                             <td class="ps-3 small text-secondary">@quiz.Date.ToString("dd.MM.yyyy")</td>
                             <td>
-                                <div class="fw-semibold">@quiz.Title</div>
+                                <div class="fw-semibold d-flex align-items-center gap-2">
+                                    <span>@quiz.Title</span>
+                                    @if (quiz.IsLegacyImport)
+                                    {
+                                        <span class="badge bg-secondary-subtle text-secondary-emphasis">Import</span>
+                                    }
+                                    else if (quiz.Status == QuizStatus.Live)
+                                    {
+                                        <span class="badge bg-success">Live</span>
+                                    }
+                                    else if (quiz.Status == QuizStatus.Planned)
+                                    {
+                                        <span class="badge bg-info-subtle text-info-emphasis">Planned</span>
+                                    }
+                                </div>
                                 @if (!string.IsNullOrEmpty(quiz.Description))
                                 {
                                     <div class="text-muted small text-truncate" style="max-width: 300px;">
@@ -76,23 +94,16 @@
                                     </div>
                                 }
                             </td>
-                            <td class="text-end small">@quiz.ParticipatingTeams.Count</td>
-                            <td class="text-end small">@quiz.Rounds.Count</td>
+                            <td class="text-end small">@(quiz.IsLegacyImport ? quiz.Results.Count : quiz.ParticipatingTeams.Count)</td>
+                            <td class="text-end small">@(quiz.IsLegacyImport ? "–" : quiz.Rounds.Count.ToString())</td>
                             <td class="pqm-actions-cell pe-3">
                                 <div class="pqm-row-actions">
-                                    @if (!quiz.IsLegacyImport)
-                                    {
-                                        <button class="btn btn-sm btn-outline-warning py-0 px-2"
-                                                title="Reopen quiz night"
-                                                aria-label="Reopen quiz night"
-                                                @onclick="() => PromptReopen(quiz)">
-                                            <span class="mif-undo" aria-hidden="true"></span>
-                                        </button>
-                                    }
+                                    @* stopPropagation: the row itself opens the quiz *@
                                     <button class="btn btn-sm btn-outline-danger py-0 px-2"
                                             title="Delete quiz night"
                                             aria-label="Delete quiz night"
-                                            @onclick="() => PromptDelete(quiz)">
+                                            @onclick="() => PromptDelete(quiz)"
+                                            @onclick:stopPropagation="true">
                                         <span class="mif-bin" aria-hidden="true"></span>
                                     </button>
                                 </div>
@@ -112,15 +123,3 @@
     ConfirmText="Yes, Delete"
     OnConfirmed="HandleDeleteConfirmedAsync"
     OnCanceled="() => showDeleteModal = false" />
-
-<ConfirmModal 
-    IsOpen="@showReopenModal"
-    Title="Reopen Quiz Night"
-    Message="@($"Reopen \"{quizToReopen?.Title}\"? It becomes the active quiz night again and is removed from the standings until it is completed.")"
-    ConfirmText="Reopen"
-    ConfirmButtonClass="btn-warning"
-    HeaderClass="bg-warning"
-    OnConfirmed="HandleReopenConfirmedAsync"
-    OnCanceled="() => showReopenModal = false" />
-
-

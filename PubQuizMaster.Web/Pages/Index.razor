@@ -1,17 +1,11 @@
 @page "/"
 @namespace PubQuizMaster.Web.Pages
-@using PubQuizMaster.Core
-@using PubQuizMaster.Core.Models.Standings
-@using PubQuizMaster.Web.Components.Common
-@using PubQuizMaster.Web.Components.Event
-@using PubQuizMaster.Web.Components.Standings
 @inject QuizService QuizService
 @inject ScorerService SessionService
-@inject ToastService ToastService
 @implements IDisposable
 
 <PageTitle>PubQuizMaster</PageTitle>
-<SectionContent SectionName="@Constants.PageTitle">@(isLoading ? "Quiz" : activeNight != null ? "Live" : "Quizzes")</SectionContent>
+<SectionContent SectionName="@Constants.PageTitle">Quizzes</SectionContent>
 
 @if (isLoading)
 {
@@ -20,130 +14,9 @@
         <span>Loading…</span>
     </div>
 }
-else if (activeNight == null)
-{
-    <!-- No active night: the quiz list takes over the start page -->
-    <QuizPanel 
-        QuizNights="@allQuizzes"
-        OnDataChanged="LoadDashboardStateAsync"
-        OnQuizReopened="HandleQuizReopenedAsync" />
-}
 else
 {
-    <!-- Live Dashboard -->
-    <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
-        <div>
-            <div class="d-flex align-items-center gap-2">
-                <h3 class="mb-0 fw-bold d-flex align-items-center gap-2">
-                    @activeNight.Title
-                </h3>
-                <button class="btn btn-outline-secondary btn-sm py-0 px-2"
-                        title="Edit Quiz Details"
-                        aria-label="Edit Quiz Details"
-                        @onclick="() => showEditModal = true">
-                    <span class="mif-pencil" aria-hidden="true"></span>
-                </button>
-            </div>
-            <span class="text-muted small">
-                @activeNight.Date.ToString("dd.MM.yyyy") • @teamStandings.Length teams active
-                @if (activeNight.Content is { } content)
-                {
-                    @($"\u2022 {content.Rounds.Count} rounds, {content.Rounds.Sum(r => r.Questions.Count)} questions")
-                }
-            </span>
-        </div>
-        <div class="d-flex gap-2">
-            <button class="btn btn-outline-success btn-sm"
-                    disabled="@(activeRound != null || isProcessing)"
-                    title="@(activeRound != null ? "Finalize the active round first" : "Complete quiz")"
-                    aria-label="Complete quiz"
-                    @onclick="() => showCompleteModal = true">
-                <span class="mif-flag" aria-hidden="true"></span>
-            </button>
-        </div>
-    </div>
-
-    @if (activeRound != null)
-    {
-        <div class="mb-4">
-            <ScoringBanner 
-                Round="activeRound"
-                IsProcessing="isProcessing"
-                OnFinalizeRound="RequestFinalizeRoundAsync" />
-        </div>
-    }
-
-    <div class="row g-3 align-items-stretch">
-        <div class="col-12 col-lg-6">
-            <TeamPanel 
-                Standings="teamStandings"
-                OnRegisterTeam="AddTeamAsync"
-                OnRemoveTeam="PromptDeleteTeam"
-                OnUpdateStatus="UpdateParticipantStatusAsync" />
-        </div>
-        <div class="col-12 col-lg-6">
-            <RoundPanel 
-                Rounds="activeNight.Rounds"
-                Content="activeNight.Content"
-                ActiveRound="activeRound"
-                IsExporting="isExporting"
-                OnStartRoundClick="OpenStartRoundModal"
-                OnExportPptx="ExportRoundPresentationAsync"
-                OnDeleteRound="PromptDeleteRound" />
-        </div>
-    </div>
+    <QuizPanel 
+        QuizNights="@allQuizzes"
+        OnDataChanged="HandleQuizDeletedAsync" />
 }
-
-<RoundModal 
-    IsOpen="@showSetupModal"
-    Quiz="@activeNight"
-    ErrorMessage="@startRoundError"
-    OnStartRound="StartRoundConfirmedAsync"
-    OnCanceled="CloseStartRoundModal" />
-
-<QuizModal 
-    IsOpen="@showEditModal"
-    Quiz="@activeNight"
-    OnSaved="HandleActiveQuizDetailsSavedAsync"
-    OnCanceled="() => showEditModal = false" />
-
-<ConfirmModal 
-    IsOpen="@showFinalizeWarningModal"
-    Title="Round Not Complete"
-    Message="@finalizeWarningMessage"
-    ConfirmText="Finalize"
-    ConfirmButtonClass="btn-warning"
-    HeaderClass="bg-warning"
-    OnConfirmed="HandleFinalizeWarningConfirmedAsync"
-    OnCanceled="() => showFinalizeWarningModal = false" />
-
-<ConfirmModal 
-    IsOpen="@showCompleteModal"
-    Title="Complete Quiz Night"
-    Message="@($"Complete \"{activeNight?.Title}\"? Results will be added to the standings and no further rounds can be started. To export the final presentation later, reopen the quiz night.")"
-    ConfirmText="Complete"
-    ConfirmButtonClass="btn-success"
-    HeaderClass="bg-success"
-    OnConfirmed="CompleteQuizAsync"
-    OnCanceled="() => showCompleteModal = false" />
-
-<ConfirmModal 
-    IsOpen="@showDeleteRoundModal"
-    Title="Delete Round"
-    Message="@($"Are you sure you want to delete round \"{roundToDelete?.Name}\"?")"
-    ConfirmText="Delete"
-    ConfirmButtonClass="btn-danger"
-    HeaderClass="bg-danger"
-    OnConfirmed="HandleDeleteRoundConfirmedAsync"
-    OnCanceled="() => showDeleteRoundModal = false" />
-
-<ConfirmModal 
-    IsOpen="@showDeleteTeamModal"
-    Title="Delete Team"
-    Message="@($"Remove \"{teamToDelete?.TeamName}\" from this quiz night? The team has no recorded answers, so nothing is lost.")"
-    ConfirmText="Delete"
-    ConfirmButtonClass="btn-danger"
-    HeaderClass="bg-danger"
-    OnConfirmed="HandleDeleteTeamConfirmedAsync"
-    OnCanceled="() => showDeleteTeamModal = false" />
-

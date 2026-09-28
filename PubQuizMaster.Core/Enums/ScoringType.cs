@@ -9,5 +9,8 @@ namespace PubQuizMaster.Core.Enums
         Scoring,
 
         Reviewing,
+
+        /// <summary>Practice mode outside any round, nothing is recorded.</summary>
+        Practicing,
     }
 }

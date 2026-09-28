@@ -9,11 +9,13 @@
         <span class="pqm-card-title">
             <span class="mif-target" aria-hidden="true"></span> Rounds (@(Content == null ? Rounds.Count.ToString() : $"{Rounds.Count} / {Rounds.Count + PlannedRounds.Length}"))
         </span>
-        @if (ActiveRound == null)
+        @if (!IsReadOnly && ActiveRound == null)
         {
+            @* Disabled with a hint instead of hidden, so a planned night shows why no round can start *@
             <button class="btn btn-sm btn-primary py-0 px-2"
-                    title="Start next round"
+                    title="@(CanStartRound ? "Start next round" : StartRoundHint)"
                     aria-label="Start next round"
+                    disabled="@(!CanStartRound)"
                     @onclick="OnStartRoundClick">
                 <span class="mif-play" aria-hidden="true"></span>
             </button>
@@ -34,7 +36,7 @@
                 {
                     <tr>
                         <td colspan="3" class="text-center py-4 text-muted small">
-                            No rounds started yet. Use the play button above to start the first round.
+                            @(IsReadOnly ? "No rounds were played." : "No rounds started yet. Use the play button above to start the first round.")
                         </td>
                     </tr>
                 }
@@ -79,7 +81,7 @@
                                         </label>
                                     }
 
-                                    @if (round.Answers.Count == 0)
+                                    @if (!IsReadOnly && round.Answers.Count == 0)
                                     {
                                         <button class="btn btn-sm btn-outline-danger py-0 px-2"
                                                 title="Delete round"
@@ -110,4 +112,3 @@
         </table>
     </div>
 </div>
-

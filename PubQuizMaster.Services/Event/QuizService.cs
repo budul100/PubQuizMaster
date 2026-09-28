@@ -97,7 +97,10 @@ namespace PubQuizMaster.Services.Event
 
             var existingParticipant = quiz.ParticipatingTeams.FirstOrDefault(pt => pt.TeamId == team.Id);
 
-            if (existingParticipant is { IsActive: true })
+            // Before the first round the active flag is the check-in, not a deactivation
+            var isCheckInPhase = quiz.Rounds.Count == 0;
+
+            if (existingParticipant is { IsActive: true } || (existingParticipant != null && isCheckInPhase))
             {
                 throw new InvalidOperationException(
                     $"Team '{team.Name}' is already registered and active for this night.");
@@ -109,11 +112,13 @@ namespace PubQuizMaster.Services.Event
             }
             else
             {
+                // Pre-registered teams of a planned night wait for their check-in,
+                // teams registered on the night itself are present
                 db.Participants.Add(new Participant
                 {
                     QuizId = quizNightId,
                     TeamId = team.Id,
-                    IsActive = true,
+                    IsActive = quiz.Status == QuizStatus.Live,
                     IsNonCompetitive = false
                 });
             }
@@ -241,25 +246,13 @@ namespace PubQuizMaster.Services.Event
             return SortRounds(quiz);
         }
 
-        public async Task<QuizFingerprint?> GetActiveQuizFingerprintAsync(CancellationToken ct = default)
+        /// <summary>Id of the live quiz night, null if none is live.</summary>
+        public async Task<Guid?> GetActiveQuizIdAsync(CancellationToken ct = default)
         {
             await using var db = await dbFactory.CreateDbContextAsync(ct);
 
             return await ActiveQuizzes(db)
-                .AsNoTracking()
-                .Select(q => new QuizFingerprint(
-                    q.Id,
-                    q.Title,
-                    q.Date,
-                    q.Description,
-                    q.ParticipatingTeams.Count,
-                    q.ParticipatingTeams.Count(p => p.IsActive),
-                    q.ParticipatingTeams.Count(p => p.IsNonCompetitive),
-                    q.Rounds.Count,
-                    q.Rounds.Count(r => r.IsFinalized),
-                    q.Rounds.Where(r => r.IsFinal).OrderBy(r => r.CreatedAt).Select(r => (Guid?)r.Id).FirstOrDefault(),
-                    q.Rounds.SelectMany(r => r.Assignments).Sum(s => s.TeamIds.Count), q.Rounds.SelectMany(r => r.Answers).Count(),
-                    q.Rounds.SelectMany(r => r.Answers).Max(a => (DateTime?)a.RecordedAt)))
+                .Select(q => (Guid?)q.Id)
                 .FirstOrDefaultAsync(ct);
         }
 
@@ -292,6 +285,8 @@ namespace PubQuizMaster.Services.Event
                 .AsNoTracking()
                 .Include(q => q.ParticipatingTeams)
                 .Include(q => q.Rounds)
+                .Include(q => q.Results)
+                .AsSplitQuery()
                 .OrderByDescending(q => q.Date)
                 .ThenByDescending(q => q.Id)
                 .ToListAsync(ct);
@@ -339,14 +334,54 @@ namespace PubQuizMaster.Services.Event
             return new MatrixData(round, teams, priorScores);
         }
 
+        /// <summary>
+        /// Cheap change indicator of a quiz night. The detail page reloads the full graph
+        /// only when this differs from the last load. Null if the quiz night does not exist.
+        /// </summary>
+        public async Task<QuizFingerprint?> GetQuizFingerprintAsync(Guid quizId, CancellationToken ct = default)
+        {
+            await using var db = await dbFactory.CreateDbContextAsync(ct);
+
+            return await db.Quizzes
+                .AsNoTracking()
+                .Where(q => q.Id == quizId)
+                .Select(q => new QuizFingerprint(
+                    q.Id,
+                    q.Status,
+                    q.Title,
+                    q.Date,
+                    q.Description,
+                    q.ParticipatingTeams.Count,
+                    q.ParticipatingTeams.Count(p => p.IsActive),
+                    q.ParticipatingTeams.Count(p => p.IsNonCompetitive),
+                    q.Stations.Count,
+                    q.Rounds.Count,
+                    q.Rounds.Count(r => r.IsFinalized),
+                    q.Rounds.Where(r => r.IsFinal).OrderBy(r => r.CreatedAt).Select(r => (Guid?)r.Id).FirstOrDefault(),
+                    q.Rounds.SelectMany(r => r.Assignments).Sum(s => s.TeamIds.Count),
+                    q.Rounds.SelectMany(r => r.Answers).Count(),
+                    q.Rounds.SelectMany(r => r.Answers).Max(a => (DateTime?)a.RecordedAt)))
+                .FirstOrDefaultAsync(ct);
+        }
+
         public async Task<Core.Models.Event.Quiz?> GetQuizAsync(Guid quizId, CancellationToken ct = default)
         {
             await using var db = await dbFactory.CreateDbContextAsync(ct);
 
-            var quiz = await WithFullGraph(db.Quizzes).FirstOrDefaultAsync(q => q.Id == quizId, ct);
+            // Legacy nights consist of their imported results only
+            var quiz = await WithFullGraph(db.Quizzes)
+                .Include(q => q.Results)
+                    .ThenInclude(r => r.Team)
+                .FirstOrDefaultAsync(q => q.Id == quizId, ct);
+
             return SortRounds(quiz);
         }
 
+        /// <summary>
+        /// State of a scorer station. With an open round that assigns the station, its sheets and answers.
+        /// Otherwise a preview of the station (label, quiz night, preliminary teams) if the token belongs
+        /// to a station of a planned or live night, so the scorer can log in and practice early.
+        /// </summary>
         public async Task<StateDto> GetStateAsync(string scorerId, CancellationToken ct = default)
         {
             await using var db = await dbFactory.CreateDbContextAsync(ct);
@@ -355,27 +390,21 @@ namespace PubQuizMaster.Services.Event
                 .Select(q => (Guid?)q.Id)
                 .FirstOrDefaultAsync(ct);
 
-            if (activeQuizId == null)
-            {
-                return new StateDto(null, null, [], []);
-            }
+            var openRound = activeQuizId == null
+                ? null
+                : await db.Rounds
+                    .AsNoTracking()
+                    .Include(r => r.Assignments)
+                    .Where(r => r.QuizId == activeQuizId && !r.IsFinalized)
+                    .OrderByDescending(r => r.CreatedAt)
+                    .FirstOrDefaultAsync(ct);
 
-            var openRound = await db.Rounds
-                .AsNoTracking()
-                .Include(r => r.Assignments)
-                .Where(r => r.QuizId == activeQuizId && !r.IsFinalized)
-                .OrderByDescending(r => r.CreatedAt)
-                .FirstOrDefaultAsync(ct);
+            var assignment = openRound?.Assignments.FirstOrDefault(a => a.ScorerId == scorerId);
 
-            if (openRound == null)
+            if (openRound == null || assignment == null)
             {
-                return new StateDto(null, null, [], []);
-            }
-
-            var assignment = openRound.Assignments.FirstOrDefault(a => a.ScorerId == scorerId);
-            if (assignment == null)
-            {
-                return new StateDto(null, openRound, [], []);
+                var preview = await GetStationPreviewAsync(db, scorerId, ct);
+                return new StateDto(null, openRound, [], [], Preview: preview);
             }
 
             var teamIds = assignment.TeamIds.ToArray();
@@ -450,15 +479,7 @@ namespace PubQuizMaster.Services.Event
 
             await db.SaveChangesAsync(ct);
 
-            var hasOtherReferences = await db.Participants.AnyAsync(p => p.TeamId == teamId, ct)
-                || await db.Answers.AnyAsync(a => a.TeamId == teamId, ct)
-                || await db.Scores.AnyAsync(s => s.TeamId == teamId, ct);
-
-            if (!hasOtherReferences)
-            {
-                await db.Teams.Where(t => t.Id == teamId).ExecuteDeleteAsync(ct);
-            }
-
+            await DeleteOrphanedTeamsAsync(db, [teamId], ct);
             await transaction.CommitAsync(ct);
         }
 
@@ -562,6 +583,13 @@ namespace PubQuizMaster.Services.Event
 
             ValidateRoundRequest(request, quiz);
 
+            await using var transaction = await db.Database.BeginTransactionAsync(ct);
+
+            // The first round closes the check-in: teams that did not hand in a sheet leave the night
+            var absentTeamIds = quiz.Rounds.Count == 0
+                ? await RemoveAbsentParticipantsAsync(db, request.QuizId, ct)
+                : [];
+
             if (request.IsFinal)
             {
                 await ClearOtherFinalRoundsAsync(db, request.QuizId, null, ct);
@@ -599,6 +627,9 @@ namespace PubQuizMaster.Services.Event
 
             await SyncStationsAsync(db, request, ct);
             await db.SaveChangesAsync(ct);
+
+            await DeleteOrphanedTeamsAsync(db, absentTeamIds, ct);
+            await transaction.CommitAsync(ct);
 
             return newRound;
         }
@@ -688,6 +719,130 @@ namespace PubQuizMaster.Services.Event
             }
 
             return (true, string.IsNullOrWhiteSpace(scorer.Label) ? scorer.ScorerId : scorer.Label);
+        }
+
+        /// <summary>
+        /// Deletes teams that nothing refers to anymore, e.g. teams created for a night they never played.
+        /// Call after the participations were removed and saved.
+        /// </summary>
+        private static async Task DeleteOrphanedTeamsAsync(AppDbContext db, Guid[] teamIds, CancellationToken ct)
+        {
+            if (teamIds.Length == 0) return;
+
+            await db.Teams
+                .Where(t => teamIds.Contains(t.Id)
+                    && !db.Participants.Any(p => p.TeamId == t.Id)
+                    && !db.Answers.Any(a => a.TeamId == t.Id)
+                    && !db.Scores.Any(s => s.TeamId == t.Id))
+                .ExecuteDeleteAsync(ct);
+        }
+
+        /// <summary>
+        /// Preview of a station outside a round: the preliminary teams follow the same rules as the
+        /// start dialog. Unchanged stations keep their block of the last round plus the new teams in
+        /// their alphabetical range, otherwise the active teams are split alphabetically.
+        /// Live nights take precedence over planned ones. Null if no such station exists.
+        /// </summary>
+        private static async Task<StationPreview?> GetStationPreviewAsync(AppDbContext db, string scorerId,
+            CancellationToken ct)
+        {
+            var station = await db.ScorerStations
+                .AsNoTracking()
+                .Where(s => s.ScorerId == scorerId)
+                .Join(
+                    db.Quizzes.Where(q => q.Status != QuizStatus.Completed),
+                    s => s.QuizId,
+                    q => q.Id,
+                    (s, q) => new { s.QuizId, s.Label, q.Title, q.Status, q.Date })
+                .OrderByDescending(x => x.Status == QuizStatus.Live)
+                .ThenByDescending(x => x.Date)
+                .FirstOrDefaultAsync(ct);
+
+            if (station == null) return null;
+
+            var stationIds = (await db.ScorerStations
+                .AsNoTracking()
+                .Where(s => s.QuizId == station.QuizId)
+                .Select(s => new { s.ScorerId, s.Label })
+                .ToArrayAsync(ct))
+                .OrderBy(s => s.Label, TeamNameComparer.Instance)
+                .Select(s => s.ScorerId)
+                .ToArray();
+
+            var activeTeams = await db.Participants
+                .AsNoTracking()
+                .Where(p => p.QuizId == station.QuizId && p.IsActive)
+                .Select(p => p.Team)
+                .ToArrayAsync(ct);
+
+            var lastRound = await db.Rounds
+                .AsNoTracking()
+                .Include(r => r.Assignments)
+                .Where(r => r.QuizId == station.QuizId)
+                .OrderByDescending(r => r.CreatedAt)
+                .FirstOrDefaultAsync(ct);
+
+            var isUnchanged = lastRound != null && lastRound.Assignments
+                .Select(a => a.ScorerId)
+                .ToHashSet(StringComparer.OrdinalIgnoreCase)
+                .SetEquals(stationIds);
+
+            Team[] teams;
+
+            if (isUnchanged)
+            {
+                var stations = lastRound!.Assignments
+                    .OrderBy(a => a.Label, TeamNameComparer.Instance)
+                    .ToArray();
+
+                var teamNames = activeTeams.ToDictionary(t => t.Id, t => t.Name);
+
+                var stationNames = stations
+                    .Select(a => a.TeamIds
+                        .Select(id => teamNames.GetValueOrDefault(id))
+                        .OfType<string>()
+                        .ToArray())
+                    .ToArray();
+
+                var index = Array.FindIndex(stations, a => a.ScorerId == scorerId);
+                var assignedIds = stations.SelectMany(a => a.TeamIds).ToHashSet();
+
+                teams = [.. activeTeams.Where(t => stations[index].TeamIds.Contains(t.Id)
+                    || (!assignedIds.Contains(t.Id)
+                        && TeamDistribution.FindStation(stationNames, t.Name) == index))];
+            }
+            else
+            {
+                var index = Array.IndexOf(stationIds, scorerId);
+
+                var blocks = TeamDistribution.Split(
+                    items: activeTeams,
+                    name: t => t.Name,
+                    stationCount: stationIds.Length);
+
+                teams = blocks[index];
+            }
+
+            return new StationPreview(
+                Label: station.Label,
+                QuizTitle: station.Title,
+                IsQuizLive: station.Status == QuizStatus.Live,
+                Teams: [.. teams.OrderBy(t => t.Name, TeamNameComparer.Instance)]);
+        }
+
+        /// <summary>
+        /// Removes the participants that are not checked in. Tracked, the caller saves.
+        /// Returns their team ids for the orphan cleanup after saving.
+        /// </summary>
+        private static async Task<Guid[]> RemoveAbsentParticipantsAsync(AppDbContext db, Guid quizId, CancellationToken ct)
+        {
+            var absent = await db.Participants
+                .Where(p => p.QuizId == quizId && !p.IsActive)
+                .ToArrayAsync(ct);
+
+            db.Participants.RemoveRange(absent);
+
+            return [.. absent.Select(p => p.TeamId)];
         }
 
         /// <summary>

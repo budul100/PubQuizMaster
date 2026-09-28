@@ -17,10 +17,16 @@ namespace PubQuizMaster.Web.Components.Event
 
         [Parameter] public Round? ActiveRound { get; set; }
 
+        /// <summary>Whether a new round can be started now, i.e. the night is live and no round is open.</summary>
+        [Parameter] public bool CanStartRound { get; set; }
+
         /// <summary>Uploaded questions of the quiz night, null if none were uploaded.</summary>
         [Parameter] public Core.Models.Content.Quiz? Content { get; set; }
 
         [Parameter] public bool IsExporting { get; set; }
+
+        /// <summary>Completed nights: no start, no deletion. Matrix and export stay available.</summary>
+        [Parameter] public bool IsReadOnly { get; set; }
 
         [Parameter] public EventCallback<Round> OnDeleteRound { get; set; }
 
@@ -29,6 +35,9 @@ namespace PubQuizMaster.Web.Components.Event
         [Parameter] public EventCallback OnStartRoundClick { get; set; }
 
         [Parameter] public List<Round> Rounds { get; set; } = [];
+
+        /// <summary>Tooltip of the disabled start button, e.g. why the night cannot start a round yet.</summary>
+        [Parameter] public string StartRoundHint { get; set; } = string.Empty;
 
         #endregion Public Properties
 
